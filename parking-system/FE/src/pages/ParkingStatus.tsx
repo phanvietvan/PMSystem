@@ -1,269 +1,234 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
+
+import Navbar from '../components/layout/Navbar';
 
 const ParkingStatus = () => {
   const [selectedLevel, setSelectedLevel] = useState(3);
   const levels = [6, 5, 4, 3, 2, 1];
 
+  const zones = [
+    { name: 'Zone Alpha', range: 'A', count: 12, premium: true },
+    { name: 'Zone Bravo', range: 'B', count: 18, premium: false },
+  ];
+
   return (
-    <div className="min-h-screen bg-background text-on-surface">
-      {/* Top Navigation Bar */}
-      <nav className="bg-surface/40 backdrop-blur-xl border-b border-white/20 fixed full-width top-0 w-full z-50 h-20">
-        <div className="flex justify-between items-center w-full max-w-container-max mx-auto px-margin-edge h-full">
-          <div className="font-headline-lg text-headline-lg font-extrabold text-on-surface tracking-tight">ParkIntel</div>
-          <div className="hidden md:flex items-center gap-10 h-full">
-            <Link className="text-on-surface-variant hover:text-primary transition-colors font-body-md text-body-md font-medium" to="/">Home</Link>
-            <Link className="text-on-surface-variant hover:text-primary transition-colors font-body-md text-body-md font-medium" to="#">Reserve</Link>
-            <Link className="text-primary font-bold border-b-2 border-primary pb-1 font-body-md text-body-md" to="/status">Status</Link>
+    <div className="min-h-screen mesh-bg font-sans antialiased text-on-surface relative overflow-x-hidden">
+      <Navbar />
 
-            <a className="text-on-surface-variant hover:text-primary transition-colors font-body-md text-body-md font-medium" href="#">Dashboard</a>
-            <a className="text-on-surface-variant hover:text-primary transition-colors font-body-md text-body-md font-medium" href="#">Contact</a>
-          </div>
-          <div className="flex items-center gap-4">
-            <Link to="/login" className="px-4 py-2 text-on-surface-variant font-medium text-body-md hover:text-primary transition-all">Login</Link>
-            <Link to="/register" className="px-6 py-2.5 bg-primary text-on-primary font-semibold text-body-md rounded-xl hover:shadow-lg hover:shadow-primary/20 active:scale-95 transition-all">Register</Link>
-          </div>
-        </div>
-      </nav>
-
-      <main className="max-w-container-max mx-auto px-margin-edge py-16 pt-36">
+      <main className="max-w-7xl mx-auto px-6 pt-32 pb-20 relative z-10">
         {/* Header Section */}
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8 mb-16">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8 mb-12">
           <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
           >
-            <span className="font-label-caps text-label-caps text-primary uppercase tracking-[0.2em] mb-3 block font-bold">Live Operations</span>
-            <h1 className="font-display-lg text-display-lg text-on-surface mb-3 tracking-tight">Parking Status</h1>
-            <p className="font-body-lg text-body-lg text-on-surface-variant max-w-2xl leading-relaxed">Real-time occupancy monitoring for the Central Plaza facility. Select a floor level to visualize current slot availability and metrics.</p>
+            <div className="inline-flex items-center space-x-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 mb-4">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+              </span>
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary">Live Monitoring Active</span>
+            </div>
+            <h1 className="text-5xl font-display font-extrabold tracking-tight mb-4 text-on-background">Trạng thái bãi xe</h1>
+            <p className="text-on-surface-variant text-lg max-w-xl font-medium">Theo dõi thực tế mật độ và vị trí các ô trống trên toàn bộ hệ thống tòa nhà theo thời gian thực.</p>
           </motion.div>
+
           <motion.div 
-            initial={{ opacity: 0, scale: 0.9 }}
+            initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="flex flex-col items-end"
+            className="flex gap-4"
           >
-            <div className="glass-panel p-5 rounded-2xl flex items-center gap-10 bg-white/60 backdrop-blur-xl border border-white/30 shadow-xl">
+            <div className="glass-panel p-5 rounded-[2rem] glow-border flex items-center gap-8 px-8 border border-white/20">
               <div className="text-center">
-                <span className="block font-label-caps text-[10px] text-on-surface-variant mb-1 uppercase font-bold opacity-70">Total Capacity</span>
-                <span className="block font-headline-xl text-headline-xl text-on-surface">360</span>
+                <span className="block text-[10px] font-bold text-outline uppercase tracking-widest mb-1">Tổng dung lượng</span>
+                <span className="text-3xl font-display font-extrabold">360</span>
               </div>
-              <div className="w-px h-12 bg-outline-variant/40"></div>
+              <div className="w-px h-10 bg-outline-variant/30"></div>
               <div className="text-center">
-                <span className="block font-label-caps text-[10px] text-on-surface-variant mb-1 uppercase font-bold opacity-70">Available Now</span>
-                <span className="block font-headline-xl text-headline-xl text-primary font-bold">214</span>
+                <span className="block text-[10px] font-bold text-primary uppercase tracking-widest mb-1">Đang trống</span>
+                <span className="text-3xl font-display font-extrabold text-primary">214</span>
               </div>
             </div>
           </motion.div>
-        </header>
+        </div>
 
-        {/* Main Dashboard Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter items-start">
-          {/* Left Sidebar: Floor Selector */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* Level Selector Sidebar */}
           <aside className="lg:col-span-3 space-y-6">
-            <div className="glass-panel rounded-2xl p-6 bg-white/60 backdrop-blur-xl border border-white/30 shadow-lg">
-              <h3 className="font-headline-lg text-[20px] mb-8 font-bold text-on-surface">Floor Level</h3>
+            <div className="glass-panel rounded-[2.5rem] p-6 glow-border border border-white/20">
+              <h3 className="text-sm font-bold uppercase tracking-widest text-on-surface-variant mb-6 ml-2">Chọn tầng</h3>
               <div className="space-y-3">
-                {levels.map((level) => (
-                  <button 
-                    key={level}
-                    onClick={() => setSelectedLevel(level)}
-                    className={`w-full flex items-center justify-between p-4 rounded-xl transition-all duration-300 transform
-                      ${selectedLevel === level 
-                        ? 'bg-primary text-on-primary shadow-lg shadow-primary/20 scale-[1.02] font-bold' 
-                        : 'hover:bg-white/50 text-on-surface-variant font-medium'}`}
-                  >
-                    <span className="flex items-center gap-4 font-body-md">
-                      <span className={`material-symbols-outlined ${selectedLevel === level ? 'text-white' : 'text-outline'}`}>layers</span>
-                      Level {level}
-                    </span>
-                    {level === 6 && <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${selectedLevel === level ? 'bg-white/20' : 'bg-outline-variant/30'}`}>Rooftop</span>}
-                    {level === 1 && <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${selectedLevel === level ? 'bg-white/20' : 'bg-outline-variant/30'}`}>Lobby</span>}
-                    {selectedLevel === level && <span className="material-symbols-outlined text-sm">verified</span>}
-                  </button>
-                ))}
+                {levels.map((level) => {
+                  // Mock occupancy data for demonstration
+                  const occupancy = level === 1 ? 95 : level === 3 ? 40 : level === 6 ? 10 : 65;
+                  const isFull = occupancy >= 90;
+                  const isWarning = occupancy >= 70 && occupancy < 90;
+
+                  return (
+                    <button 
+                      key={level}
+                      onClick={() => setSelectedLevel(level)}
+                      className={`w-full group flex flex-col p-5 rounded-2xl transition-all duration-300 mb-3
+                        ${selectedLevel === level 
+                          ? 'bg-primary text-white shadow-xl shadow-primary/20 scale-[1.02]' 
+                          : 'hover:bg-primary/5 text-on-surface-variant'}`}
+                    >
+                      <div className="flex items-center justify-between w-full mb-3">
+                        <span className="flex items-center gap-4 font-bold">
+                          <span className="material-symbols-outlined text-[20px]">layers</span>
+                          Tầng {level}
+                        </span>
+                        <span className={`text-[10px] font-black uppercase tracking-widest ${selectedLevel === level ? 'text-white/60' : 'text-outline'}`}>
+                          {60 - Math.floor(60 * occupancy / 100)} Trống
+                        </span>
+                      </div>
+                      
+                      {/* Horizontal Occupancy Bar */}
+                      <div className={`w-full h-1.5 rounded-full overflow-hidden ${selectedLevel === level ? 'bg-white/20' : 'bg-surface-container'}`}>
+                        <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ width: `${occupancy}%` }}
+                          className={`h-full rounded-full ${
+                            selectedLevel === level 
+                              ? 'bg-white' 
+                              : isFull ? 'bg-error' : isWarning ? 'bg-amber-500' : 'bg-primary'
+                          }`}
+                        />
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Legend Card */}
-            <div className="glass-panel rounded-2xl p-6 bg-white/60 backdrop-blur-xl border border-white/30 shadow-lg">
-              <h4 className="font-label-caps text-[10px] text-on-surface-variant mb-6 uppercase tracking-widest font-bold opacity-60">Status Legend</h4>
+            {/* Legend */}
+            <div className="glass-panel rounded-[2rem] p-6 glow-border border border-white/20">
               <div className="space-y-4">
                 {[
-                  { label: 'Available', color: 'border-2 border-primary bg-primary/5' },
-                  { label: 'Occupied', color: 'bg-outline-variant/40' },
-                  { label: 'Reserved', color: 'bg-gradient-to-br from-primary-container to-primary shadow-sm' }
+                  { label: 'Trống (Available)', color: 'border-2 border-primary/30 bg-primary/5' },
+                  { label: 'Đã đỗ (Occupied)', color: 'bg-outline-variant/40' },
+                  { label: 'Đã đặt (Reserved)', color: 'bg-primary shadow-lg shadow-primary/20' }
                 ].map((item) => (
                   <div key={item.label} className="flex items-center gap-4">
-                    <div className={`w-4 h-4 rounded-md ${item.color}`}></div>
-                    <span className="font-body-sm text-body-sm font-medium">{item.label}</span>
+                    <div className={`w-4 h-4 rounded-lg ${item.color}`}></div>
+                    <span className="text-xs font-bold text-on-surface-variant">{item.label}</span>
                   </div>
                 ))}
-                <div className="pt-6 mt-2 border-t border-white/30 space-y-4">
-                  <div className="flex items-center gap-4 text-on-surface-variant">
-                    <span className="material-symbols-outlined text-[20px]">ev_station</span>
-                    <span className="font-body-sm text-body-sm font-medium">EV Charging</span>
-                  </div>
-                  <div className="flex items-center gap-4 text-on-surface-variant">
-                    <span className="material-symbols-outlined text-[20px]">accessible</span>
-                    <span className="font-body-sm text-body-sm font-medium">ADA Accessible</span>
-                  </div>
-                </div>
               </div>
             </div>
           </aside>
 
-          {/* Right Content: Map & Grid */}
+          {/* Main Map View */}
           <div className="lg:col-span-9 space-y-6">
-            {/* Toolbar */}
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="glass-panel rounded-2xl p-5 flex flex-col md:flex-row justify-between items-center gap-6 bg-white/60 backdrop-blur-xl border border-white/30 shadow-lg"
+              className="glass-panel rounded-[2.5rem] p-10 glow-border relative overflow-hidden border border-white/20"
             >
-              <div className="flex items-center gap-4 text-on-surface">
-                <span className="font-headline-lg text-headline-lg font-extrabold tracking-tight">Level {selectedLevel}</span>
-                <span className="w-1.5 h-1.5 rounded-full bg-outline-variant/40"></span>
-                <span className="font-body-md font-medium text-primary">42 / 60 Slots Free</span>
-              </div>
-              <div className="flex items-center gap-3 w-full md:w-auto">
-                <div className="relative flex-grow">
-                  <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-outline text-[20px]">search</span>
-                  <input 
-                    className="w-full md:w-72 pl-11 pr-4 py-2.5 bg-white/40 border border-white/20 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none font-body-sm transition-all" 
-                    placeholder="Find slot ID (e.g. A1)..." 
-                    type="text"
-                  />
+              <div className="flex justify-between items-center mb-10">
+                <div>
+                  <h2 className="text-2xl font-display font-extrabold tracking-tight text-on-surface">Sơ đồ Tầng {selectedLevel}</h2>
+                  <p className="text-xs font-medium text-on-surface-variant mt-1">Cập nhật lúc: 12:45:30 • <span className="text-primary">Tín hiệu ổn định</span></p>
                 </div>
-                <button className="p-2.5 bg-white/40 border border-white/20 rounded-xl hover:bg-white/60 transition-all text-on-surface-variant shadow-sm active:scale-95">
-                  <span className="material-symbols-outlined">tune</span>
-                </button>
-              </div>
-            </motion.div>
-
-            {/* Parking Grid Canvas */}
-            <AnimatePresence mode="wait">
-              <motion.div 
-                key={selectedLevel}
-                initial={{ opacity: 0, scale: 0.98 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 1.02 }}
-                transition={{ duration: 0.3 }}
-                className="glass-panel rounded-3xl p-10 shadow-xl bg-white/60 backdrop-blur-xl border border-white/30"
-              >
-                <div className="grid grid-cols-5 md:grid-cols-10 gap-5">
-                  {/* Zone A */}
-                  <div className="col-span-full mb-4 border-b border-outline-variant/20 pb-3">
-                    <span className="font-label-caps text-label-caps text-outline uppercase tracking-widest font-bold">Zone A • Premium Bay</span>
-                  </div>
-                  {['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10'].map((id, i) => {
-                    const isOccupied = [1, 4, 8, 9].includes(i);
-                    const isReserved = i === 2;
-                    return (
-                      <motion.div 
-                        key={id}
-                        whileHover={!isOccupied ? { y: -4, scale: 1.02 } : {}}
-                        className={`group relative aspect-square rounded-xl flex flex-col items-center justify-center transition-all duration-300
-                          ${isOccupied ? 'bg-outline-variant/10 border border-white/30 cursor-not-allowed opacity-40' : 
-                            isReserved ? 'bg-gradient-to-br from-primary-container to-primary shadow-lg shadow-primary/20 z-10' : 
-                            'border-2 border-primary/40 bg-white/60 cursor-pointer hover:shadow-xl hover:shadow-primary/10'}`}
-                      >
-                        <span className={`font-data-mono font-bold text-lg ${isReserved ? 'text-on-primary' : isOccupied ? 'text-on-surface-variant' : 'text-primary'}`}>{id}</span>
-                        {id === 'A1' && <span className="material-symbols-outlined text-primary text-[14px] absolute top-1.5 right-1.5 opacity-60">ev_station</span>}
-                        {id === 'A6' && <span className="material-symbols-outlined text-primary text-[14px] absolute top-1.5 right-1.5 opacity-60">accessible</span>}
-                      </motion.div>
-                    );
-                  })}
-
-                  {/* Zone B */}
-                  <div className="col-span-full mt-10 mb-4 border-b border-outline-variant/20 pb-3">
-                    <span className="font-label-caps text-label-caps text-outline uppercase tracking-widest font-bold">Zone B • Standard Bay</span>
-                  </div>
-                  {['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B9', 'B10'].map((id, i) => {
-                    const isOccupied = [2, 6, 7].includes(i);
-                    return (
-                      <motion.div 
-                        key={id}
-                        whileHover={!isOccupied ? { y: -4, scale: 1.02 } : {}}
-                        className={`group aspect-square rounded-xl flex items-center justify-center transition-all duration-300
-                          ${isOccupied ? 'bg-outline-variant/10 border border-white/30 cursor-not-allowed opacity-40' : 
-                            'border-2 border-primary/40 bg-white/60 cursor-pointer hover:shadow-xl'}`}
-                      >
-                        <span className={`font-data-mono font-bold text-lg ${isOccupied ? 'text-on-surface-variant' : 'text-primary'}`}>{id}</span>
-                      </motion.div>
-                    );
-                  })}
-
-                  {/* Zone C */}
-                  <div className="col-span-full mt-10 mb-4 border-b border-outline-variant/20 pb-3">
-                    <span className="font-label-caps text-label-caps text-outline uppercase tracking-widest font-bold">Zone C • General Bay</span>
-                  </div>
-                  {['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10'].map((id, i) => {
-                    const isOccupied = [1, 4, 7].includes(i);
-                    const isReserved = i === 3;
-                    return (
-                      <motion.div 
-                        key={id}
-                        whileHover={!isOccupied ? { y: -4, scale: 1.02 } : {}}
-                        className={`group aspect-square rounded-xl flex items-center justify-center transition-all duration-300
-                          ${isOccupied ? 'bg-outline-variant/10 border border-white/30 cursor-not-allowed opacity-40' : 
-                            isReserved ? 'bg-gradient-to-br from-primary-container to-primary shadow-lg shadow-primary/20' : 
-                            'border-2 border-primary/40 bg-white/60 cursor-pointer hover:shadow-xl'}`}
-                      >
-                        <span className={`font-data-mono font-bold text-lg ${isReserved ? 'text-on-primary' : isOccupied ? 'text-on-surface-variant' : 'text-primary'}`}>{id}</span>
-                      </motion.div>
-                    );
-                  })}
+                <div className="flex gap-2">
+                  <button className="p-3 rounded-xl bg-surface-container hover:bg-surface-container-high transition-colors text-outline">
+                    <span className="material-symbols-outlined text-[20px]">filter_list</span>
+                  </button>
+                  <button className="p-3 rounded-xl bg-surface-container hover:bg-surface-container-high transition-colors text-outline">
+                    <span className="material-symbols-outlined text-[20px]">zoom_in</span>
+                  </button>
                 </div>
+              </div>
 
-                {/* Floor Plan Graphic Overlay */}
-                <div className="mt-16 flex justify-center">
-                  <div className="relative w-full max-w-4xl h-72 bg-slate-900/5 rounded-2xl overflow-hidden border border-white/40 blueprint-grid flex items-center justify-center group/blueprint shadow-inner">
-                    <div className="absolute inset-0 bg-gradient-to-t from-primary/5 to-transparent"></div>
-                    <div className="relative z-10 text-center animate-pulse">
-                      <span className="material-symbols-outlined text-7xl text-primary/30">map</span>
-                      <p className="font-label-caps text-[11px] mt-4 tracking-[0.3em] font-bold text-primary opacity-60 uppercase">Architectural Data Stream Active</p>
+              <AnimatePresence mode="wait">
+                <motion.div 
+                  key={selectedLevel}
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 1.02 }}
+                  className="space-y-12"
+                >
+                  {zones.map((zone) => (
+                    <div key={zone.name}>
+                      <div className="flex items-center gap-4 mb-6">
+                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">{zone.name}</span>
+                        <div className="h-px flex-1 bg-gradient-to-r from-primary/20 to-transparent"></div>
+                      </div>
+                      <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-9 gap-4">
+                        {[...Array(zone.count)].map((_, i) => {
+                          const id = `${zone.range}${i + 1}`;
+                          const isOccupied = [1, 4, 7, 10, 15].includes(i) && !zone.premium;
+                          const isReserved = i === 2 && zone.premium;
+                          const isFree = !isOccupied && !isReserved;
+
+                          return (
+                            <motion.div 
+                              key={id}
+                              whileHover={isFree ? { y: -5, scale: 1.05 } : {}}
+                              className={`group relative aspect-[3/4] rounded-2xl flex flex-col items-center justify-center transition-all duration-300 border
+                                ${isOccupied ? 'bg-outline-variant/10 border-outline-variant/20 opacity-40 grayscale' : 
+                                  isReserved ? 'bg-primary border-primary-fixed shadow-xl shadow-primary/20 z-10' : 
+                                  'bg-white/50 border-primary/10 hover:border-primary hover:shadow-2xl hover:shadow-primary/10 cursor-pointer'}`}
+                            >
+                              <span className={`text-sm font-display font-extrabold ${isReserved ? 'text-white' : 'text-on-surface'}`}>{id}</span>
+                              <div className="absolute top-2 left-2 flex gap-1">
+                                <div className={`w-1 h-1 rounded-full ${isFree ? 'bg-primary animate-pulse' : 'bg-outline/20'}`}></div>
+                              </div>
+                              {zone.premium && i % 4 === 0 && (
+                                <span className={`material-symbols-outlined text-[14px] absolute bottom-2 right-2 ${isReserved ? 'text-white/50' : 'text-primary/40'}`}>ev_station</span>
+                              )}
+                              {isOccupied && (
+                                <div className="mt-2 opacity-20">
+                                  <span className="material-symbols-outlined text-[24px] text-on-surface">directions_car</span>
+                                </div>
+                              )}
+                            </motion.div>
+                          );
+                        })}
+                      </div>
                     </div>
-                    {/* Decorative UI elements */}
-                    <div className="absolute top-4 left-4 w-12 h-12 border-t border-l border-primary/20"></div>
-                    <div className="absolute bottom-4 right-4 w-12 h-12 border-b border-r border-primary/20"></div>
-                    <div className="absolute top-1/2 left-0 w-full h-px bg-gradient-to-r from-transparent via-primary/10 to-transparent"></div>
-                    <img 
-                      alt="Floor Plan Overlay" 
-                      className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-20 transition-opacity duration-700 group-hover/blueprint:opacity-30" 
-                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuDK_KaBtNJ6OzrQVAXt0zIJJDvnrodPruko3R_Qr5Y6FTWXrV1WMtwArpqr_jwmlGE3GDmX_UIOZAhsVtfTmA8Gr4IvN1joPTxAqoqOMmq6tw4OvkWZC10QMqOY3EXjlFZ5WWXTejudIi-hvT3ivC-nviDgFMx5TwG7-s1FWV2HSbK8aZtnWBYyJcOwSn_BLpsG5oZryYWszDQEWO_AGEbASyeYZCN2SaU5aysHyFaTn1ivc8zFGIvLnIkHLNWER97efr0wy7jB_g"
-                    />
+                  ))}
+
+                  <div className="mt-16 bg-surface-container-low rounded-[2rem] p-8 border border-outline-variant/30 relative overflow-hidden group">
+                    <div className="absolute top-4 left-6 z-10">
+                      <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-outline">Real-time Visualization Feed</h4>
+                    </div>
+                    <div className="relative aspect-video max-h-[300px] w-full flex items-center justify-center">
+                    <div className="w-full h-full bg-primary/5 rounded-3xl border border-primary/10 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-4xl text-primary/20">directions_car</span>
+                    </div>
+
+                      <div className="absolute inset-0 bg-gradient-to-t from-surface-container-low via-transparent to-surface-container-low"></div>
+                      <div className="relative z-10 text-center">
+                        <div className="animate-pulse mb-4">
+                          <span className="material-symbols-outlined text-6xl text-primary/40">architecture</span>
+                        </div>
+                        <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-primary/60">Digital Twin Synchronized</p>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </motion.div>
-            </AnimatePresence>
+                </motion.div>
+              </AnimatePresence>
+            </motion.div>
           </div>
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="bg-white/30 backdrop-blur-md border-t border-white/20 mt-section-gap">
-        <div className="w-full max-w-container-max mx-auto px-margin-edge py-16 flex flex-col md:flex-row justify-between items-center gap-10">
-          <div className="flex flex-col items-center md:items-start gap-3">
-            <div className="font-headline-md text-headline-md font-extrabold text-on-surface tracking-tight">ParkIntel</div>
-            <p className="font-body-sm text-body-sm text-on-surface-variant font-medium opacity-70">© 2024 ParkIntel Infrastructure Systems. Secure & Intelligent.</p>
+      <footer className="bg-surface/30 backdrop-blur-md border-t border-primary/5 py-12 mt-20">
+        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8 text-on-surface">
+          <div className="space-y-2">
+            <h3 className="text-xl font-display font-extrabold tracking-tight">ParkIntel</h3>
+            <p className="text-xs text-on-surface-variant font-medium">© 2024 ParkIntel Infrastructure. Advanced AI Systems.</p>
           </div>
-          <div className="flex flex-wrap justify-center gap-10">
-            {['Privacy Policy', 'Terms of Service', 'Accessibility', 'Cookie Settings'].map(link => (
-              <a key={link} className="font-body-sm text-body-sm font-semibold text-on-surface-variant hover:text-primary transition-all" href="#">{link}</a>
+          <div className="flex gap-10">
+            {['Privacy', 'Terms', 'Security'].map(l => (
+              <a key={l} href="#" className="text-xs font-bold text-on-surface-variant hover:text-primary transition-colors tracking-widest uppercase">{l}</a>
             ))}
           </div>
         </div>
       </footer>
-
-      <style>{`
-        .blueprint-grid {
-          background-size: 30px 30px;
-          background-image:
-            linear-gradient(to right, rgba(0, 80, 203, 0.05) 1px, transparent 1px),
-            linear-gradient(to bottom, rgba(0, 80, 203, 0.05) 1px, transparent 1px);
-        }
-      `}</style>
     </div>
   );
 };
