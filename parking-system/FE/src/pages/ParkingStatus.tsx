@@ -21,8 +21,8 @@ const ParkingStatus = () => {
             <a className="text-on-surface-variant hover:text-primary transition-colors font-body-md text-body-md font-medium" href="#">Contact</a>
           </div>
           <div className="flex items-center gap-4">
-            <button className="px-4 py-2 text-on-surface-variant font-medium text-body-md hover:text-primary transition-all">Login</button>
-            <button className="px-6 py-2.5 bg-primary text-on-primary font-semibold text-body-md rounded-xl hover:shadow-lg hover:shadow-primary/20 active:scale-95 transition-all">Register</button>
+            <Link to="/login" className="px-4 py-2 text-on-surface-variant font-medium text-body-md hover:text-primary transition-all">Login</Link>
+            <Link to="/register" className="px-6 py-2.5 bg-primary text-on-primary font-semibold text-body-md rounded-xl hover:shadow-lg hover:shadow-primary/20 active:scale-95 transition-all">Register</Link>
           </div>
         </div>
       </nav>
