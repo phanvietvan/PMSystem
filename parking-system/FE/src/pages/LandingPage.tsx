@@ -19,8 +19,8 @@ const LandingPage = () => {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <button className="text-on-surface-variant hover:bg-surface-container-low rounded-lg px-4 py-2 transition-all font-body-md text-body-md">Login</button>
-            <button className="bg-primary-container text-on-primary font-semibold px-6 py-2 rounded transition-all hover:opacity-90 active:scale-95 font-body-md text-body-md">Register</button>
+            <Link to="/login" className="text-on-surface-variant hover:bg-surface-container-low rounded-lg px-4 py-2 transition-all font-body-md text-body-md text-center">Login</Link>
+            <Link to="/register" className="bg-primary-container text-on-primary font-semibold px-6 py-2 rounded transition-all hover:opacity-90 active:scale-95 font-body-md text-body-md text-center">Register</Link>
           </div>
         </nav>
       </header>
