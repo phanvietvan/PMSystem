@@ -1,29 +1,13 @@
+import React from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 
+import Navbar from '../components/layout/Navbar';
+
 const LandingPage = () => {
   return (
-    <div className="min-h-screen bg-surface selection:bg-primary/20">
-      {/* Top Navigation Bar */}
-      <header className="bg-surface/70 backdrop-blur-md border-b border-outline-variant/30 fixed full-width top-0 w-full z-50 h-20">
-        <nav className="flex justify-between items-center w-full max-w-container-max mx-auto px-margin-edge h-full">
-          <div className="flex items-center gap-12">
-            <span className="font-headline-lg text-headline-lg font-bold text-on-surface">ParkIntel</span>
-            <div className="hidden md:flex gap-8">
-              <Link className="text-primary font-semibold border-b-2 border-primary pb-1 font-body-md text-body-md" to="/">Home</Link>
-              <Link className="text-on-surface-variant hover:text-primary transition-colors font-body-md text-body-md" to="#">Reserve Parking</Link>
-              <Link className="text-on-surface-variant hover:text-primary transition-colors font-body-md text-body-md" to="/status">Parking Status</Link>
-
-              <a className="text-on-surface-variant hover:text-primary transition-colors font-body-md text-body-md" href="#">Dashboard</a>
-              <a className="text-on-surface-variant hover:text-primary transition-colors font-body-md text-body-md" href="#">Contact</a>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <Link to="/login" className="text-on-surface-variant hover:bg-surface-container-low rounded-lg px-4 py-2 transition-all font-body-md text-body-md text-center">Login</Link>
-            <Link to="/register" className="bg-primary-container text-on-primary font-semibold px-6 py-2 rounded transition-all hover:opacity-90 active:scale-95 font-body-md text-body-md text-center">Register</Link>
-          </div>
-        </nav>
-      </header>
+    <div className="min-h-screen mesh-bg selection:bg-primary/20 relative">
+      <Navbar />
 
       <main className="pt-20">
         {/* Hero Section */}
@@ -38,7 +22,7 @@ const LandingPage = () => {
             <p className="font-body-lg text-body-lg text-on-surface-variant max-w-lg">Optimize your infrastructure with architectural precision. Our AI-driven allocation engine reduces congestion and maximizes revenue with silent, automated efficiency.</p>
             <div className="flex gap-4">
               <button className="bg-primary-container text-on-primary px-8 py-4 rounded font-semibold hover:opacity-90 transition-all active:scale-95 shadow-lg shadow-primary/20">Reserve Slot</button>
-              <button className="border border-outline-variant bg-surface text-on-surface px-8 py-4 rounded font-semibold hover:bg-surface-container-low transition-all">View Status</button>
+              <Link to="/status" className="border border-outline-variant bg-surface text-on-surface px-8 py-4 rounded font-semibold hover:bg-surface-container-low transition-all">View Status</Link>
             </div>
           </motion.div>
           <motion.div 
@@ -47,12 +31,13 @@ const LandingPage = () => {
             transition={{ duration: 0.8 }}
             className="w-full md:w-1/2 relative"
           >
-            <div className="absolute -inset-4 bg-primary/5 rounded-full blur-3xl"></div>
-            <img 
-              alt="Modern Architecture" 
-              className="relative w-full h-[500px] object-cover rounded-xl border border-outline-variant/30 shadow-2xl" 
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuDaR247_YgsjdI_HzS0afb1u-s22EAq0OfEeeK1ZCD6sD2uNTMNdAORgr6Y3KyOmcJIQX1pPHfCBQMXlsqlIeb4VLLziKCikVMGoUKszad0NB-Cd6kU-kn3ByoGvgNQFffz1V_ARWR0Ra_5VcBVrV-DwOJsV1v-O4Su4lljhQCpkMHbs9UqTwoMzjqFuxulz8Bqp4cTFKRTc2GpCPGxjmOaEosZzvrksU2DqEw5f3zt8Q46QO-Ndqduj_0Wki2mAJ5t8g7Rzc6l_w"
-            />
+            <div className="absolute -inset-4 bg-primary/10 rounded-full blur-[100px]"></div>
+            <div className="relative aspect-square w-full max-w-[500px] mx-auto glass-panel rounded-3xl border border-outline-variant/20 shadow-2xl overflow-hidden p-8">
+            <div className="w-full h-full bg-primary/5 rounded-3xl border border-primary/10 flex items-center justify-center">
+              <span className="material-symbols-outlined text-6xl text-primary/20">directions_car</span>
+            </div>
+
+            </div>
           </motion.div>
         </section>
 
