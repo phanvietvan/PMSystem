@@ -1,223 +1,226 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-
+import { useLottie } from 'lottie-react';
 import Navbar from '../components/layout/Navbar';
+import animationData from '../components/ui/hasahar.json';
 
 const LandingPage = () => {
+  const lottieOptions = {
+    animationData: animationData,
+    loop: true,
+  };
+
+  const { View: LottieView } = useLottie(lottieOptions);
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.25
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 30 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 1,
+        ease: [0.22, 1, 0.36, 1]
+      }
+    }
+  };
+
+  const floatingVariants = {
+    animate: {
+      y: [0, -15, 0],
+      transition: {
+        duration: 5,
+        repeat: Infinity,
+        ease: "easeInOut"
+      }
+    }
+  };
+
   return (
-    <div className="min-h-screen mesh-bg selection:bg-primary/20 relative">
+    <div className="bg-mesh-gradient text-slate-900 antialiased min-h-screen selection:bg-blue-100 font-['Inter'] overflow-x-hidden">
       <Navbar />
 
-      <main className="pt-20">
+      <main className="pt-40 relative">
+        {/* Abstract Background Orbs */}
+        <div className="absolute top-1/4 -left-20 w-[500px] h-[500px] bg-blue-100/30 rounded-full blur-[120px] -z-10 animate-pulse"></div>
+        <div className="absolute top-1/2 -right-20 w-[400px] h-[400px] bg-indigo-100/20 rounded-full blur-[100px] -z-10 animate-pulse" style={{ animationDelay: '2s' }}></div>
+
         {/* Hero Section */}
-        <section className="max-w-container-max mx-auto px-margin-edge py-24 flex flex-col md:flex-row items-center gap-16">
-          <motion.div 
-            initial={{ opacity: 0, x: -50 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6 }}
-            className="w-full md:w-1/2 space-y-8"
-          >
-            <h1 className="font-display-lg text-display-lg text-on-surface max-w-xl">Smart Parking Building Management System</h1>
-            <p className="font-body-lg text-body-lg text-on-surface-variant max-w-lg">Optimize your infrastructure with architectural precision. Our AI-driven allocation engine reduces congestion and maximizes revenue with silent, automated efficiency.</p>
-            <div className="flex gap-4">
-              <button className="bg-primary-container text-on-primary px-8 py-4 rounded font-semibold hover:opacity-90 transition-all active:scale-95 shadow-lg shadow-primary/20">Reserve Slot</button>
-              <Link to="/status" className="border border-outline-variant bg-surface text-on-surface px-8 py-4 rounded font-semibold hover:bg-surface-container-low transition-all">View Status</Link>
-            </div>
-          </motion.div>
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.8 }}
-            className="w-full md:w-1/2 relative"
-          >
-            <div className="absolute -inset-4 bg-primary/10 rounded-full blur-[100px]"></div>
-            <div className="relative aspect-square w-full max-w-[500px] mx-auto glass-panel rounded-3xl border border-outline-variant/20 shadow-2xl overflow-hidden p-8">
-            <div className="w-full h-full bg-primary/5 rounded-3xl border border-primary/10 flex items-center justify-center">
-              <span className="material-symbols-outlined text-6xl text-primary/20">directions_car</span>
-            </div>
-
-            </div>
-          </motion.div>
-        </section>
-
-        {/* Stats Bento Grid */}
-        <section className="max-w-container-max mx-auto px-margin-edge py-section-gap">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-gutter">
-            {[
-              { label: 'Available', value: '124', progress: '66%', color: 'bg-primary' },
-              { label: 'Reserved', value: '42', progress: '25%', color: 'bg-primary-fixed-dim' },
-              { label: 'Occupied', value: '310', progress: '85%', color: 'bg-on-surface' },
-              { label: 'Total Reservations', value: '1,892', sub: '+12% from last month' }
-            ].map((stat, i) => (
-              <motion.div 
-                key={stat.label}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                className="bg-surface-container-lowest border border-outline-variant/30 p-8 rounded-xl hover:shadow-xl transition-shadow duration-300"
-              >
-                <span className="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest">{stat.label}</span>
-                <h2 className="font-display-lg text-display-lg mt-4">{stat.value}</h2>
-                {stat.progress ? (
-                  <div className="w-full h-1 bg-surface-container mt-6">
-                    <motion.div 
-                      initial={{ width: 0 }}
-                      whileInView={{ width: stat.progress }}
-                      transition={{ duration: 1, ease: "easeOut" }}
-                      className={`h-full ${stat.color}`}
-                    />
-                  </div>
-                ) : (
-                  <p className="font-body-sm text-body-sm text-on-surface-variant mt-4">{stat.sub}</p>
-                )}
-              </motion.div>
-            ))}
-          </div>
-        </section>
-
-        {/* Features Grid */}
-        <section className="max-w-container-max mx-auto px-margin-edge py-section-gap">
-          <div className="mb-16">
-            <span className="font-label-caps text-label-caps text-primary uppercase tracking-widest">Capabilities</span>
-            <h2 className="font-headline-xl text-headline-xl mt-4">Precision Engineering for Modern Logisitics</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-            {[
-              { icon: 'qr_code_2', title: 'QR Reservation', desc: 'Instant entry and exit via encrypted QR codes, eliminating hardware dependency and physical contact.' },
-              { icon: 'precision_manufacturing', title: 'Smart Allocation', desc: 'Intelligent slot assignment based on vehicle size, duration, and proximity to building exits.' },
-              { icon: 'sensors', title: 'Real-time Status', desc: 'Zero-latency updates on parking availability across multiple levels and structures.' },
-              { icon: 'directions_car', title: 'Walk-in Parking', desc: 'Seamless support for unreserved vehicles with automated plate recognition and billing.' },
-              { icon: 'bar_chart', title: 'Analytics', desc: 'Comprehensive dashboards providing insights into peak hours, turnover rates, and revenue.' },
-              { icon: 'admin_panel_settings', title: 'Secure Management', desc: 'Enterprise-grade security protocols ensuring data integrity and financial transparency.' }
-            ].map((feature, i) => (
-              <motion.div 
-                key={feature.title}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                className="space-y-4 p-4 hover:bg-surface-container-low transition-all rounded-lg group cursor-default"
-              >
-                <span className="material-symbols-outlined text-primary text-4xl group-hover:scale-110 transition-transform duration-300">{feature.icon}</span>
-                <h3 className="font-headline-lg text-headline-lg">{feature.title}</h3>
-                <p className="font-body-md text-body-md text-on-surface-variant">{feature.desc}</p>
-              </motion.div>
-            ))}
-          </div>
-        </section>
-
-        {/* AI Highlight Section */}
-        <section className="bg-surface-container-high py-24">
-          <div className="max-w-container-max mx-auto px-margin-edge flex flex-col md:flex-row items-center gap-16">
-            <div className="w-full md:w-2/5 space-y-6">
-              <span className="font-label-caps text-label-caps text-primary uppercase tracking-widest">AI Recommendation Engine</span>
-              <h2 className="font-headline-xl text-headline-xl">Optimized Spatial Intelligence</h2>
-              <p className="font-body-lg text-body-lg text-on-surface-variant">Our proprietary neural network analyzes historical traffic patterns to predict occupancy and dynamically adjust pricing and allocation in real-time.</p>
-              <ul className="space-y-4">
-                {['Predictive Slot Opening alerts', 'CO2 emission reduction routing', 'VIP priority pathing'].map((item, i) => (
-                  <motion.li 
-                    key={item}
-                    initial={{ opacity: 0, x: -20 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.2 }}
-                    className="flex items-center gap-3"
-                  >
-                    <span className="material-symbols-outlined text-primary">check_circle</span>
-                    <span className="font-body-md text-body-md">{item}</span>
-                  </motion.li>
-                ))}
-              </ul>
-            </div>
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-32">
+          <div className="grid lg:grid-cols-2 gap-20 items-center">
+            {/* Text Content */}
             <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              className="w-full md:w-3/5 bg-surface-container-lowest p-8 rounded-2xl border border-outline-variant/30 shadow-sm"
+              initial="hidden"
+              animate="visible"
+              variants={containerVariants}
+              className="space-y-10"
             >
-              <div className="flex justify-between items-center mb-8">
-                <h4 className="font-headline-lg text-headline-lg">Level B2 Floor Plan</h4>
-                <div className="flex gap-2">
-                  <div className="flex items-center gap-2 px-3 py-1 bg-on-surface text-surface rounded-full text-xs">Occupied</div>
-                  <div className="flex items-center gap-2 px-3 py-1 bg-primary text-on-primary rounded-full text-xs">Optimal</div>
-                </div>
-              </div>
-              <div className="grid grid-cols-6 gap-3">
-                {[...Array(12)].map((_, i) => {
-                  const isOptimal = i === 2 || i === 7;
-                  const isOccupied = !isOptimal && [0,1,3,8,9,10].includes(i);
-                  return (
-                    <motion.div 
-                      key={i}
-                      whileHover={{ scale: 1.05 }}
-                      className={`h-20 rounded border transition-all duration-300 flex items-center justify-center
-                        ${isOccupied ? 'bg-on-surface/90 border-outline-variant/20' : 
-                          isOptimal ? 'bg-primary border-primary-fixed shadow-lg shadow-primary/20 cursor-pointer' : 
-                          'bg-surface-container border-outline-variant/20 hover:border-primary/50 cursor-pointer'}`}
-                    >
-                      {isOptimal && (
-                        <span className="material-symbols-outlined text-white">
-                          {i === 2 ? 'bolt' : 'recommend'}
-                        </span>
-                      )}
-                    </motion.div>
-                  );
-                })}
-              </div>
+              <motion.div variants={itemVariants} className="inline-flex items-center gap-3 px-4 py-1.5 bg-white/50 backdrop-blur-md text-blue-600 rounded-full text-[11px] font-extrabold uppercase tracking-[0.2em] border border-blue-100/50 shadow-sm">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
+                </span>
+                Hạ tầng Tự vận hành thông minh
+              </motion.div>
+
+              <motion.h1 variants={itemVariants} className="text-6xl lg:text-[84px] font-['Plus_Jakarta_Sans'] font-extrabold text-slate-900 leading-[1.05] tracking-[-0.04em]">
+                Hệ thống <br/>
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-500 to-blue-500">Quản lý Đỗ xe</span> <br/>
+                Thông minh
+              </motion.h1>
+
+              <motion.p variants={itemVariants} className="text-xl text-slate-500/80 leading-relaxed max-w-lg font-medium">
+                Thế hệ quản lý hạ tầng tiếp theo. Trải nghiệm sự liền mạch và tối ưu hóa không gian được dẫn dắt bởi trí tuệ nhân tạo kiến trúc.
+              </motion.p>
+
+              <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-5 pt-4">
+                <Link to="/reserve" className="group relative bg-slate-900 hover:bg-slate-800 text-white font-bold py-5 px-10 rounded-2xl shadow-2xl shadow-slate-900/30 flex items-center justify-center gap-3 transition-all duration-300 hover:-translate-y-1 active:scale-95 overflow-hidden">
+                  <span className="relative z-10">Bắt đầu ngay</span>
+                  <svg className="h-5 w-5 group-hover:translate-x-1 transition-transform relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M13 7l5 5m0 0l-5 5m5-5H6" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5"></path>
+                  </svg>
+                  {/* Subtle Shine Effect */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shine_1.5s_infinite] pointer-events-none"></div>
+                </Link>
+                <Link to="/status" className="bg-white/40 hover:bg-white/80 text-slate-700 font-bold py-5 px-10 rounded-2xl border border-slate-200/60 backdrop-blur-sm transition-all duration-300 text-center hover:shadow-xl hover:-translate-y-1 active:scale-95">
+                  Xem Phân tích
+                </Link>
+              </motion.div>
             </motion.div>
+
+            {/* Hero Visual: Dashboard Preview */}
+            <div className="relative">
+              {/* Luminous Glow behind the card */}
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-blue-500/10 blur-[120px] rounded-full"></div>
+              
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95, rotateY: -10 }}
+                animate={{ opacity: 1, scale: 1, rotateY: 0 }}
+                transition={{ duration: 1.5, ease: [0.22, 1, 0.36, 1] }}
+                className="relative z-10"
+              >
+                <motion.div 
+                  variants={floatingVariants}
+                  animate="animate"
+                  className="glass-card glow-border p-3 rounded-[3rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.08)]"
+                >
+                  <div className="bg-white/80 rounded-[2.2rem] overflow-hidden border border-white/40 shadow-inner">
+                    {/* Mockup UI Header */}
+                    <div className="px-8 py-5 bg-white/40 border-b border-slate-100/50 flex items-center justify-between">
+                      <div className="flex gap-2.5">
+                        <div className="w-3 h-3 rounded-full bg-[#FF5F57] shadow-sm"></div>
+                        <div className="w-3 h-3 rounded-full bg-[#FFBD2E] shadow-sm"></div>
+                        <div className="w-3 h-3 rounded-full bg-[#28C840] shadow-sm"></div>
+                      </div>
+                      <div className="h-2 w-24 bg-slate-100 rounded-full"></div>
+                    </div>
+
+                    {/* Mockup Content */}
+                    <div className="p-8">
+                      <div className="relative rounded-3xl overflow-hidden bg-slate-50/50 shadow-2xl shadow-inner-lg group">
+                        <div className="w-full h-full transform group-hover:scale-[1.02] transition-transform duration-700">
+                          {LottieView}
+                        </div>
+                        {/* Glass Overlay on Animation */}
+                        <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent pointer-events-none"></div>
+                      </div>
+
+                      {/* Live Data Card */}
+                      <div className="mt-8 glass-card p-6 rounded-[2rem] border border-white/60 flex items-center justify-between shadow-lg">
+                        <div className="flex items-center gap-5">
+                          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-2xl shadow-blue-500/40">
+                            <svg className="h-7 w-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5"></path>
+                            </svg>
+                          </div>
+                          <div className="flex flex-col">
+                            <p className="text-[10px] uppercase font-black text-slate-400 tracking-[0.2em] mb-1">Tỉ lệ lấp đầy</p>
+                            <div className="flex items-center gap-2">
+                              <span className="text-2xl font-black text-slate-900 tracking-tighter">88.4%</span>
+                              <span className="px-2 py-0.5 bg-blue-50 text-[10px] font-bold text-blue-600 rounded-md uppercase tracking-wider">Tối ưu</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex-1 max-w-[140px] ml-6">
+                          <div className="w-full h-3 bg-slate-100/80 rounded-full overflow-hidden relative border border-slate-200/20">
+                            <motion.div 
+                              initial={{ width: 0 }}
+                              animate={{ width: '88.4%' }}
+                              transition={{ duration: 2, delay: 0.8 }}
+                              className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full shadow-[0_0_12px_rgba(59,130,246,0.5)]"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              </motion.div>
+            </div>
           </div>
         </section>
 
-        {/* Workflow Step Journey */}
-        <section className="max-w-container-max mx-auto px-margin-edge py-section-gap">
-          <div className="text-center mb-16">
-            <h2 className="font-headline-xl text-headline-xl">Unified User Journey</h2>
-            <p className="font-body-lg text-body-lg text-on-surface-variant mt-4">A streamlined 6-step flow from entry to completion.</p>
-          </div>
-          <div className="relative">
-            <div className="absolute top-1/2 left-0 w-full h-0.5 bg-outline-variant/20 -translate-y-1/2 hidden md:block"></div>
-            <div className="grid grid-cols-1 md:grid-cols-6 gap-8 relative z-10">
+        {/* Stats Section with extra spacing */}
+        <section className="bg-white/20 border-t border-slate-200/40 py-32 backdrop-blur-sm">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <motion.div 
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: "-100px" }}
+              variants={containerVariants}
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8"
+            >
               {[
-                { step: '01', title: 'Login', desc: 'Secure authentication' },
-                { step: '02', title: 'Locate', desc: 'Select building level' },
-                { step: '03', title: 'Schedule', desc: 'Set arrival window' },
-                { step: '04', title: 'Reserve', desc: 'Confirm optimal slot', highlight: true },
-                { step: '05', title: 'Navigate', desc: 'In-app floor guidance' },
-                { step: '06', title: 'Checkout', desc: 'Automated payment' }
-              ].map((step, i) => (
+                { label: 'Thời gian hoạt động', value: '99.9', unit: '%', color: 'text-emerald-500' },
+                { label: 'Vị trí khả dụng', value: '1,248', unit: '', color: 'text-blue-500' },
+                { label: 'Thời gian xử lý', value: '4.2', unit: 'ms', color: 'text-indigo-500' },
+                { label: 'Điểm dữ liệu', value: '2.5', unit: 'Tr', color: 'text-blue-600' },
+              ].map((stat, i) => (
                 <motion.div 
-                  key={step.step}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.1 }}
-                  className="flex flex-col items-center text-center space-y-4"
+                  key={i}
+                  variants={itemVariants}
+                  className="glass-card p-10 rounded-[2.5rem] shadow-sm hover:shadow-2xl hover:border-blue-200 transition-all duration-500 group"
                 >
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold font-data-mono
-                    ${step.highlight ? 'bg-primary text-on-primary shadow-lg shadow-primary/20' : 'bg-on-surface text-surface'}`}>
-                    {step.step}
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] mb-6 group-hover:text-blue-600 transition-colors">{stat.label}</p>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-5xl font-['Plus_Jakarta_Sans'] font-extrabold text-slate-900 tracking-tight">{stat.value}</span>
+                    {stat.unit && <span className={`${stat.color} font-black text-sm uppercase tracking-widest ml-1`}>{stat.unit}</span>}
                   </div>
-                  <h5 className="font-body-md text-body-md font-semibold">{step.title}</h5>
-                  <p className="text-xs text-on-surface-variant">{step.desc}</p>
                 </motion.div>
               ))}
-            </div>
+            </motion.div>
           </div>
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="bg-surface border-t border-outline-variant/30">
-        <div className="w-full max-w-container-max mx-auto px-margin-edge py-12 flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="flex flex-col gap-2">
-            <span className="font-headline-md text-headline-md font-semibold text-on-surface">ParkIntel</span>
-            <p className="font-body-sm text-body-sm text-on-surface-variant">© 2024 ParkIntel Infrastructure. All rights reserved.</p>
-          </div>
-          <div className="flex flex-wrap justify-center gap-8">
-            {['Privacy Policy', 'Terms of Service', 'Accessibility', 'Cookie Settings'].map(link => (
-              <a key={link} className="text-on-surface-variant hover:text-primary transition-colors font-body-sm text-body-sm" href="#">{link}</a>
-            ))}
+      {/* Elegant Footer */}
+      <footer className="py-20 border-t border-slate-200/60 bg-white/40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-10">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center shadow-lg">
+                <span className="text-white font-bold text-lg">P</span>
+              </div>
+              <span className="text-xl font-extrabold text-slate-900 tracking-tighter">ParkIntel</span>
+            </div>
+            <div className="flex gap-12">
+              <a className="text-slate-400 hover:text-blue-600 text-xs font-bold uppercase tracking-widest transition-colors" href="#">Kiến trúc</a>
+              <a className="text-slate-400 hover:text-blue-600 text-xs font-bold uppercase tracking-widest transition-colors" href="#">Mạng lưới</a>
+              <a className="text-slate-400 hover:text-blue-600 text-xs font-bold uppercase tracking-widest transition-colors" href="#">Bảo mật</a>
+            </div>
+            <p className="text-slate-400 text-xs font-medium uppercase tracking-[0.1em]">
+              © 2024 Thiết kế bởi ParkIntel Global.
+            </p>
           </div>
         </div>
       </footer>

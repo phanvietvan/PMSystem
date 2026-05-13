@@ -196,3 +196,50 @@
   .font-body-sm { font-family: var(--font-sans); font-size: var(--font-size-body-sm); }
   .font-label-caps { font-family: var(--font-sans); font-size: var(--font-size-label-caps); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
 }
+/* Premium ParkIntel Styles */
+.glass-card {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%) skewX(-15deg); }
+  100% { transform: translateX(200%) skewX(-15deg); }
+}
+
+.shimmer-effect {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transform: skewX(-15deg);
+  display: none;
+}
+
+.btn-premium:hover .shimmer-effect {
+  display: block;
+  animation: shimmer 0.8s ease-in-out;
+}
+
+.vehicle-card-premium {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.vehicle-card-premium:hover {
+  background: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+}
+
+.vehicle-option input:checked + div {
+  border-color: #0055D4;
+  background-color: #ffffff;
+}
+
+.vehicle-option input:checked + div .radio-indicator {
+  border-color: #0055D4;
+  background-color: #0055D4;
+}

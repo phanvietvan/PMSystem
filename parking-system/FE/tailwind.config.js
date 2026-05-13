@@ -54,7 +54,17 @@ export default {
         "background": "#f8f9ff",
         "error-container": "#ffdad6",
         "on-tertiary-container": "#f6f8fa",
-        "on-error-container": "#93000a"
+        "on-error-container": "#93000a",
+        "parkintel": {
+          "light": "#F8FAFC",
+          "blue": "#0055D4",
+          "blue-dark": "#0043A8",
+          "glass-white": "rgba(255, 255, 255, 0.7)",
+        }
+      },
+      "boxShadow": {
+        "premium": "0 20px 50px -12px rgba(0, 0, 0, 0.05)",
+        "soft": "0 4px 20px -2px rgba(0, 0, 0, 0.02)",
       },
       "borderRadius": {
         "DEFAULT": "0.125rem",

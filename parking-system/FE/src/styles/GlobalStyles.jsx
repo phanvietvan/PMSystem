@@ -11,7 +11,7 @@ export default function GlobalStyles() {
     const style = document.createElement("style");
     style.textContent = `
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-      body { font-family: 'DM Sans', sans-serif; background: ${C.bg}; color: ${C.text}; overflow: hidden; }
+      body { font-family: 'Inter', sans-serif; background: ${C.bg}; color: ${C.text}; }
       input { font-family: 'DM Sans', sans-serif; }
       button { font-family: 'DM Sans', sans-serif; cursor: pointer; }
       a { cursor: pointer; }
@@ -27,6 +27,9 @@ export default function GlobalStyles() {
       @keyframes pulse {
         0%, 100% { box-shadow: 0 0 0 0 rgba(52,211,153,0.3); }
         50%      { box-shadow: 0 0 0 12px rgba(52,211,153,0); }
+      }
+      @keyframes shine {
+        100% { transform: translateX(100%); }
       }
 
       .slide-in { animation: slideIn 0.35s ease both; }
@@ -59,6 +62,38 @@ export default function GlobalStyles() {
       .back-link:hover { color: ${C.text} !important; }
       .right-panel::-webkit-scrollbar { width: 4px; }
       .right-panel::-webkit-scrollbar-thumb { background: ${C.border}; border-radius: 2px; }
+
+      .bg-mesh-gradient {
+        background-color: #f8fafc;
+        background-image: 
+          radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.08) 0px, transparent 50%),
+          radial-gradient(at 100% 0%, rgba(99, 102, 241, 0.1) 0px, transparent 50%),
+          radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.08) 0px, transparent 50%),
+          radial-gradient(at 0% 100%, rgba(99, 102, 241, 0.1) 0px, transparent 50%);
+      }
+      
+      .glass-card {
+        background: rgba(255, 255, 255, 0.45);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+      }
+
+      .glow-border {
+        position: relative;
+      }
+      .glow-border::after {
+        content: "";
+        position: absolute;
+        inset: -1px;
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.5), rgba(99, 102, 241, 0.5), transparent 70%);
+        border-radius: inherit;
+        z-index: -1;
+        mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        mask-composite: exclude;
+        pointer-events: none;
+      }
 
       .otp-input {
         width: 52px !important; height: 56px !important;

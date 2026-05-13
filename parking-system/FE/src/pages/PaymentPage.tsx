@@ -1,0 +1,106 @@
+import React from 'react';
+import { motion } from 'framer-motion';
+import { CreditCard, Wallet, Apple, ArrowRight, ShieldCheck, Receipt } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import Navbar from '../components/layout/Navbar';
+
+const PaymentPage = () => {
+  const navigate = useNavigate();
+
+  const orderSummary = {
+    date: '15/05/2024',
+    time: '08:30 AM',
+    slot: 'A3',
+    level: '03',
+    plate: '51F-123.45',
+    price: 50000
+  };
+
+  return (
+    <div className="min-h-screen mesh-bg selection:bg-primary/10 relative">
+      <Navbar />
+
+      <main className="max-w-4xl mx-auto px-6 pt-32 pb-20 relative z-10">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="grid grid-cols-1 md:grid-cols-2 gap-8"
+        >
+          {/* Left: Payment Methods */}
+          <div className="space-y-6">
+            <h1 className="text-3xl font-display font-bold text-on-surface">Thanh toán</h1>
+            <p className="text-on-surface-variant text-sm font-medium">Chọn phương thức thanh toán để hoàn tất đặt chỗ.</p>
+
+            <div className="space-y-3">
+              {[
+                { id: 'visa', name: 'Thẻ Credit / Debit', icon: <CreditCard className="w-5 h-5" />, desc: 'Visa, Mastercard, JCB' },
+                { id: 'momo', name: 'Ví MoMo', icon: <Wallet className="w-5 h-5 text-pink-500" />, desc: 'Thanh toán nhanh qua ứng dụng' },
+                { id: 'apple', name: 'Apple Pay', icon: <Apple className="w-5 h-5" />, desc: 'Bảo mật tuyệt đối' },
+              ].map((method) => (
+                <button 
+                  key={method.id}
+                  className="w-full flex items-center justify-between p-5 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl hover:border-primary hover:shadow-lg transition-all group"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                      {method.icon}
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-bold text-on-surface">{method.name}</p>
+                      <p className="text-[10px] text-on-surface-variant font-medium">{method.desc}</p>
+                    </div>
+                  </div>
+                  <div className="w-5 h-5 rounded-full border-2 border-outline-variant group-hover:border-primary"></div>
+                </button>
+              ))}
+            </div>
+
+            <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100 flex items-start gap-3">
+              <ShieldCheck className="w-5 h-5 text-emerald-500 mt-0.5" />
+              <p className="text-[11px] text-emerald-700 font-medium leading-relaxed">
+                Thông tin thanh toán của bạn được mã hóa 256-bit SSL. ParkIntel không lưu trữ dữ liệu thẻ trực tiếp.
+              </p>
+            </div>
+          </div>
+
+          {/* Right: Order Summary */}
+          <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-[2.5rem] p-8 shadow-xl shadow-primary/5 h-fit">
+            <div className="flex items-center gap-3 mb-6">
+              <Receipt className="text-primary w-5 h-5" />
+              <h2 className="text-lg font-bold text-on-surface tracking-tight">Tóm tắt đơn hàng</h2>
+            </div>
+
+            <div className="space-y-4 mb-8">
+              <div className="flex justify-between items-center py-3 border-b border-outline-variant/10">
+                <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest text-[9px]">Vị trí đỗ</span>
+                <span className="text-sm font-black text-on-surface">Tầng {orderSummary.level} • {orderSummary.slot}</span>
+              </div>
+              <div className="flex justify-between items-center py-3 border-b border-outline-variant/10">
+                <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest text-[9px]">Thời gian</span>
+                <span className="text-sm font-bold text-on-surface">{orderSummary.date}, {orderSummary.time}</span>
+              </div>
+              <div className="flex justify-between items-center py-3 border-b border-outline-variant/10">
+                <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest text-[9px]">Biển số xe</span>
+                <span className="text-sm font-bold text-on-surface">{orderSummary.plate}</span>
+              </div>
+              <div className="flex justify-between items-center pt-6">
+                <span className="text-xs font-black text-on-surface uppercase tracking-[0.2em]">Tổng tiền</span>
+                <span className="text-2xl font-display font-black text-primary">{orderSummary.price.toLocaleString()} VNĐ</span>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => navigate('/success')}
+              className="w-full bg-on-surface text-surface font-bold py-4 rounded-2xl shadow-lg hover:bg-on-surface/90 transition-all flex items-center justify-center gap-3"
+            >
+              Xác nhận thanh toán
+              <ArrowRight className="w-5 h-5" />
+            </button>
+          </div>
+        </motion.div>
+      </main>
+    </div>
+  );
+};
+
+export default PaymentPage;
