@@ -284,4 +284,3 @@ const ParkingStatus = () => {
 };
 
 export default ParkingStatus;
-
