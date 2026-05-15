@@ -2,18 +2,61 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../../components/layout/Navbar';
 
+import { AlertCircle } from 'lucide-react';
+
 const LoginPage = () => {
-  const [activeTab, setActiveTab] = useState('personal');
   const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
+    
+    // Danh sách tài khoản giả lập (Mock)
+    const mockUsers = [
+      {
+        email: 'user@example.com',
+        password: 'user123',
+        data: {
+          id: "usr_user_01",
+          fullName: "Trần Thị B",
+          email: "user@example.com",
+          role: "user",
+          avatar: "https://ui-avatars.com/api/?name=TT+B&background=10B981&color=fff"
+        }
+      },
+      {
+        email: 'admin@parkintel.com',
+        password: 'admin123',
+        data: {
+          id: "usr_admin_01",
+          fullName: "Nguyễn Văn A",
+          email: "admin@parkintel.com",
+          role: "admin",
+          avatar: "https://ui-avatars.com/api/?name=NV+A&background=0066FF&color=fff"
+        }
+      }
+    ];
+
     setTimeout(() => {
-      setLoading(false);
-      navigate('/status');
-    }, 1500);
+      const foundUser = mockUsers.find(u => u.email === email && u.password === password);
+
+      if (foundUser) {
+        setLoading(false);
+        // Lưu vào localStorage
+        localStorage.setItem('user', JSON.stringify(foundUser.data));
+        // Thông báo cho Navbar cập nhật
+        window.dispatchEvent(new Event('user-login'));
+        navigate('/');
+      } else {
+        setLoading(false);
+        setError('Email hoặc mật khẩu không chính xác. Vui lòng thử lại.');
+      }
+    }, 1200);
   };
 
   return (
@@ -97,24 +140,6 @@ const LoginPage = () => {
 
           {/* Form Wrapper */}
           <div className="w-full">
-            {/* Tabs Navigation */}
-            <div className="flex p-1.5 bg-surface-container rounded-2xl mb-10 border border-outline-variant/30">
-              <button 
-                onClick={() => setActiveTab('personal')}
-                className={`w-1/2 py-3.5 px-4 rounded-xl text-xs font-bold tracking-wider uppercase transition-all duration-500 shadow-sm 
-                  ${activeTab === 'personal' ? 'bg-primary text-white' : 'text-on-surface-variant hover:text-primary'}`}
-              >
-                Cá nhân
-              </button>
-              <button 
-                onClick={() => setActiveTab('management')}
-                className={`w-1/2 py-3.5 px-4 rounded-xl text-xs font-bold tracking-wider uppercase transition-all duration-300
-                  ${activeTab === 'management' ? 'bg-primary text-white' : 'text-on-surface-variant hover:text-primary'}`}
-              >
-                Quản lý
-              </button>
-            </div>
-
             {/* Form Fields */}
             <form onSubmit={handleLogin} className="space-y-7">
               {/* Email Input */}
@@ -129,6 +154,8 @@ const LoginPage = () => {
                     id="email" 
                     type="email" 
                     placeholder="name@company.com" 
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     required 
                   />
                 </div>
@@ -148,6 +175,8 @@ const LoginPage = () => {
                     id="password" 
                     type="password" 
                     placeholder="••••••••" 
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     required 
                   />
                   <div className="absolute inset-y-0 right-0 pr-5 flex items-center cursor-pointer text-outline hover:text-primary transition-colors">
@@ -158,6 +187,14 @@ const LoginPage = () => {
                   <Link to="/forgot-password" size="sm" className="text-xs font-bold text-primary hover:text-primary-container transition-colors">Quên mật khẩu?</Link>
                 </div>
               </div>
+
+              {/* Error Message */}
+              {error && (
+                <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-100 rounded-2xl animate-shake">
+                  <AlertCircle className="text-red-500 shrink-0" size={18} />
+                  <p className="text-xs font-bold text-red-600">{error}</p>
+                </div>
+              )}
 
               {/* Submit Button */}
               <button 
