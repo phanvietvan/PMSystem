@@ -1,0 +1,15 @@
+C:\Users\insig\Downloads\PBMSystem\PBMSystem\Repositories\obj\Debug\net8.0\Repositories.csproj.AssemblyReference.cache
+C:\Users\insig\Downloads\PBMSystem\PBMSystem\Repositories\obj\Debug\net8.0\Repositories.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\insig\Downloads\PBMSystem\PBMSystem\Repositories\obj\Debug\net8.0\Repositories.AssemblyInfoInputs.cache
+C:\Users\insig\Downloads\PBMSystem\PBMSystem\Repositories\obj\Debug\net8.0\Repositories.AssemblyInfo.cs
+C:\Users\insig\Downloads\PBMSystem\PBMSystem\Repositories\obj\Debug\net8.0\Repositories.csproj.CoreCompileInputs.cache
+C:\Users\insig\Downloads\PBMSystem\PBMSystem\Repositories\bin\Debug\net8.0\Repositories.deps.json
+C:\Users\insig\Downloads\PBMSystem\PBMSystem\Repositories\bin\Debug\net8.0\Repositories.runtimeconfig.json
+C:\Users\insig\Downloads\PBMSystem\PBMSystem\Repositories\bin\Debug\net8.0\Repositories.dll
+C:\Users\insig\Downloads\PBMSystem\PBMSystem\Repositories\bin\Debug\net8.0\Repositories.pdb
+C:\Users\insig\Downloads\PBMSystem\PBMSystem\Repositories\obj\Debug\net8.0\Repositories.dll
+C:\Users\insig\Downloads\PBMSystem\PBMSystem\Repositories\obj\Debug\net8.0\refint\Repositories.dll
+C:\Users\insig\Downloads\PBMSystem\PBMSystem\Repositories\obj\Debug\net8.0\Repositories.pdb
+C:\Users\insig\Downloads\PBMSystem\PBMSystem\Repositories\obj\Debug\net8.0\Repositories.genruntimeconfig.cache
+C:\Users\insig\Downloads\PBMSystem\PBMSystem\Repositories\obj\Debug\net8.0\ref\Repositories.dll
+C:\Users\insig\Downloads\PBMSystem\PBMSystem\Repositories\obj\Debug\net8.0\Repositories.sourcelink.json
