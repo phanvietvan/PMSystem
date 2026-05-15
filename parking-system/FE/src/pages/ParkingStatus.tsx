@@ -1,15 +1,34 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LayoutGrid, Layers, Info, CheckCircle2, CarFront, Lock, Settings2, ZoomIn, ArrowRight } from 'lucide-react';
 
 import Navbar from '../components/layout/Navbar';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const ParkingStatus = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [selectedLevel, setSelectedLevel] = useState(1);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const levels = [1, 2, 3];
+
+  // Get selected parking info from state or storage
+  const selectedParking = location.state?.selectedParking || 
+                          JSON.parse(localStorage.getItem('selectedParking') || 'null') ||
+                          { name: "Landmark 81 - Bãi đỗ A1", floor: "Tầng 1", block: "Block A" };
+
+  useEffect(() => {
+    // Sync selected level with the parking lot's floor if available
+    if (selectedParking.floor && selectedParking.floor.includes('Tầng')) {
+      const floorNum = parseInt(selectedParking.floor.replace('Tầng ', ''));
+      if (!isNaN(floorNum) && floorNum <= 3) {
+        setSelectedLevel(floorNum);
+      }
+    }
+  }, [selectedParking]);
+
+  const user = JSON.parse(localStorage.getItem('user') || 'null');
+  const isAdmin = user?.role === 'admin';
 
   const zones = [
     { name: 'Khu vực phía Tây', range: 'A', count: 5 },
@@ -46,15 +65,15 @@ const ParkingStatus = () => {
               <p className="font-body-sm text-on-surface-variant mt-1 max-w-md">Hệ thống phân tích hình ảnh AI đồng bộ mỗi 2 giây.</p>
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <div className="bg-surface-container-lowest border border-outline-variant/30 px-4 py-2 rounded-xl flex items-center gap-6">
                 <div className="flex flex-col">
-                  <span className="font-label-caps text-[8px] text-outline uppercase tracking-widest">Available</span>
+                  <span className="font-label-caps text-[8px] text-outline uppercase tracking-widest">Còn trống</span>
                   <span className="font-display text-xl font-bold text-primary">18</span>
                 </div>
                 <div className="w-px h-6 bg-outline-variant/30"></div>
                 <div className="flex flex-col">
-                  <span className="font-label-caps text-[8px] text-outline uppercase tracking-widest">Occupied</span>
+                  <span className="font-label-caps text-[8px] text-outline uppercase tracking-widest">Đang đỗ</span>
                   <span className="font-display text-xl font-bold text-on-surface">12</span>
                 </div>
               </div>
@@ -129,8 +148,10 @@ const ParkingStatus = () => {
                     <LayoutGrid className="text-primary w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-on-surface">Mặt bằng Tầng {selectedLevel}</h2>
-                    <p className="text-[10px] text-on-surface-variant font-medium italic">Sân bay Tân Sơn Nhất • Block A</p>
+                    <h2 className="text-xl font-bold text-on-surface">Mặt bằng {selectedParking.floor}</h2>
+                    <p className="text-[10px] text-on-surface-variant font-medium italic">
+                      {selectedParking.name.split(' - ')[0]} • {selectedParking.block}
+                    </p>
                   </div>
                 </div>
 
@@ -185,7 +206,7 @@ const ParkingStatus = () => {
                             >
                               {isRecommended && status === 'available' && (
                                 <div className="absolute -top-2 left-1/2 -translate-x-1/2 bg-amber-400 text-white text-[6px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter shadow-sm whitespace-nowrap z-10">
-                                  Best Choice
+                                  Vị trí tốt nhất
                                 </div>
                               )}
                               <span className={`text-[9px] font-black tracking-widest 
@@ -273,8 +294,12 @@ const ParkingStatus = () => {
             <p className="font-body-sm text-on-surface-variant">© 2024 Intelligent Urban Mobility. All rights reserved.</p>
           </div>
           <div className="flex gap-8">
-            {['Privacy', 'Terms', 'Security'].map(l => (
-              <a key={l} href="#" className="text-xs font-semibold text-on-surface-variant hover:text-primary transition-colors uppercase tracking-widest">{l}</a>
+            {[
+              { id: 'Privacy', label: 'Quyền riêng tư' },
+              { id: 'Terms', label: 'Điều khoản' },
+              { id: 'Security', label: 'Bảo mật' }
+            ].map(l => (
+              <a key={l.id} href="#" className="text-xs font-semibold text-on-surface-variant hover:text-primary transition-colors uppercase tracking-widest">{l.label}</a>
             ))}
           </div>
         </div>

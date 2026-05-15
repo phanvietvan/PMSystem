@@ -10,12 +10,26 @@ import ActiveSessionPage from './pages/ActiveSessionPage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
+import AdminDashboard from './pages/AdminDashboard';
+import AdminMonitoring from './pages/AdminMonitoring';
+import AdminReservations from './pages/AdminReservations';
+import AdminReports from './pages/AdminReports';
+import AdminUsers from './pages/AdminUsers';
+import AdminSettings from './pages/AdminSettings';
 import './index.css';
 
 function App() {
   return (
     <Router>
       <Routes>
+        {/* Admin Dashboard Routes */}
+        <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/admin/monitoring" element={<AdminMonitoring />} />
+        <Route path="/admin/reservations" element={<AdminReservations />} />
+        <Route path="/admin/reports" element={<AdminReports />} />
+        <Route path="/admin/users" element={<AdminUsers />} />
+        <Route path="/admin/settings" element={<AdminSettings />} />
+
         <Route path="/" element={<LandingPage />} />
         <Route path="/status" element={<ParkingStatus />} />
         <Route path="/reserve" element={<ReservationPage />} />
