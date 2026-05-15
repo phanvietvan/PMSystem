@@ -84,7 +84,7 @@ const LandingPage = () => {
               </motion.p>
 
               <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-5 pt-4">
-                <Link to="/reserve" className="group relative bg-slate-900 hover:bg-slate-800 text-white font-bold py-5 px-10 rounded-2xl shadow-2xl shadow-slate-900/30 flex items-center justify-center gap-3 transition-all duration-300 hover:-translate-y-1 active:scale-95 overflow-hidden">
+                <Link to="/reserve" className="group relative bg-gradient-to-br from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-5 px-10 rounded-2xl shadow-2xl shadow-blue-600/40 flex items-center justify-center gap-3 transition-all duration-300 hover:-translate-y-1 active:scale-95 overflow-hidden">
                   <span className="relative z-10">Bắt đầu ngay</span>
                   <svg className="h-5 w-5 group-hover:translate-x-1 transition-transform relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path d="M13 7l5 5m0 0l-5 5m5-5H6" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5"></path>
@@ -92,7 +92,7 @@ const LandingPage = () => {
                   {/* Subtle Shine Effect */}
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shine_1.5s_infinite] pointer-events-none"></div>
                 </Link>
-                <Link to="/status" className="bg-white/40 hover:bg-white/80 text-slate-700 font-bold py-5 px-10 rounded-2xl border border-slate-200/60 backdrop-blur-sm transition-all duration-300 text-center hover:shadow-xl hover:-translate-y-1 active:scale-95">
+                <Link to="/status" className="bg-white/60 hover:bg-white text-blue-600 font-bold py-5 px-10 rounded-2xl border border-blue-100 backdrop-blur-sm transition-all duration-300 text-center hover:shadow-xl hover:-translate-y-1 active:scale-95">
                   Xem Phân tích
                 </Link>
               </motion.div>
