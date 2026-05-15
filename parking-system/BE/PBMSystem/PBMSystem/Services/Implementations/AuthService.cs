@@ -139,6 +139,13 @@ public class AuthService : IAuthService
         return ApiResponse<UserResponse>.Ok(MapToResponse(user));
     }
 
+    public async Task<ApiResponse<IEnumerable<UserResponse>>> GetAllUsersAsync()
+    {
+        var users = await _userRepo.GetAllAsync();
+        var response = users.Select(MapToResponse);
+        return ApiResponse<IEnumerable<UserResponse>>.Ok(response);
+    }
+
     private async Task<ApiResponse<AuthResponse>> IssueTokensAsync(
         User user, string? ipAddress, RefreshToken? replacedToken = null)
     {

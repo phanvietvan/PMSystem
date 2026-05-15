@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, 
   CalendarDays, 
@@ -26,17 +26,29 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import api from '../services/api';
 
 const AdminUsers = () => {
-  console.log("AdminUsers rendered");
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const users = [
-    { id: 1, name: 'Nguyễn Văn An', email: 'an.nv@parkintel.vn', role: 'Super Admin', status: 'Active', lastActive: 'Vừa xong', avatar: 'AN' },
-    { id: 2, name: 'Trần Thị Bình', email: 'binh.tt@parkintel.vn', role: 'Manager', status: 'Active', lastActive: '2 giờ trước', avatar: 'TB' },
-    { id: 3, name: 'Lê Văn Cường', email: 'cuong.lv@parkintel.vn', role: 'Staff', status: 'Inactive', lastActive: '2 ngày trước', avatar: 'LC' },
-    { id: 4, name: 'Phạm Minh Đức', email: 'duc.pm@parkintel.vn', role: 'Staff', status: 'Active', lastActive: '5 phút trước', avatar: 'MD' },
-    { id: 5, name: 'Hoàng Công Hải', email: 'hai.hc@parkintel.vn', role: 'Manager', status: 'Suspended', lastActive: '1 tuần trước', avatar: 'HH' },
-  ];
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await api.get('/users');
+        // Backend bọc trong ApiResponse { success, data, ... }
+        if (response.data.success) {
+          setUsers(response.data.data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch users:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, []);
 
   const navLinks = [
     { name: 'Dashboard', icon: LayoutDashboard, path: '/admin' },
@@ -178,36 +190,51 @@ const AdminUsers = () => {
                       </tr>
                    </thead>
                    <tbody className="divide-y divide-slate-100">
-                      {users.map((user) => (
+                      {loading ? (
+                         <tr>
+                            <td colSpan={5} className="px-8 py-20 text-center">
+                               <div className="flex flex-col items-center gap-3">
+                                  <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                                  <p className="text-sm font-bold text-slate-400">Đang tải dữ liệu...</p>
+                               </div>
+                            </td>
+                         </tr>
+                      ) : users.length === 0 ? (
+                         <tr>
+                            <td colSpan={5} className="px-8 py-20 text-center">
+                               <p className="text-sm font-bold text-slate-400">Không có người dùng nào trong hệ thống.</p>
+                            </td>
+                         </tr>
+                      ) : users.map((user) => (
                          <tr key={user.id} className="hover:bg-slate-50/50 transition-colors group">
                             <td className="px-8 py-6">
                                <div className="flex items-center gap-4">
-                                  <div className="w-11 h-11 rounded-2xl bg-blue-100 flex items-center justify-center font-black text-blue-600 text-xs">
-                                     {user.avatar}
+                                  <div className="w-11 h-11 rounded-2xl bg-blue-100 flex items-center justify-center font-black text-blue-600 text-xs uppercase">
+                                     {user.firstName ? user.firstName[0] : (user.username ? user.username[0] : 'U')}
                                   </div>
                                   <div>
-                                     <p className="text-sm font-black text-slate-900">{user.name}</p>
-                                     <p className="text-[11px] font-bold text-slate-400">{user.email}</p>
+                                     <p className="text-sm font-black text-slate-900">{user.firstName} {user.lastName}</p>
+                                     <p className="text-[11px] font-bold text-slate-400">{user.email} (@{user.username})</p>
                                   </div>
-                               </div>
+                                </div>
                             </td>
                             <td className="px-8 py-6">
                                <div className="flex items-center gap-2 px-3 py-1 bg-slate-50 rounded-lg border border-slate-100 w-fit">
-                                  <Shield className={`w-3.5 h-3.5 ${user.role.includes('Admin') ? 'text-blue-600' : 'text-slate-400'}`} />
-                                  <span className="text-[11px] font-bold text-slate-900">{user.role}</span>
+                                  <Shield className={`w-3.5 h-3.5 ${(user.role || '').includes('Admin') ? 'text-blue-600' : 'text-slate-400'}`} />
+                                  <span className="text-[11px] font-bold text-slate-900">{user.role || 'User'}</span>
                                </div>
                             </td>
                             <td className="px-8 py-6 text-center">
                                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase border ${
-                                  user.status === 'Active' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                                  (user.status || 'Active') === 'Active' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
                                   user.status === 'Suspended' ? 'bg-red-50 text-red-600 border-red-100' :
                                   'bg-slate-50 text-slate-400 border-slate-200'
                                }`}>
-                                  {user.status}
+                                  {user.status || 'Active'}
                                </span>
                             </td>
                             <td className="px-8 py-6 text-[11px] font-bold text-slate-400">
-                               {user.lastActive}
+                               {user.createdAt ? new Date(user.createdAt).toLocaleDateString('vi-VN') : 'N/A'}
                             </td>
                             <td className="px-8 py-6 text-right">
                                <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

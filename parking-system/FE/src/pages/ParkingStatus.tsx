@@ -28,7 +28,6 @@ const ParkingStatus = () => {
   }, [selectedParking]);
 
   const user = JSON.parse(localStorage.getItem('user') || 'null');
-  const isAdmin = user?.role === 'admin';
 
   const zones = [
     { name: 'Khu vực phía Tây', range: 'A', count: 5 },

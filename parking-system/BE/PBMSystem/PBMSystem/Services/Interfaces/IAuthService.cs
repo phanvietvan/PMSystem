@@ -14,4 +14,5 @@ public interface IAuthService
     Task<ApiResponse<bool>> RevokeTokenAsync(string refreshToken, string? ipAddress = null);
     Task<ApiResponse<bool>> ChangePasswordAsync(Guid userId, ChangePasswordRequest request);
     Task<ApiResponse<UserResponse>> GetProfileAsync(Guid userId);
+    Task<ApiResponse<IEnumerable<UserResponse>>> GetAllUsersAsync();
 }
