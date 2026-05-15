@@ -1,22 +1,61 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-
+import api from '../../services/api';
+import { AlertCircle } from 'lucide-react';
 
 const RegisterPage = () => {
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
+  
   const navigate = useNavigate();
 
-  const handleNext = (e: React.FormEvent) => {
+  const handleNext = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (step < 2) {
+    setError('');
+
+    if (step < 1) {
       setStep(step + 1);
     } else {
       setLoading(true);
-      setTimeout(() => {
+      
+      // Auto-generate username from email
+      const username = email.split('@')[0];
+
+      try {
+        const response = await api.post('/auth/register', {
+          firstName,
+          lastName,
+          email,
+          username,
+          password
+        });
+
+        console.log('Registration Success:', response.data);
         setLoading(false);
         navigate('/login');
-      }, 1500);
+      } catch (err: any) {
+        setLoading(false);
+        console.error('Registration Error Details:', err.response?.data);
+        
+        // Trích xuất lỗi chi tiết từ Backend (nếu có)
+        const beErrors = err.response?.data?.errors;
+        let errorMessage = 'Đăng ký thất bại.';
+        
+        if (beErrors) {
+          // Lấy tất cả các lỗi validation gộp lại thành 1 chuỗi
+          errorMessage = Object.values(beErrors).flat().join(' | ');
+        } else {
+          errorMessage = err.response?.data?.message || 'Vui lòng kiểm tra lại thông tin.';
+        }
+        
+        setError(errorMessage);
+      }
     }
   };
 
@@ -101,21 +140,29 @@ const RegisterPage = () => {
             </div>
 
             <form onSubmit={handleNext} className="space-y-7">
+              {/* Error Message */}
+              {error && (
+                <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-100 rounded-2xl animate-shake">
+                  <AlertCircle className="text-red-500 shrink-0" size={18} />
+                  <p className="text-xs font-bold text-red-600">{error}</p>
+                </div>
+              )}
+
               {step === 0 && (
                 <div className="space-y-7 animate-fade-in-up">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2.5">
                       <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/70 ml-1">Họ</label>
-                      <input className="premium-input block w-full px-5 py-5 rounded-2xl border border-outline-variant focus:outline-none transition-all text-[15px] font-medium" placeholder="Nguyễn" required />
+                      <input className="premium-input block w-full px-5 py-5 rounded-2xl border border-outline-variant focus:outline-none transition-all text-[15px] font-medium" placeholder="Nguyễn" required value={firstName} onChange={(e) => setFirstName(e.target.value)} />
                     </div>
                     <div className="space-y-2.5">
                       <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/70 ml-1">Tên</label>
-                      <input className="premium-input block w-full px-5 py-5 rounded-2xl border border-outline-variant focus:outline-none transition-all text-[15px] font-medium" placeholder="Văn A" required />
+                      <input className="premium-input block w-full px-5 py-5 rounded-2xl border border-outline-variant focus:outline-none transition-all text-[15px] font-medium" placeholder="Văn A" required value={lastName} onChange={(e) => setLastName(e.target.value)} />
                     </div>
                   </div>
                   <div className="space-y-2.5">
                     <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/70 ml-1">Email</label>
-                    <input className="premium-input block w-full px-5 py-5 rounded-2xl border border-outline-variant focus:outline-none transition-all text-[15px] font-medium" type="email" placeholder="email@example.com" required />
+                    <input className="premium-input block w-full px-5 py-5 rounded-2xl border border-outline-variant focus:outline-none transition-all text-[15px] font-medium" type="email" placeholder="email@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
                   </div>
                   <button className="w-full py-5 bg-primary hover:bg-primary-container text-white font-bold rounded-2xl transition-all duration-300 shadow-lg shadow-primary/10 tracking-wider uppercase text-xs" type="submit">
                     Tiếp theo
@@ -127,11 +174,11 @@ const RegisterPage = () => {
                 <div className="space-y-7 animate-fade-in-up">
                   <div className="space-y-2.5">
                     <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/70 ml-1">Mật khẩu</label>
-                    <input className="premium-input block w-full px-5 py-5 rounded-2xl border border-outline-variant focus:outline-none transition-all text-[15px] font-medium" type="password" placeholder="••••••••" required />
+                    <input className="premium-input block w-full px-5 py-5 rounded-2xl border border-outline-variant focus:outline-none transition-all text-[15px] font-medium" type="password" placeholder="••••••••" required value={password} onChange={(e) => setPassword(e.target.value)} />
                   </div>
                   <div className="space-y-2.5">
                     <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/70 ml-1">Xác nhận mật khẩu</label>
-                    <input className="premium-input block w-full px-5 py-5 rounded-2xl border border-outline-variant focus:outline-none transition-all text-[15px] font-medium" type="password" placeholder="••••••••" required />
+                    <input className="premium-input block w-full px-5 py-5 rounded-2xl border border-outline-variant focus:outline-none transition-all text-[15px] font-medium" type="password" placeholder="••••••••" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
                   </div>
                   <div className="flex items-start gap-3 px-1">
                     <input type="checkbox" className="mt-1 w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary/20" required id="terms" />
@@ -139,32 +186,13 @@ const RegisterPage = () => {
                       Tôi đồng ý với <Link to="/terms" className="text-primary font-bold">Điều khoản sử dụng</Link> và <Link to="/privacy" className="text-primary font-bold">Chính sách bảo mật</Link>.
                     </label>
                   </div>
-                  <button className="w-full py-5 bg-primary hover:bg-primary-container text-white font-bold rounded-2xl transition-all duration-300 shadow-lg shadow-primary/10 tracking-wider uppercase text-xs" type="submit">
-                    Gửi mã xác thực
-                  </button>
-                </div>
-              )}
-
-              {step === 2 && (
-                <div className="space-y-7 animate-fade-in-up">
-                  <div className="text-center p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30">
-                    <p className="text-xs text-on-surface-variant">Mã OTP đã được gửi đến email của bạn. Vui lòng kiểm tra và nhập mã bên dưới.</p>
-                  </div>
-                  <div className="flex gap-3 justify-center">
-                    {[0,1,2,3,4,5].map(i => (
-                      <input key={i} className="w-12 h-14 text-center text-xl font-bold rounded-xl border border-outline-variant focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all bg-white" maxLength={1} required />
-                    ))}
-                  </div>
                   <button 
                     className={`w-full py-5 bg-primary hover:bg-primary-container text-white font-bold rounded-2xl transition-all duration-300 shadow-lg shadow-primary/10 tracking-wider uppercase text-xs ${loading ? 'opacity-80 cursor-wait' : ''}`} 
                     type="submit"
                     disabled={loading}
                   >
-                    {loading ? 'ĐANG HOÀN TẤT...' : 'Hoàn tất đăng ký'}
+                    {loading ? 'ĐANG XỬ LÝ...' : 'Hoàn tất đăng ký'}
                   </button>
-                  <div className="text-center">
-                    <button type="button" className="text-xs font-bold text-primary hover:text-primary-container transition-colors">Gửi lại mã OTP (59s)</button>
-                  </div>
                 </div>
               )}
             </form>

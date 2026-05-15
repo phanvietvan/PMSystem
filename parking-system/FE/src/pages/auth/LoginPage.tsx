@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import Navbar from '../../components/layout/Navbar';
-
 import { AlertCircle } from 'lucide-react';
+import api from '../../services/api';
 
 const LoginPage = () => {
   const [loading, setLoading] = useState(false);
@@ -11,52 +10,36 @@ const LoginPage = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     
-    // Danh sách tài khoản giả lập (Mock)
-    const mockUsers = [
-      {
-        email: 'user@example.com',
-        password: 'user123',
-        data: {
-          id: "usr_user_01",
-          fullName: "Trần Thị B",
-          email: "user@example.com",
-          role: "user",
-          avatar: "https://ui-avatars.com/api/?name=TT+B&background=10B981&color=fff"
-        }
-      },
-      {
-        email: 'admin@parkintel.com',
-        password: 'admin123',
-        data: {
-          id: "usr_admin_01",
-          fullName: "Nguyễn Văn A",
-          email: "admin@parkintel.com",
-          role: "admin",
-          avatar: "https://ui-avatars.com/api/?name=NV+A&background=0066FF&color=fff"
-        }
-      }
-    ];
+    try {
+      const response = await api.post('/auth/login', {
+        emailOrUsername: email,
+        password: password
+      });
 
-    setTimeout(() => {
-      const foundUser = mockUsers.find(u => u.email === email && u.password === password);
+      // Phản hồi từ BE mới có cấu trúc { success, data: { accessToken, user }, ... }
+      const apiResponse = response.data;
+      const { user, accessToken } = apiResponse.data;
 
-      if (foundUser) {
-        setLoading(false);
-        // Lưu vào localStorage
-        localStorage.setItem('user', JSON.stringify(foundUser.data));
-        // Thông báo cho Navbar cập nhật
-        window.dispatchEvent(new Event('user-login'));
-        navigate('/');
-      } else {
-        setLoading(false);
-        setError('Email hoặc mật khẩu không chính xác. Vui lòng thử lại.');
-      }
-    }, 1200);
+      // Save to localStorage
+      localStorage.setItem('token', accessToken);
+      localStorage.setItem('user', JSON.stringify(user));
+
+      // Notify Navbar to update
+      window.dispatchEvent(new Event('user-login'));
+      
+      setLoading(false);
+      navigate('/');
+    } catch (err: any) {
+      setLoading(false);
+      console.error('Login Error Details:', err.response?.data);
+      const errorMessage = err.response?.data?.message || err.response?.data?.errors?.[0] || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.';
+      setError(errorMessage);
+    }
   };
 
   return (
@@ -144,16 +127,16 @@ const LoginPage = () => {
             <form onSubmit={handleLogin} className="space-y-7">
               {/* Email Input */}
               <div className="space-y-2.5">
-                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/70 ml-1" htmlFor="email">Email Address</label>
+                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/70 ml-1" htmlFor="email">Email or Username</label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-outline group-focus-within:text-primary transition-colors">
-                    <span className="material-symbols-outlined text-[20px]">mail</span>
+                    <span className="material-symbols-outlined text-[20px]">person</span>
                   </div>
                   <input 
                     className="premium-input block w-full pl-14 pr-5 py-5 rounded-2xl border border-outline-variant focus:outline-none transition-all text-[15px] font-medium" 
                     id="email" 
-                    type="email" 
-                    placeholder="name@company.com" 
+                    type="text" 
+                    placeholder="Enter your email or username" 
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required 
