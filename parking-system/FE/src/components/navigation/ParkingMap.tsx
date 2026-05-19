@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap, LayersControl } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { Navigation, Compass, Layers } from "lucide-react";
 import RoutingMachine from "./RoutingMachine";
 
 const { BaseLayer } = LayersControl;
@@ -27,12 +26,6 @@ const parkingIcon = new L.Icon({
   iconSize: [36, 36],
   iconAnchor: [18, 36],
   popupAnchor: [0, -36],
-});
-
-const carIcon = new L.Icon({
-  iconUrl: "https://cdn-icons-png.flaticon.com/512/744/744465.png",
-  iconSize: [32, 32],
-  iconAnchor: [16, 16],
 });
 
 const FitBounds = ({ userLoc, destLoc }: { userLoc: any, destLoc: any }) => {

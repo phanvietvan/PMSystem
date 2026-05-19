@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion } from 'framer-motion';
 import { CreditCard, Wallet, Apple, ArrowRight, ShieldCheck, Receipt } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
