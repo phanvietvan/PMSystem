@@ -23,7 +23,7 @@ const SuccessPage = () => {
   }, [navigate]);
 
   return (
-    <div className="min-h-screen mesh-bg selection:bg-primary/10 relative">
+    <div className="min-h-screen bg-mesh-gradient selection:bg-primary/10 relative">
       <Navbar />
 
       <main className="max-w-xl mx-auto px-6 pt-32 pb-20 relative z-10">
@@ -70,7 +70,7 @@ const SuccessPage = () => {
               <div className="grid grid-cols-2 gap-4 mb-10">
                 <div className="p-4 bg-surface-container rounded-2xl border border-outline-variant/10">
                   <span className="text-[8px] font-black text-outline uppercase tracking-widest block mb-1">Vị trí</span>
-                  <p className="text-sm font-black text-on-surface">Tầng 03 • A3</p>
+                  <p className="text-sm font-black text-on-surface">Tầng {(localStorage.getItem('selectedLevel') || '3').padStart(2, '0')} • {localStorage.getItem('selectedSlot') || 'A3'}</p>
                 </div>
                 <div className="p-4 bg-surface-container rounded-2xl border border-outline-variant/10">
                   <span className="text-[8px] font-black text-outline uppercase tracking-widest block mb-1">Thời gian</span>

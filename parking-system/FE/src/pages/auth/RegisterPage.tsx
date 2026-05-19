@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import BrandLogo from '../../components/brand/BrandLogo';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { AlertCircle } from 'lucide-react';
+import { useGoogleLogin } from '@react-oauth/google';
 
 const RegisterPage = () => {
   const [step, setStep] = useState(0);
@@ -14,6 +16,41 @@ const RegisterPage = () => {
   const [error, setError] = useState('');
   
   const navigate = useNavigate();
+
+  const loginGoogle = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      setLoading(true);
+      setError('');
+      try {
+        const response = await api.post('/auth/google', {
+          idToken: tokenResponse.access_token
+        });
+        
+        const apiResponse = response.data;
+        const { user, accessToken } = apiResponse.data;
+
+        localStorage.setItem('token', accessToken);
+        localStorage.setItem('user', JSON.stringify(user));
+        
+        window.dispatchEvent(new Event('user-login'));
+        setLoading(false);
+        
+        const isForceUpdate = !user.firstName || !user.lastName || user.firstName === 'Google' || user.lastName === 'User';
+        if (isForceUpdate) {
+          navigate('/profile');
+        } else {
+          navigate('/');
+        }
+      } catch (err: any) {
+        setLoading(false);
+        console.error('Google Register/Login Error:', err.response?.data);
+        setError(err.response?.data?.message || 'Đăng ký bằng Google thất bại.');
+      }
+    },
+    onError: () => {
+      setError('Đăng ký bằng Google thất bại.');
+    }
+  });
 
   const handleNext = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,34 +97,19 @@ const RegisterPage = () => {
   };
 
   return (
-    <main className="flex min-h-screen w-full relative overflow-hidden mesh-bg font-sans antialiased text-on-surface">
+    <main className="flex min-h-screen w-full relative overflow-hidden bg-mesh-gradient font-sans antialiased text-on-surface">
       {/* Decoration Elements */}
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/5 blur-[150px] rounded-full pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-secondary-container/20 blur-[150px] rounded-full pointer-events-none"></div>
 
       {/* Hero Section */}
       <section className="hidden lg:flex flex-col justify-between w-[55%] p-20 relative z-10">
-        <div className="flex items-center space-x-3 group">
-          <div className="w-12 h-12 logo-gradient rounded-xl flex items-center justify-center shadow-[0_8px_25px_rgba(0,102,255,0.25)] transition-transform duration-500 group-hover:rotate-12">
-            <span className="text-white font-display font-extrabold text-2xl tracking-tighter">P</span>
-          </div>
-          <div>
-            <h1 className="text-2xl font-display font-extrabold tracking-tight text-on-surface">ParkIntel</h1>
-            <div className="h-0.5 w-4 bg-primary-container rounded-full mt-[-2px]"></div>
-          </div>
-        </div>
+        <BrandLogo size="lg" asLink />
 
         <div className="max-w-2xl opacity-0 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-          <div className="inline-flex items-center space-x-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 mb-8">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-            </span>
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary">Join the Community</span>
-          </div>
           <h2 className="text-[72px] font-display font-extrabold leading-[1.05] tracking-tight mb-8 text-on-surface">
             Bắt đầu hành trình<br/>
-            <span className="text-primary">với ParkIntel.</span>
+            <span className="text-primary">với PM System.</span>
           </h2>
           <p className="text-on-surface-variant text-xl leading-relaxed max-w-lg font-medium">
             Tạo tài khoản để trải nghiệm hệ thống quản lý bãi xe thông minh, đặt chỗ nhanh chóng và nhận ưu đãi đặc biệt.
@@ -103,13 +125,6 @@ const RegisterPage = () => {
             <span className="text-5xl font-display font-extrabold text-on-surface tracking-tight mb-2">50<span className="text-primary/60 text-3xl">+</span></span>
             <span className="text-outline text-[10px] uppercase tracking-[0.2em] font-bold">Điểm đỗ xe thông minh</span>
           </div>
-        </div>
-
-        <div className="absolute top-1/2 right-12 -translate-y-1/2 w-[500px] h-[500px] pointer-events-none opacity-80">
-        <div className="w-full h-full bg-primary/5 rounded-3xl border border-primary/10 flex items-center justify-center">
-          <span className="material-symbols-outlined text-6xl text-primary/20">directions_car</span>
-        </div>
-
         </div>
       </section>
 
@@ -139,46 +154,95 @@ const RegisterPage = () => {
               ))}
             </div>
 
-            <form onSubmit={handleNext} className="space-y-7">
+            <form onSubmit={handleNext} className="space-y-6">
               {/* Error Message */}
               {error && (
-                <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-100 rounded-2xl animate-shake">
+                <div className="flex items-center gap-3 p-3.5 bg-red-50 border border-red-100 rounded-2xl animate-shake">
                   <AlertCircle className="text-red-500 shrink-0" size={18} />
                   <p className="text-xs font-bold text-red-600">{error}</p>
                 </div>
               )}
 
               {step === 0 && (
-                <div className="space-y-7 animate-fade-in-up">
+                <div className="space-y-6 animate-fade-in-up">
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2.5">
+                    <div className="space-y-2">
                       <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/70 ml-1">Họ</label>
-                      <input className="premium-input block w-full px-5 py-5 rounded-2xl border border-outline-variant focus:outline-none transition-all text-[15px] font-medium" placeholder="Nguyễn" required value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+                      <div className="relative group">
+                        <div className="absolute inset-y-0 left-0 pl-4.5 flex items-center pointer-events-none text-outline group-focus-within:text-primary transition-colors">
+                          <span className="material-symbols-outlined text-[20px]">person</span>
+                        </div>
+                        <input className="premium-input block w-full pl-12 pr-4 py-3 rounded-full border border-outline-variant focus:outline-none transition-all text-sm font-medium" placeholder="Nguyễn" required value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+                      </div>
                     </div>
-                    <div className="space-y-2.5">
+                    <div className="space-y-2">
                       <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/70 ml-1">Tên</label>
-                      <input className="premium-input block w-full px-5 py-5 rounded-2xl border border-outline-variant focus:outline-none transition-all text-[15px] font-medium" placeholder="Văn A" required value={lastName} onChange={(e) => setLastName(e.target.value)} />
+                      <div className="relative group">
+                        <div className="absolute inset-y-0 left-0 pl-4.5 flex items-center pointer-events-none text-outline group-focus-within:text-primary transition-colors">
+                          <span className="material-symbols-outlined text-[20px]">person</span>
+                        </div>
+                        <input className="premium-input block w-full pl-12 pr-4 py-3 rounded-full border border-outline-variant focus:outline-none transition-all text-sm font-medium" placeholder="Văn A" required value={lastName} onChange={(e) => setLastName(e.target.value)} />
+                      </div>
                     </div>
                   </div>
-                  <div className="space-y-2.5">
+                  <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/70 ml-1">Email</label>
-                    <input className="premium-input block w-full px-5 py-5 rounded-2xl border border-outline-variant focus:outline-none transition-all text-[15px] font-medium" type="email" placeholder="email@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-4.5 flex items-center pointer-events-none text-outline group-focus-within:text-primary transition-colors">
+                        <span className="material-symbols-outlined text-[20px]">mail</span>
+                      </div>
+                      <input className="premium-input block w-full pl-12 pr-4 py-3 rounded-full border border-outline-variant focus:outline-none transition-all text-sm font-medium" type="email" placeholder="email@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
+                    </div>
                   </div>
-                  <button className="w-full py-5 bg-primary hover:bg-primary-container text-white font-bold rounded-2xl transition-all duration-300 shadow-lg shadow-primary/10 tracking-wider uppercase text-xs" type="submit">
-                    Tiếp theo
+                  <button className="group relative overflow-hidden w-full py-3 bg-primary hover:bg-primary-container text-white font-semibold rounded-full transition-all duration-300 shadow-md shadow-primary/10 hover:shadow-lg hover:shadow-primary/20 transform hover:-translate-y-0.5 active:scale-[0.98] text-sm" type="submit">
+                    <span className="relative z-10">Tiếp theo</span>
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shine_1.5s_infinite] pointer-events-none"></div>
+                  </button>
+
+                  {/* Divider */}
+                  <div className="relative flex py-1 items-center">
+                    <div className="flex-grow border-t border-outline-variant/30"></div>
+                    <span className="flex-shrink mx-4 text-[10px] font-bold uppercase tracking-[0.15em] text-on-surface-variant/40">Hoặc đăng ký bằng</span>
+                    <div className="flex-grow border-t border-outline-variant/30"></div>
+                  </div>
+
+                  {/* Google Sign In Button */}
+                  <button 
+                    type="button"
+                    onClick={() => loginGoogle()}
+                    className="group relative overflow-hidden w-full py-3 bg-white hover:bg-slate-50 text-slate-700 font-semibold rounded-full border border-slate-200/80 shadow-sm transition-all duration-300 flex items-center justify-center gap-2.5 transform hover:-translate-y-0.5 active:scale-[0.98] text-sm"
+                  >
+                    <svg className="w-4.5 h-4.5 relative z-10 transition-transform duration-300 group-hover:scale-110" viewBox="0 0 24 24">
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                    </svg>
+                    <span className="relative z-10">Đăng ký với Google</span>
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-100/40 to-transparent -translate-x-full group-hover:animate-[shine_1.5s_infinite] pointer-events-none"></div>
                   </button>
                 </div>
               )}
 
               {step === 1 && (
-                <div className="space-y-7 animate-fade-in-up">
-                  <div className="space-y-2.5">
+                <div className="space-y-6 animate-fade-in-up">
+                  <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/70 ml-1">Mật khẩu</label>
-                    <input className="premium-input block w-full px-5 py-5 rounded-2xl border border-outline-variant focus:outline-none transition-all text-[15px] font-medium" type="password" placeholder="••••••••" required value={password} onChange={(e) => setPassword(e.target.value)} />
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-4.5 flex items-center pointer-events-none text-outline group-focus-within:text-primary transition-colors">
+                        <span className="material-symbols-outlined text-[20px]">lock</span>
+                      </div>
+                      <input className="premium-input block w-full pl-12 pr-4 py-3 rounded-full border border-outline-variant focus:outline-none transition-all text-sm font-medium" type="password" placeholder="••••••••" required value={password} onChange={(e) => setPassword(e.target.value)} />
+                    </div>
                   </div>
-                  <div className="space-y-2.5">
+                  <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/70 ml-1">Xác nhận mật khẩu</label>
-                    <input className="premium-input block w-full px-5 py-5 rounded-2xl border border-outline-variant focus:outline-none transition-all text-[15px] font-medium" type="password" placeholder="••••••••" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-4.5 flex items-center pointer-events-none text-outline group-focus-within:text-primary transition-colors">
+                        <span className="material-symbols-outlined text-[20px]">lock</span>
+                      </div>
+                      <input className="premium-input block w-full pl-12 pr-4 py-3 rounded-full border border-outline-variant focus:outline-none transition-all text-sm font-medium" type="password" placeholder="••••••••" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+                    </div>
                   </div>
                   <div className="flex items-start gap-3 px-1">
                     <input type="checkbox" className="mt-1 w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary/20" required id="terms" />
@@ -187,11 +251,12 @@ const RegisterPage = () => {
                     </label>
                   </div>
                   <button 
-                    className={`w-full py-5 bg-primary hover:bg-primary-container text-white font-bold rounded-2xl transition-all duration-300 shadow-lg shadow-primary/10 tracking-wider uppercase text-xs ${loading ? 'opacity-80 cursor-wait' : ''}`} 
+                    className={`group relative overflow-hidden w-full py-3 bg-primary hover:bg-primary-container text-white font-semibold rounded-full transition-all duration-300 shadow-md shadow-primary/10 hover:shadow-lg hover:shadow-primary/20 transform hover:-translate-y-0.5 active:scale-[0.98] text-sm ${loading ? 'opacity-80 cursor-wait' : ''}`} 
                     type="submit"
                     disabled={loading}
                   >
-                    {loading ? 'ĐANG XỬ LÝ...' : 'Hoàn tất đăng ký'}
+                    <span className="relative z-10">{loading ? 'ĐANG XỬ LÝ...' : 'Hoàn tất đăng ký'}</span>
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shine_1.5s_infinite] pointer-events-none"></div>
                   </button>
                 </div>
               )}

@@ -55,7 +55,7 @@ const ParkingMap = ({ selectedDestination, allParkingLots }: { selectedDestinati
   // Local state for destination, initialized by prop or fallback
   const [destination, setDestination] = useState(selectedDestination || {
     id: 1,
-    name: "Bãi đỗ xe ParkIntel - Landmark 81",
+    name: "Bãi đỗ xe PM System - Landmark 81",
     latitude: "10.7949",
     longitude: "106.7218",
   });
