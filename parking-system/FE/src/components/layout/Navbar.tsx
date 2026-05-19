@@ -3,6 +3,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { User, LogOut, ChevronDown, Car } from 'lucide-react';
 import BrandLogo from '../brand/BrandLogo';
+import api from '../../services/api';
+import { isAdmin, syncCurrentUserFromApi } from '../../utils/auth';
 
 const Navbar = () => {
   const location = useLocation();
@@ -12,20 +14,22 @@ const Navbar = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   useEffect(() => {
-    // Check for user in localStorage
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-
-    // Listen for storage changes (to handle login in other components)
-    const handleStorageChange = () => {
-      const updatedUser = localStorage.getItem('user');
-      setUser(updatedUser ? JSON.parse(updatedUser) : null);
+    const applyStoredUser = () => {
+      const raw = localStorage.getItem('user');
+      setUser(raw ? JSON.parse(raw) : null);
     };
 
+    applyStoredUser();
+
+    if (localStorage.getItem('token')) {
+      void syncCurrentUserFromApi(api).then((fresh) => {
+        if (fresh) setUser(fresh);
+      });
+    }
+
+    const handleStorageChange = () => applyStoredUser();
+
     window.addEventListener('storage', handleStorageChange);
-    // Custom event for same-window updates
     window.addEventListener('user-login', handleStorageChange);
 
     return () => {
@@ -96,13 +100,15 @@ const Navbar = () => {
             </>
           ) : (
             <>
-              <Link
-                to="/admin"
-                className="w-10 h-10 flex items-center justify-center bg-white hover:bg-blue-50 text-blue-600 rounded-full transition-all duration-300 font-black text-sm border border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-0.5"
-                title="Dashboard"
-              >
-                D
-              </Link>
+              {isAdmin(user) && (
+                <Link
+                  to="/admin"
+                  className="w-10 h-10 flex items-center justify-center bg-white hover:bg-blue-50 text-blue-600 rounded-full transition-all duration-300 font-black text-sm border border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-0.5"
+                  title="Dashboard (Admin)"
+                >
+                  D
+                </Link>
+              )}
               <div className="relative">
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}

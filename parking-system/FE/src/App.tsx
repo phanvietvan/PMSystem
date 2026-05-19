@@ -19,6 +19,7 @@ import AdminReservations from './pages/AdminReservations';
 import AdminReports from './pages/AdminReports';
 import AdminUsers from './pages/AdminUsers';
 import AdminSettings from './pages/AdminSettings';
+import AdminRoute from './components/auth/AdminRoute';
 import './index.css';
 
 function ProfileCheckWrapper({ children }: { children: React.ReactNode }) {
@@ -54,13 +55,13 @@ function App() {
       <ProfileCheckWrapper>
         <Routes>
         <Route path="/profile" element={<ProfilePage />} />
-        {/* Admin Dashboard Routes */}
-        <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="/admin/monitoring" element={<AdminMonitoring />} />
-        <Route path="/admin/reservations" element={<AdminReservations />} />
-        <Route path="/admin/reports" element={<AdminReports />} />
-        <Route path="/admin/users" element={<AdminUsers />} />
-        <Route path="/admin/settings" element={<AdminSettings />} />
+        {/* Admin Dashboard Routes — Admin role only */}
+        <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+        <Route path="/admin/monitoring" element={<AdminRoute><AdminMonitoring /></AdminRoute>} />
+        <Route path="/admin/reservations" element={<AdminRoute><AdminReservations /></AdminRoute>} />
+        <Route path="/admin/reports" element={<AdminRoute><AdminReports /></AdminRoute>} />
+        <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
+        <Route path="/admin/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />
 
         <Route path="/" element={<LandingPage />} />
         <Route path="/status" element={<ParkingStatus />} />
