@@ -4,6 +4,7 @@ import { AlertCircle } from 'lucide-react';
 import api from '../../services/api';
 import { useGoogleLogin } from '@react-oauth/google';
 import BrandLogo from '../../components/brand/BrandLogo';
+import { syncCurrentUserFromApi } from '../../utils/auth';
 
 const LoginPage = () => {
   const [loading, setLoading] = useState(false);
@@ -66,8 +67,7 @@ const LoginPage = () => {
       localStorage.setItem('token', accessToken);
       localStorage.setItem('user', JSON.stringify(user));
 
-      // Notify Navbar to update
-      window.dispatchEvent(new Event('user-login'));
+      await syncCurrentUserFromApi(api);
 
       setLoading(false);
       navigate('/profile');
