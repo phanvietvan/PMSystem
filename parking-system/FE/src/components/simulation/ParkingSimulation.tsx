@@ -1,6 +1,6 @@
 import React, { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, PerspectiveCamera, Environment, ContactShadows, SoftShadows } from '@react-three/drei';
+import { OrbitControls, PerspectiveCamera, Environment, SoftShadows } from '@react-three/drei';
 import { EffectComposer, Bloom, Noise, Vignette, ChromaticAberration } from '@react-three/postprocessing';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as THREE from 'three';
@@ -46,7 +46,7 @@ const ParkingSimulation: React.FC<ParkingSimulationProps> = ({ selectedLevel }) 
           <ParkingFloor3D level={selectedLevel} />
 
           {/* Post Processing - The secret to "Wow" */}
-          <EffectComposer disableNormalPass>
+          <EffectComposer enableNormalPass={false}>
             <Bloom luminanceThreshold={1} mipmapBlur intensity={1.5} radius={0.4} />
             <Noise opacity={0.05} />
             <Vignette eskil={false} offset={0.1} darkness={1.1} />

@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 import ParkingMap from '../components/navigation/ParkingMap';
-import { ArrowRight, Calendar, Clock, Car, ChevronRight } from 'lucide-react';
+import { ArrowRight, Calendar, Clock, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const ReservationPage = () => {
   const navigate = useNavigate();
-  const [user, setUser] = useState<any>(null);
+  const [, setUser] = useState<any>(null);
   const [formData, setFormData] = useState({
     date: '2024-05-13',
     startTime: '',
@@ -42,7 +42,7 @@ const ReservationPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-blue-100">
+    <div className="min-h-screen bg-mesh-gradient text-slate-800 font-sans selection:bg-blue-100">
       <style dangerouslySetInnerHTML={{ __html: `
         .glass-card {
           background: rgba(255, 255, 255, 0.95);
@@ -231,7 +231,7 @@ const ReservationPage = () => {
       </main>
 
       <footer className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-center border-t border-slate-100 mt-12">
-        <p className="text-slate-400 text-xs font-medium tracking-wide">© 2024 ParkIntel Smart Parking Solutions. All rights reserved.</p>
+        <p className="text-slate-400 text-xs font-medium tracking-wide">© 2024 PM System Smart Parking Solutions. All rights reserved.</p>
       </footer>
     </div>
   );

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Clock, ShieldCheck, CreditCard, LogOut, Info, Zap } from 'lucide-react';
+import { ShieldCheck, CreditCard, LogOut, Info, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 
@@ -25,7 +25,7 @@ const ActiveSessionPage = () => {
   const estimatedFee = Math.max(10000, Math.floor(seconds / 60) * 500 + 10000);
 
   return (
-    <div className="min-h-screen mesh-bg selection:bg-primary/10 relative">
+    <div className="min-h-screen bg-mesh-gradient selection:bg-primary/10 relative">
       <Navbar />
 
       <main className="max-w-4xl mx-auto px-6 pt-32 pb-20 relative z-10">

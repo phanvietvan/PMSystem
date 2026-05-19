@@ -1,29 +1,14 @@
-import React, { useState } from 'react';
-import { 
-  LayoutDashboard, 
-  CalendarDays, 
-  Map as MapIcon, 
-  BarChart3, 
-  Users, 
-  Settings, 
-  HelpCircle, 
-  LogOut, 
+import { useState } from 'react';
+import {
   Car,
   Bell,
   Lock,
   Globe,
-  Database,
-  CreditCard,
-  Smartphone,
-  Save,
-  ChevronRight,
   ShieldCheck,
   Zap,
-  Menu,
-  Search
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import AdminLayout from '../components/admin/AdminLayout';
 
 const AdminSettings = () => {
   const [activeTab, setActiveTab] = useState('general');
@@ -36,103 +21,15 @@ const AdminSettings = () => {
     { id: 'api', label: 'IoT & API', icon: Zap },
   ];
 
-  const navLinks = [
-    { name: 'Dashboard', icon: LayoutDashboard, path: '/admin' },
-    { name: 'Reservations', icon: CalendarDays, path: '/admin/reservations' },
-    { name: 'Live Monitoring', icon: MapIcon, path: '/admin/monitoring' },
-    { name: 'Reports', icon: BarChart3, path: '/admin/reports' },
-    { name: 'User Management', icon: Users, path: '/admin/users' },
-    { name: 'Settings', icon: Settings, path: '/admin/settings', active: true },
-  ];
 
   return (
-    <div className="bg-[#f8f9fb] text-[#191c1e] min-h-screen flex font-['Plus_Jakarta_Sans',sans-serif]">
-      {/* SideNavBar */}
-      <aside className="hidden md:flex flex-col h-screen py-8 sticky left-0 top-0 bg-white border-r border-slate-200 w-[280px] z-50 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
-        <div className="px-8 mb-10 group cursor-pointer">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="w-11 h-11 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/30 transition-transform group-hover:rotate-6">
-              <span className="text-white font-black text-2xl">P</span>
-            </div>
-            <div>
-              <h1 className="text-xl font-extrabold text-slate-900 tracking-tighter">ParkIntel</h1>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Command Center</p>
-            </div>
-          </Link>
-        </div>
-
-        <nav className="flex-1 px-4 space-y-1.5">
-          {navLinks.map((link) => (
-            <Link 
-              key={link.name}
-              to={link.path} 
-              className={`flex items-center gap-3.5 px-5 py-3.5 rounded-xl transition-all duration-300 group
-                ${link.active 
-                  ? 'bg-blue-50 text-blue-600 shadow-sm shadow-blue-600/5' 
-                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
-            >
-              <link.icon className={`w-5 h-5 transition-transform group-hover:scale-110 ${link.active ? 'text-blue-600' : 'text-slate-400'}`} />
-              <span className={`text-sm ${link.active ? 'font-bold' : 'font-semibold'}`}>{link.name}</span>
-            </Link>
-          ))}
-        </nav>
-
-        <div className="px-4 mt-auto space-y-6">
-           <div className="space-y-1">
-            <Link to="#" className="flex items-center gap-3 px-5 py-3 text-slate-500 text-sm hover:text-blue-600 transition-colors font-bold group">
-              <HelpCircle className="w-5 h-5 text-slate-400 group-hover:text-blue-600" />
-              <span>Help Center</span>
-            </Link>
-            <Link to="/" className="flex items-center gap-3 px-5 py-3 text-red-500 text-sm hover:text-red-600 transition-colors font-bold group">
-              <LogOut className="w-5 h-5 text-red-400 group-hover:text-red-600" />
-              <span>Logout</span>
-            </Link>
-          </div>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 min-w-0 bg-[#f8f9fb]">
-        {/* Top Header */}
-        <header className="flex justify-between items-center h-20 px-10 w-full sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-slate-200">
-           <div className="flex items-center gap-4 bg-slate-100/80 px-4 py-2.5 rounded-2xl border border-slate-200 w-80 focus-within:ring-2 focus-within:ring-blue-600/20 transition-all">
-              <Search className="text-slate-400 w-4.5 h-4.5" />
-              <input className="bg-transparent border-none focus:ring-0 text-sm text-slate-900 w-full p-0 placeholder:text-slate-400" placeholder="Tìm kiếm cài đặt..." type="text"/>
-            </div>
-
-          <div className="flex items-center gap-5">
-             <button className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 mr-4">
-                <Save className="w-4 h-4" />
-                Lưu Tất cả
-             </button>
-             <Link 
-              to="/"
-              className="w-10 h-10 flex items-center justify-center bg-white hover:bg-blue-50 text-blue-600 rounded-full transition-all duration-300 font-black text-sm border border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-0.5"
-              title="Quay lại trang chủ"
-            >
-              W
-            </Link>
-            <div className="flex items-center gap-3 bg-slate-50 p-1.5 pr-4 rounded-full border border-slate-200">
-              <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 overflow-hidden">
-                 <img alt="Admin" className="h-full w-full object-cover" src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=100&h=100"/>
-              </div>
-              <div className="hidden sm:block text-left">
-                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight leading-none mb-0.5">Quản trị viên</p>
-                 <p className="text-xs font-bold text-slate-900 leading-none">Admin ParkIntel</p>
-              </div>
-              <Link to="/" className="ml-2 p-2 hover:bg-red-50 hover:text-red-500 text-slate-400 rounded-full transition-colors" title="Đăng xuất">
-                 <LogOut size={16} />
-              </Link>
-            </div>
-          </div>
-        </header>
-
-        {/* Page Content */}
+    <AdminLayout>
+      {/* Page Content */}
         <div className="p-10">
           <div className="max-w-5xl mx-auto">
              <div className="mb-10">
                 <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Cài đặt Hệ thống</h2>
-                <p className="text-sm text-slate-500 font-medium">Quản lý cấu hình vận hành, bảo mật và tích hợp IoT của ParkIntel.</p>
+                <p className="text-sm text-slate-500 font-medium">Quản lý cấu hình vận hành, bảo mật và tích hợp IoT của PM System.</p>
              </div>
 
              <div className="flex flex-col lg:flex-row gap-10">
@@ -157,7 +54,7 @@ const AdminSettings = () => {
 
                    <div className="mt-8 p-8 bg-slate-900 rounded-3xl text-white relative overflow-hidden shadow-xl shadow-slate-900/30">
                       <div className="relative z-10">
-                         <h4 className="font-black text-lg mb-2">ParkIntel v2.5</h4>
+                         <h4 className="font-black text-lg mb-2">PM System v2.5</h4>
                          <p className="text-xs text-white/50 leading-relaxed mb-6">Bạn đang sử dụng phiên bản mới nhất của hệ thống quản trị.</p>
                          <div className="flex items-center gap-2 text-emerald-400 text-[10px] font-black uppercase tracking-widest">
                             <ShieldCheck className="w-4 h-4" /> Hệ thống bảo mật
@@ -177,7 +74,7 @@ const AdminSettings = () => {
                                <div className="grid grid-cols-2 gap-6">
                                   <div>
                                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5">Tên Bãi đỗ xe</label>
-                                     <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:ring-2 focus:ring-blue-600/20 outline-none transition-all" defaultValue="ParkIntel Central Tower" />
+                                     <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:ring-2 focus:ring-blue-600/20 outline-none transition-all" defaultValue="PM System Central Tower" />
                                   </div>
                                   <div>
                                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5">Mã cơ sở (ID)</label>
@@ -281,8 +178,7 @@ const AdminSettings = () => {
              </div>
           </div>
         </div>
-      </main>
-    </div>
+    </AdminLayout>
   );
 };
 

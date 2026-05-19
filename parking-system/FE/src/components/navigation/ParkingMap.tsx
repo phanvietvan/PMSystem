@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap, LayersControl } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { Navigation, Compass, Layers } from "lucide-react";
 import RoutingMachine from "./RoutingMachine";
 
 const { BaseLayer } = LayersControl;
@@ -29,12 +28,6 @@ const parkingIcon = new L.Icon({
   popupAnchor: [0, -36],
 });
 
-const carIcon = new L.Icon({
-  iconUrl: "https://cdn-icons-png.flaticon.com/512/744/744465.png",
-  iconSize: [32, 32],
-  iconAnchor: [16, 16],
-});
-
 const FitBounds = ({ userLoc, destLoc }: { userLoc: any, destLoc: any }) => {
   const map = useMap();
   useEffect(() => {
@@ -55,7 +48,7 @@ const ParkingMap = ({ selectedDestination, allParkingLots }: { selectedDestinati
   // Local state for destination, initialized by prop or fallback
   const [destination, setDestination] = useState(selectedDestination || {
     id: 1,
-    name: "Bãi đỗ xe ParkIntel - Landmark 81",
+    name: "Bãi đỗ xe PM System - Landmark 81",
     latitude: "10.7949",
     longitude: "106.7218",
   });

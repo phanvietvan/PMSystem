@@ -1,29 +1,10 @@
-import React from 'react';
-import { 
-  LayoutDashboard, 
-  CalendarDays, 
-  Map as MapIcon, 
-  BarChart3, 
-  Users, 
-  Settings, 
-  HelpCircle, 
-  LogOut, 
-  FileText,
-  Table as TableIcon,
-  Calendar,
+import {
   TrendingUp,
   Leaf,
   ShieldCheck,
   MoreVertical,
-  ChevronDown,
-  Menu,
-  Car,
-  Bell,
-  Search,
-  User
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import AdminLayout from '../components/admin/AdminLayout';
 
 const AdminReports = () => {
   console.log("AdminReports rendered");
@@ -52,105 +33,10 @@ const AdminReports = () => {
     { id: 'D1', name: 'Khu D1 - VIP', count: '420', revenue: '25,8tr ₫' },
   ];
 
-  const navLinks = [
-    { name: 'Dashboard', icon: LayoutDashboard, path: '/admin' },
-    { name: 'Reservations', icon: CalendarDays, path: '/admin/reservations' },
-    { name: 'Live Monitoring', icon: MapIcon, path: '/admin/monitoring' },
-    { name: 'Reports', icon: BarChart3, path: '/admin/reports', active: true },
-    { name: 'User Management', icon: Users, path: '/admin/users' },
-    { name: 'Settings', icon: Settings, path: '/admin/settings' },
-  ];
 
   return (
-    <div className="bg-[#f8f9fb] text-[#191c1e] min-h-screen flex font-['Plus_Jakarta_Sans',sans-serif]">
-      {/* SideNavBar */}
-      <aside className="hidden md:flex flex-col h-screen py-8 sticky left-0 top-0 bg-white border-r border-slate-200 w-[280px] z-50 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
-        <div className="px-8 mb-10 group cursor-pointer">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="w-11 h-11 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/30 transition-transform group-hover:rotate-6">
-              <span className="text-white font-black text-2xl">P</span>
-            </div>
-            <div>
-              <h1 className="text-xl font-extrabold text-slate-900 tracking-tighter">ParkIntel</h1>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Command Center</p>
-            </div>
-          </Link>
-        </div>
-
-        <nav className="flex-1 px-4 space-y-1.5">
-          {navLinks.map((link) => (
-            <Link 
-              key={link.name}
-              to={link.path} 
-              className={`flex items-center gap-3.5 px-5 py-3.5 rounded-xl transition-all duration-300 group
-                ${link.active 
-                  ? 'bg-blue-50 text-blue-600 shadow-sm shadow-blue-600/5' 
-                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
-            >
-              <link.icon className={`w-5 h-5 transition-transform group-hover:scale-110 ${link.active ? 'text-blue-600' : 'text-slate-400'}`} />
-              <span className={`text-sm ${link.active ? 'font-bold' : 'font-semibold'}`}>{link.name}</span>
-            </Link>
-          ))}
-        </nav>
-
-        <div className="px-4 mt-auto space-y-6">
-           <div className="space-y-1">
-            <Link to="#" className="flex items-center gap-3 px-5 py-3 text-slate-500 text-sm hover:text-blue-600 transition-colors font-bold group">
-              <HelpCircle className="w-5 h-5 text-slate-400 group-hover:text-blue-600" />
-              <span>Help Center</span>
-            </Link>
-            <Link to="/" className="flex items-center gap-3 px-5 py-3 text-red-500 text-sm hover:text-red-600 transition-colors font-bold group">
-              <LogOut className="w-5 h-5 text-red-400 group-hover:text-red-600" />
-              <span>Logout</span>
-            </Link>
-          </div>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 min-w-0 bg-[#f8f9fb]">
-        {/* Top Header */}
-        <header className="flex justify-between items-center h-20 px-10 w-full sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-slate-200">
-          <div className="flex items-center gap-6">
-            <h2 className="text-xl font-bold text-slate-900">Báo cáo & Phân tích</h2>
-            <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100">
-               <Calendar className="w-3 h-3 text-blue-600" />
-               <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Tháng 5, 2024</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all">
-               <FileText className="w-4 h-4 text-red-500" />
-               Xuất PDF
-            </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all mr-4">
-               <TableIcon className="w-4 h-4 text-emerald-500" />
-               Xuất Excel
-            </button>
-            <Link 
-              to="/"
-              className="w-10 h-10 flex items-center justify-center bg-white hover:bg-blue-50 text-blue-600 rounded-full transition-all duration-300 font-black text-sm border border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-0.5"
-              title="Quay lại trang chủ"
-            >
-              W
-            </Link>
-            <div className="flex items-center gap-3 bg-slate-50 p-1.5 pr-4 rounded-full border border-slate-200">
-              <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 overflow-hidden">
-                 <img alt="Admin" className="h-full w-full object-cover" src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=100&h=100"/>
-              </div>
-              <div className="hidden sm:block text-left">
-                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight leading-none mb-0.5">Quản trị viên</p>
-                 <p className="text-xs font-bold text-slate-900 leading-none">Admin ParkIntel</p>
-              </div>
-              <Link to="/" className="ml-2 p-2 hover:bg-red-50 hover:text-red-500 text-slate-400 rounded-full transition-colors" title="Đăng xuất">
-                 <LogOut size={16} />
-              </Link>
-            </div>
-          </div>
-        </header>
-
-        {/* Page Content */}
+    <AdminLayout>
+      {/* Page Content */}
         <div className="p-10 space-y-8">
            {/* Summary Cards */}
            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -286,8 +172,7 @@ const AdminReports = () => {
               </div>
            </div>
         </div>
-      </main>
-    </div>
+    </AdminLayout>
   );
 };
 
