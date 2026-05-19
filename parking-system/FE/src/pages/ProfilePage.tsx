@@ -202,7 +202,7 @@ const ProfilePage = () => {
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   required
-                  className="premium-input block w-full px-5 py-2.5 rounded-full border border-outline-variant focus:outline-none transition-all text-xs font-medium"
+                  className="premium-input block w-full px-5 py-2.5 rounded-full focus:outline-none transition-all text-xs font-medium"
                 />
               </div>
 
@@ -214,7 +214,7 @@ const ProfilePage = () => {
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
                   required
-                  className="premium-input block w-full px-5 py-2.5 rounded-full border border-outline-variant focus:outline-none transition-all text-xs font-medium"
+                  className="premium-input block w-full px-5 py-2.5 rounded-full focus:outline-none transition-all text-xs font-medium"
                 />
               </div>
             </div>
@@ -232,7 +232,7 @@ const ProfilePage = () => {
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
                   required
-                  className="premium-input block w-full pl-10 pr-4 py-2.5 rounded-full border border-outline-variant focus:outline-none transition-all text-xs font-medium"
+                  className="premium-input block w-full pl-10 pr-4 py-2.5 rounded-full focus:outline-none transition-all text-xs font-medium"
                 />
               </div>
             </div>
@@ -251,7 +251,7 @@ const ProfilePage = () => {
                     value={licensePlate}
                     onChange={(e) => setLicensePlate(e.target.value)}
                     required
-                    className="premium-input block w-full pl-10 pr-4 py-2.5 rounded-full border border-outline-variant focus:outline-none transition-all text-xs font-medium"
+                    className="premium-input block w-full pl-10 pr-4 py-2.5 rounded-full focus:outline-none transition-all text-xs font-medium"
                   />
                 </div>
               </div>
@@ -266,7 +266,7 @@ const ProfilePage = () => {
                     value={vehicleType}
                     onChange={(e) => setVehicleType(e.target.value)}
                     required
-                    className="premium-input block w-full pl-10 pr-4 py-2.5 rounded-full border border-outline-variant focus:outline-none transition-all text-xs font-medium appearance-none bg-white cursor-pointer"
+                    className="premium-input block w-full pl-10 pr-4 py-2.5 rounded-full focus:outline-none transition-all text-xs font-medium appearance-none bg-white cursor-pointer"
                   >
                     <option value="Car">Ô tô (Car)</option>
                     <option value="Motorbike">Xe máy (Motorbike)</option>
@@ -289,7 +289,7 @@ const ProfilePage = () => {
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   required
-                  className="premium-input block w-full pl-10 pr-4 py-2.5 rounded-full border border-outline-variant focus:outline-none transition-all text-xs font-medium"
+                  className="premium-input block w-full pl-10 pr-4 py-2.5 rounded-full focus:outline-none transition-all text-xs font-medium"
                 />
               </div>
             </div>
