@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import BrandLogo from '../../components/brand/BrandLogo';
 import { Link, useNavigate } from 'react-router-dom';
 
 
@@ -21,28 +22,16 @@ const ForgotPasswordPage = () => {
   };
 
   return (
-    <main className="flex min-h-screen w-full relative overflow-hidden mesh-bg font-sans antialiased text-on-surface">
+    <main className="flex min-h-screen w-full relative overflow-hidden bg-mesh-gradient font-sans antialiased text-on-surface">
       {/* Decoration Elements */}
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/5 blur-[150px] rounded-full pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-secondary-container/20 blur-[150px] rounded-full pointer-events-none"></div>
 
       {/* Hero Section */}
       <section className="hidden lg:flex flex-col justify-between w-[55%] p-20 relative z-10">
-        <div className="flex items-center space-x-3 group">
-          <div className="w-12 h-12 logo-gradient rounded-xl flex items-center justify-center shadow-[0_8px_25px_rgba(0,102,255,0.25)] transition-transform duration-500 group-hover:rotate-12">
-            <span className="text-white font-display font-extrabold text-2xl tracking-tighter">P</span>
-          </div>
-          <div>
-            <h1 className="text-2xl font-display font-extrabold tracking-tight text-on-surface">ParkIntel</h1>
-            <div className="h-0.5 w-4 bg-primary-container rounded-full mt-[-2px]"></div>
-          </div>
-        </div>
+        <BrandLogo size="lg" asLink />
 
         <div className="max-w-2xl opacity-0 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-          <div className="inline-flex items-center space-x-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 mb-8">
-            <span className="material-symbols-outlined text-[16px] text-primary">security</span>
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary">Security Recovery</span>
-          </div>
           <h2 className="text-[72px] font-display font-extrabold leading-[1.05] tracking-tight mb-8 text-on-surface">
             Khôi phục<br/>
             <span className="text-primary">tài khoản của bạn.</span>
@@ -50,13 +39,6 @@ const ForgotPasswordPage = () => {
           <p className="text-on-surface-variant text-xl leading-relaxed max-w-lg font-medium">
             Đừng lo lắng, chúng tôi sẽ giúp bạn lấy lại mật khẩu chỉ trong vài phút thông qua quy trình xác thực an toàn.
           </p>
-        </div>
-
-        <div className="absolute top-1/2 right-12 -translate-y-1/2 w-[500px] h-[500px] pointer-events-none opacity-80">
-        <div className="w-full h-full bg-primary/5 rounded-3xl border border-primary/10 flex items-center justify-center">
-          <span className="material-symbols-outlined text-6xl text-primary/20">directions_car</span>
-        </div>
-
         </div>
       </section>
 

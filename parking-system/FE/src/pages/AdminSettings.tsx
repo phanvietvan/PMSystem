@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import BrandLogo from '../components/brand/BrandLogo';
 import { 
   LayoutDashboard, 
   CalendarDays, 
@@ -49,16 +50,8 @@ const AdminSettings = () => {
     <div className="bg-[#f8f9fb] text-[#191c1e] min-h-screen flex font-['Plus_Jakarta_Sans',sans-serif]">
       {/* SideNavBar */}
       <aside className="hidden md:flex flex-col h-screen py-8 sticky left-0 top-0 bg-white border-r border-slate-200 w-[280px] z-50 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
-        <div className="px-8 mb-10 group cursor-pointer">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="w-11 h-11 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/30 transition-transform group-hover:rotate-6">
-              <span className="text-white font-black text-2xl">P</span>
-            </div>
-            <div>
-              <h1 className="text-xl font-extrabold text-slate-900 tracking-tighter">ParkIntel</h1>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Command Center</p>
-            </div>
-          </Link>
+        <div className="px-8 mb-10">
+          <BrandLogo asLink size="sm" showTagline tagline="Command Center" />
         </div>
 
         <nav className="flex-1 px-4 space-y-1.5">
@@ -118,7 +111,7 @@ const AdminSettings = () => {
               </div>
               <div className="hidden sm:block text-left">
                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight leading-none mb-0.5">Quản trị viên</p>
-                 <p className="text-xs font-bold text-slate-900 leading-none">Admin ParkIntel</p>
+                 <p className="text-xs font-bold text-slate-900 leading-none">Admin PM System</p>
               </div>
               <Link to="/" className="ml-2 p-2 hover:bg-red-50 hover:text-red-500 text-slate-400 rounded-full transition-colors" title="Đăng xuất">
                  <LogOut size={16} />
@@ -132,7 +125,7 @@ const AdminSettings = () => {
           <div className="max-w-5xl mx-auto">
              <div className="mb-10">
                 <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Cài đặt Hệ thống</h2>
-                <p className="text-sm text-slate-500 font-medium">Quản lý cấu hình vận hành, bảo mật và tích hợp IoT của ParkIntel.</p>
+                <p className="text-sm text-slate-500 font-medium">Quản lý cấu hình vận hành, bảo mật và tích hợp IoT của PM System.</p>
              </div>
 
              <div className="flex flex-col lg:flex-row gap-10">
@@ -157,7 +150,7 @@ const AdminSettings = () => {
 
                    <div className="mt-8 p-8 bg-slate-900 rounded-3xl text-white relative overflow-hidden shadow-xl shadow-slate-900/30">
                       <div className="relative z-10">
-                         <h4 className="font-black text-lg mb-2">ParkIntel v2.5</h4>
+                         <h4 className="font-black text-lg mb-2">PM System v2.5</h4>
                          <p className="text-xs text-white/50 leading-relaxed mb-6">Bạn đang sử dụng phiên bản mới nhất của hệ thống quản trị.</p>
                          <div className="flex items-center gap-2 text-emerald-400 text-[10px] font-black uppercase tracking-widest">
                             <ShieldCheck className="w-4 h-4" /> Hệ thống bảo mật
@@ -177,7 +170,7 @@ const AdminSettings = () => {
                                <div className="grid grid-cols-2 gap-6">
                                   <div>
                                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5">Tên Bãi đỗ xe</label>
-                                     <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:ring-2 focus:ring-blue-600/20 outline-none transition-all" defaultValue="ParkIntel Central Tower" />
+                                     <input type="text" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 focus:ring-2 focus:ring-blue-600/20 outline-none transition-all" defaultValue="PM System Central Tower" />
                                   </div>
                                   <div>
                                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5">Mã cơ sở (ID)</label>

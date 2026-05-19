@@ -21,7 +21,7 @@ const GateScanPage = () => {
   };
 
   return (
-    <div className="min-h-screen mesh-bg selection:bg-primary/10 relative">
+    <div className="min-h-screen bg-mesh-gradient selection:bg-primary/10 relative">
       <Navbar />
 
       <main className="max-w-2xl mx-auto px-6 pt-32 pb-20 relative z-10 text-center">
@@ -101,7 +101,7 @@ const GateScanPage = () => {
                 </div>
                 <div>
                   <h2 className="text-4xl font-display font-black text-emerald-600 mb-2 tracking-tighter">Barrier Đã Mở</h2>
-                  <p className="text-on-surface-variant text-sm font-bold">Chào mừng bạn đến với ParkIntel Landmark 81</p>
+                  <p className="text-on-surface-variant text-sm font-bold">Chào mừng bạn đến với PM System Landmark 81</p>
                 </div>
                 <div className="bg-surface-container rounded-2xl p-6 border border-outline-variant/10 text-left space-y-3">
                    <div className="flex justify-between items-center">
