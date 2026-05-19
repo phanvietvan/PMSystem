@@ -7,17 +7,20 @@ import Navbar from '../components/layout/Navbar';
 const PaymentPage = () => {
   const navigate = useNavigate();
 
+  const selectedSlot = localStorage.getItem('selectedSlot') || 'A3';
+  const selectedLevel = localStorage.getItem('selectedLevel') || '3';
+
   const orderSummary = {
     date: '15/05/2024',
     time: '08:30 AM',
-    slot: 'A3',
-    level: '03',
+    slot: selectedSlot,
+    level: selectedLevel.padStart(2, '0'),
     plate: '51F-123.45',
     price: 50000
   };
 
   return (
-    <div className="min-h-screen mesh-bg selection:bg-primary/10 relative">
+    <div className="min-h-screen bg-mesh-gradient selection:bg-primary/10 relative">
       <Navbar />
 
       <main className="max-w-4xl mx-auto px-6 pt-32 pb-20 relative z-10">
@@ -58,7 +61,7 @@ const PaymentPage = () => {
             <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100 flex items-start gap-3">
               <ShieldCheck className="w-5 h-5 text-emerald-500 mt-0.5" />
               <p className="text-[11px] text-emerald-700 font-medium leading-relaxed">
-                Thông tin thanh toán của bạn được mã hóa 256-bit SSL. ParkIntel không lưu trữ dữ liệu thẻ trực tiếp.
+                Thông tin thanh toán của bạn được mã hóa 256-bit SSL. PM System không lưu trữ dữ liệu thẻ trực tiếp.
               </p>
             </div>
           </div>

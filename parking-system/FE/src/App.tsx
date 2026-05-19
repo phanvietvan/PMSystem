@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import ParkingStatus from './pages/ParkingStatus';
 import ReservationPage from './pages/ReservationPage';
@@ -7,6 +8,8 @@ import SuccessPage from './pages/SuccessPage';
 import GateScanPage from './pages/GateScanPage';
 import NavigationPage from './pages/NavigationPage';
 import ActiveSessionPage from './pages/ActiveSessionPage';
+import ContactPage from './pages/ContactPage';
+import ProfilePage from './pages/ProfilePage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
@@ -18,10 +21,39 @@ import AdminUsers from './pages/AdminUsers';
 import AdminSettings from './pages/AdminSettings';
 import './index.css';
 
+function ProfileCheckWrapper({ children }: { children: React.ReactNode }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        const isForceUpdate = 
+          !user.firstName || !user.lastName || 
+          !user.phoneNumber || !user.licensePlate || 
+          !user.vehicleType || !user.address ||
+          user.firstName === 'Google' || user.lastName === 'User';
+        const publicAuthPaths = ['/login', '/register', '/forgot-password', '/profile'];
+        if (isForceUpdate && !publicAuthPaths.includes(location.pathname)) {
+          navigate('/profile');
+        }
+      } catch (e) {
+        console.error('Error parsing user in ProfileCheckWrapper', e);
+      }
+    }
+  }, [location.pathname, navigate]);
+
+  return <>{children}</>;
+}
+
 function App() {
   return (
     <Router>
-      <Routes>
+      <ProfileCheckWrapper>
+        <Routes>
+        <Route path="/profile" element={<ProfilePage />} />
         {/* Admin Dashboard Routes */}
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/admin/monitoring" element={<AdminMonitoring />} />
@@ -38,6 +70,7 @@ function App() {
         <Route path="/gate-scan" element={<GateScanPage />} />
         <Route path="/navigation" element={<NavigationPage />} />
         <Route path="/active-session" element={<ActiveSessionPage />} />
+        <Route path="/contact" element={<ContactPage />} />
         
         {/* Premium Auth Routes */}
         <Route path="/login" element={<LoginPage />} />
@@ -47,6 +80,7 @@ function App() {
         {/* Fallback */}
         <Route path="*" element={<LandingPage />} />
       </Routes>
+      </ProfileCheckWrapper>
     </Router>
   );
 }

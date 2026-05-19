@@ -1,4 +1,5 @@
 import React from 'react';
+import BrandLogo from '../components/brand/BrandLogo';
 import { 
   LayoutDashboard, 
   CalendarDays, 
@@ -56,16 +57,8 @@ const AdminReservations = () => {
     <div className="bg-[#f8f9fb] text-[#191c1e] min-h-screen flex font-['Plus_Jakarta_Sans',sans-serif]">
       {/* SideNavBar */}
       <aside className="hidden md:flex flex-col h-screen py-8 sticky left-0 top-0 bg-white border-r border-slate-200 w-[280px] z-50 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
-        <div className="px-8 mb-10 group cursor-pointer">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="w-11 h-11 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/30 transition-transform group-hover:rotate-6">
-              <span className="text-white font-black text-2xl">P</span>
-            </div>
-            <div>
-              <h1 className="text-xl font-extrabold text-slate-900 tracking-tighter">ParkIntel</h1>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Command Center</p>
-            </div>
-          </Link>
+        <div className="px-8 mb-10">
+          <BrandLogo asLink size="sm" showTagline tagline="Command Center" />
         </div>
 
         <nav className="flex-1 px-4 space-y-1.5">
@@ -128,7 +121,7 @@ const AdminReservations = () => {
               </div>
               <div className="hidden sm:block text-left">
                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight leading-none mb-0.5">Quản trị viên</p>
-                 <p className="text-xs font-bold text-slate-900 leading-none">Admin ParkIntel</p>
+                 <p className="text-xs font-bold text-slate-900 leading-none">Admin PM System</p>
               </div>
               <Link to="/" className="ml-2 p-2 hover:bg-red-50 hover:text-red-500 text-slate-400 rounded-full transition-colors" title="Đăng xuất">
                  <LogOut size={16} />
