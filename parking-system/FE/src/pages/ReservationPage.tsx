@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 import ParkingMap from '../components/navigation/ParkingMap';
-import { ArrowRight, Calendar, Clock, Car, ChevronRight } from 'lucide-react';
+import { ArrowRight, Calendar, Clock, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const ReservationPage = () => {
   const navigate = useNavigate();
-  const [user, setUser] = useState<any>(null);
+  const [, setUser] = useState<any>(null);
   const [formData, setFormData] = useState({
     date: '2024-05-13',
     startTime: '',

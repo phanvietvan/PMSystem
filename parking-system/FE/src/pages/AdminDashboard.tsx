@@ -1,4 +1,3 @@
-import React from 'react';
 import { 
   CalendarDays, 
   TrendingUp, 
@@ -109,7 +108,7 @@ const AdminDashboard = () => {
                 <svg className="w-48 h-48 transform -rotate-90">
                   <circle cx="96" cy="96" r="80" stroke="currentColor" strokeWidth="24" fill="transparent" className="text-slate-50" />
                   <circle cx="96" cy="96" r="80" stroke="currentColor" strokeWidth="24" fill="transparent" strokeDasharray={`${2*Math.PI*80}`} strokeDashoffset={`${2*Math.PI*80*(1-0.6)}`} className="text-blue-600" />
-                  <circle cx="96" cy="96" r="80" stroke="currentColor" strokeWidth="24" fill="transparent" strokeDasharray={`${2*Math.PI*80}`} strokeDashoffset={`${2*Math.PI*80*(1-0.25)}`} strokeDashoffset={-2*Math.PI*80*0.6} className="text-emerald-500" />
+                  <circle cx="96" cy="96" r="80" stroke="currentColor" strokeWidth="24" fill="transparent" strokeDasharray={`${2*Math.PI*80}`} strokeDashoffset={-2*Math.PI*80*0.6} className="text-emerald-500" />
                 </svg>
                 <div className="absolute flex flex-col items-center">
                   <span className="text-3xl font-black text-slate-900">542</span>

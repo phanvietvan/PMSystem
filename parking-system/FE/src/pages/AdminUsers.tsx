@@ -1,33 +1,17 @@
 import AdminLayout from '../components/admin/AdminLayout';
-import React, { useState, useEffect, useMemo } from 'react';
-import BrandLogo from '../components/brand/BrandLogo';
+import { useState, useEffect, useMemo } from 'react';
 import { 
-  LayoutDashboard, 
-  CalendarDays, 
-  Map as MapIcon, 
-  BarChart3, 
-  Users, 
-  Settings, 
-  HelpCircle, 
-  LogOut, 
-  Search, 
-  Bell,
-  Plus,
+  Users,
   UserPlus,
   MoreVertical,
   Edit,
-  Trash2,
   Shield,
   CheckCircle2,
-  XCircle,
   Clock,
-  Car,
-  Menu,
   ChevronLeft,
   ChevronRight,
   X,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import api from '../services/api';
 
 interface AppUser {

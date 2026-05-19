@@ -1,37 +1,16 @@
-import React from 'react';
-import BrandLogo from '../components/brand/BrandLogo';
-import { 
-  LayoutDashboard, 
-  CalendarDays, 
-  Map as MapIcon, 
-  BarChart3, 
-  Users, 
-  Settings, 
-  HelpCircle, 
-  LogOut, 
-  Bell, 
-  Search, 
-  TrendingUp, 
-  TrendingDown, 
-  Plus,
+import {
+  Search,
+  TrendingUp,
+  TrendingDown,
   Filter,
   FileDown,
   Eye,
   Edit,
   ChevronLeft,
   ChevronRight,
-  Info,
-  AlertTriangle,
-  CheckCircle2,
-  Menu,
-  MoreVertical,
-  Calendar,
   Car,
   Clock,
-  User
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import AdminLayout from '../components/admin/AdminLayout';
 
 const AdminReservations = () => {

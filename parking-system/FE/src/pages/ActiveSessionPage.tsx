@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Clock, ShieldCheck, CreditCard, LogOut, Info, Zap } from 'lucide-react';
+import { ShieldCheck, CreditCard, LogOut, Info, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 

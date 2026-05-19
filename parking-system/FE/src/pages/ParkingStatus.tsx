@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 
-/* ─── Types ─── */
+/* â”€â”€â”€ Types â”€â”€â”€ */
 type SlotStatus = 'available' | 'occupied' | 'reserved';
 
 interface ParkingSlot {
@@ -13,7 +13,7 @@ interface ParkingSlot {
   isBest?: boolean;
 }
 
-/* ─── Helpers ─── */
+/* â”€â”€â”€ Helpers â”€â”€â”€ */
 const generateSlots = (prefix: string, count: number, level: number): ParkingSlot[] => {
   return Array.from({ length: count }, (_, i) => {
     const seed = level * 100 + prefix.charCodeAt(0) * 10 + i;
@@ -39,79 +39,7 @@ const generateSlots = (prefix: string, count: number, level: number): ParkingSlo
 const countByStatus = (slots: ParkingSlot[], s: SlotStatus) =>
   slots.filter((sl) => sl.status === s).length;
 
-/* ─── Sub-components ─── */
-const StatusDot = ({ status }: { status: SlotStatus }) => {
-  if (status === 'occupied')
-    return (
-      <span className="material-symbols-outlined text-[28px] text-slate-500/80 animate-pulse" style={{ animationDuration: '4s' }}>
-        directions_car
-      </span>
-    );
-  if (status === 'reserved')
-    return <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]" />;
-  return <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" />;
-};
-
-const ParkingSlotCard = ({
-  slot,
-  isSelected,
-  onClick,
-}: {
-  slot: ParkingSlot;
-  isSelected: boolean;
-  onClick: () => void;
-}) => {
-  const borderClass =
-    isSelected
-      ? 'border-blue-600 bg-blue-50/50 shadow-[0_0_18px_rgba(37,99,235,0.3)] scale-[1.03] z-10'
-      : slot.status === 'occupied'
-      ? 'border-slate-200 bg-slate-100/50 opacity-90'
-      : slot.status === 'reserved'
-      ? 'border-blue-100 bg-blue-50/20 opacity-75'
-      : slot.isBest
-      ? 'border-amber-400 bg-amber-50/30 shadow-[0_0_14px_rgba(245,158,11,0.2)]'
-      : 'border-slate-200 bg-white hover:border-emerald-400 hover:shadow-md cursor-pointer';
-
-  const labelClass =
-    isSelected
-      ? 'text-blue-600 font-extrabold'
-      : slot.status === 'occupied'
-      ? 'text-slate-400'
-      : slot.status === 'reserved'
-      ? 'text-blue-400'
-      : slot.isBest
-      ? 'text-amber-600 font-bold'
-      : 'text-slate-600';
-
-  return (
-    <motion.div
-      whileHover={slot.status === 'available' ? { y: -2, scale: 1.02 } : {}}
-      onClick={slot.status === 'available' ? onClick : undefined}
-      className={`relative h-24 border-2 rounded-xl flex flex-col items-center justify-between py-2 px-1 transition-all duration-300 select-none
-        ${borderClass}
-        ${slot.status === 'available' ? 'cursor-pointer' : 'cursor-default'}`}
-    >
-      {slot.isBest && (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-amber-500 text-[8px] font-black text-white rounded-full whitespace-nowrap shadow-sm z-10">
-          VỊ TRÍ TỐT NHẤT
-        </div>
-      )}
-      <span className={`text-[10px] font-black tracking-widest ${labelClass}`}>{slot.id}</span>
-      <StatusDot status={slot.status} />
-      <div
-        className={`w-6 h-1 rounded-full ${
-          slot.status === 'occupied'
-            ? 'bg-slate-300'
-            : slot.status === 'reserved'
-            ? 'bg-blue-400'
-            : 'bg-emerald-500'
-        }`}
-      />
-    </motion.div>
-  );
-};
-
-/* ─── Main Page ─── */
+/* â”€â”€â”€ Main Page â”€â”€â”€ */
 const ParkingStatus: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -122,11 +50,11 @@ const ParkingStatus: React.FC = () => {
 
   const selectedParking = location.state?.selectedParking ||
     JSON.parse(localStorage.getItem('selectedParking') || 'null') ||
-    { name: 'Landmark 81 - Bãi đỗ A1', floor: 'Tầng 1', block: 'Block A' };
+    { name: 'Landmark 81 - BÃ£i Ä‘á»— A1', floor: 'Táº§ng 1', block: 'Block A' };
 
   useEffect(() => {
-    if (selectedParking.floor?.includes('Tầng')) {
-      const n = parseInt(selectedParking.floor.replace('Tầng ', ''));
+    if (selectedParking.floor?.includes('Táº§ng')) {
+      const n = parseInt(selectedParking.floor.replace('Táº§ng ', ''));
       if (!isNaN(n) && n <= 3) setSelectedLevel(n);
     }
   }, []);
@@ -162,18 +90,18 @@ const ParkingStatus: React.FC = () => {
   return (
     <div className="min-h-screen bg-mesh-gradient text-[#191c1e] selection:bg-blue-500/10" style={{ fontFamily: "'Manrope', sans-serif" }}>
 
-      {/* ── Navbar ── */}
+      {/* â”€â”€ Navbar â”€â”€ */}
       <Navbar />
 
       <div className="flex pt-20 min-h-screen">
 
-        {/* ── Sidebar ── */}
+        {/* â”€â”€ Sidebar â”€â”€ */}
         <aside className="fixed left-0 top-20 h-[calc(100vh-80px)] w-72 flex flex-col z-40 bg-[#f2f4f6] border-r border-slate-200 px-6 py-8 overflow-y-auto">
           <div className="flex flex-col gap-10 flex-1">
 
             {/* Floor selector */}
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-4">Chọn tầng</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-4">Chá»n táº§ng</p>
               <div className="space-y-2">
                 {floors.map((f) => {
                   const active = selectedLevel === f;
@@ -200,19 +128,19 @@ const ParkingStatus: React.FC = () => {
 
             {/* Legend */}
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-4">Chú thích</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-4">ChÃº thÃ­ch</p>
               <div className="space-y-4 px-1">
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                  <span className="text-[13px] text-slate-600">Đang trống</span>
+                  <span className="text-[13px] text-slate-600">Äang trá»‘ng</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="material-symbols-outlined text-[18px] text-slate-400">directions_car</span>
-                  <span className="text-[13px] text-slate-600">Xe đang đỗ</span>
+                  <span className="text-[13px] text-slate-600">Xe Ä‘ang Ä‘á»—</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
-                  <span className="text-[13px] text-slate-600">Đã được đặt</span>
+                  <span className="text-[13px] text-slate-600">ÄÃ£ Ä‘Æ°á»£c Ä‘áº·t</span>
                 </div>
               </div>
             </div>
@@ -229,12 +157,12 @@ const ParkingStatus: React.FC = () => {
                   <span className="w-1.5 h-1.5 rounded-full bg-white" /> LIVE
                 </div>
               </div>
-              <p className="mt-2 text-[11px] text-slate-400 text-center italic">Cam 04 • Gate Entrance</p>
+              <p className="mt-2 text-[11px] text-slate-400 text-center italic">Cam 04 â€¢ Gate Entrance</p>
             </div>
           </div>
         </aside>
 
-        {/* ── Main Content ── */}
+        {/* â”€â”€ Main Content â”€â”€ */}
         <main className="ml-72 flex-1 px-8 pt-4 pb-32 w-full">
           <div className="max-w-5xl mx-auto w-full">
 
@@ -246,21 +174,21 @@ const ParkingStatus: React.FC = () => {
             className="flex flex-col md:flex-row justify-between items-end mb-4 gap-6"
           >
             <div>
-              <h1 className="text-3xl font-extrabold text-[#000] mb-1 tracking-tight">Giám sát hạ tầng</h1>
+              <h1 className="text-3xl font-extrabold text-[#000] mb-1 tracking-tight">GiÃ¡m sÃ¡t háº¡ táº§ng</h1>
               <div className="flex items-center gap-2 text-slate-500">
                 <span className="material-symbols-outlined text-[17px] animate-spin" style={{ animationDuration: '3s' }}>sync</span>
-                <p className="text-[13px]">Hệ thống phân tích hình ảnh AI đồng bộ mỗi 2 giây.</p>
+                <p className="text-[13px]">Há»‡ thá»‘ng phÃ¢n tÃ­ch hÃ¬nh áº£nh AI Ä‘á»“ng bá»™ má»—i 2 giÃ¢y.</p>
               </div>
             </div>
 
             {/* Quick stats */}
             <div className="flex gap-6">
               <div className="bg-white border border-slate-100 p-4 rounded-xl shadow-sm flex flex-col min-w-[130px]">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Còn trống</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">CÃ²n trá»‘ng</span>
                 <span className="text-2xl font-extrabold text-emerald-600 mt-1">{availableCount}</span>
               </div>
               <div className="bg-white border border-slate-100 p-4 rounded-xl shadow-sm flex flex-col min-w-[130px]">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Đang đỗ</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Äang Ä‘á»—</span>
                 <span className="text-2xl font-extrabold text-[#000] mt-1">{occupiedCount}</span>
               </div>
             </div>
@@ -277,14 +205,14 @@ const ParkingStatus: React.FC = () => {
             {/* Card header */}
             <div className="flex justify-between items-center mb-3">
               <div>
-                <h2 className="text-xl font-extrabold text-[#000]">Mặt bằng Tầng {selectedLevel}</h2>
+                <h2 className="text-xl font-extrabold text-[#000]">Máº·t báº±ng Táº§ng {selectedLevel}</h2>
                 <p className="text-[13px] text-slate-500 mt-0.5">
-                  {selectedParking.name.split(' - ')[0]} • {selectedParking.block}
+                  {selectedParking.name.split(' - ')[0]} â€¢ {selectedParking.block}
                 </p>
               </div>
               <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-full text-[11px] font-bold">
                 <span className="material-symbols-outlined text-[15px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                HỆ THỐNG ĐANG TRỰC TUYẾN
+                Há»† THá»NG ÄANG TRá»°C TUYáº¾N
               </div>
             </div>
 
@@ -296,9 +224,9 @@ const ParkingStatus: React.FC = () => {
                 {/* Outer Road Lane background */}
                 <rect x="30" y="220" width="740" height="60" rx="10" fill="#e2e8f0" opacity="0.6" />
                 
-                {/* Central Lobby Core (Sảnh thang máy) */}
+                {/* Central Lobby Core (Sáº£nh thang mÃ¡y) */}
                 <rect x="345" y="180" width="110" height="140" rx="15" fill="#ffffff" stroke="#e2e8f0" strokeWidth="1.5" />
-                <text x="400" y="235" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#64748b" letterSpacing="1">SẢNH THANG</text>
+                <text x="400" y="235" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#64748b" letterSpacing="1">Sáº¢NH THANG</text>
                 <text x="400" y="250" textAnchor="middle" fontSize="8" fill="#94a3b8">LIFT & STAIRS</text>
                 
                 {/* Icon symbols inside central lobby */}
@@ -492,15 +420,15 @@ const ParkingStatus: React.FC = () => {
               <div className="flex gap-4">
                 <button className="flex items-center gap-2 px-5 py-2.5 bg-slate-100 rounded-xl text-[#000] text-sm font-bold hover:bg-slate-200 transition-colors">
                   <span className="material-symbols-outlined text-[18px]">zoom_in</span>
-                  Phóng to sơ đồ
+                  PhÃ³ng to sÆ¡ Ä‘á»“
                 </button>
                 <button className="flex items-center gap-2 px-5 py-2.5 bg-slate-100 rounded-xl text-[#000] text-sm font-bold hover:bg-slate-200 transition-colors">
                   <span className="material-symbols-outlined text-[18px]">analytics</span>
-                  Xem báo cáo ngày
+                  Xem bÃ¡o cÃ¡o ngÃ y
                 </button>
               </div>
               <div className="flex items-center gap-2 text-slate-400 text-[11px]">
-                <span>Dữ liệu được mã hóa 256-bit AES</span>
+                <span>Dá»¯ liá»‡u Ä‘Æ°á»£c mÃ£ hÃ³a 256-bit AES</span>
                 <span className="material-symbols-outlined text-[15px]">lock</span>
               </div>
             </div>
@@ -509,7 +437,7 @@ const ParkingStatus: React.FC = () => {
         </main>
       </div>
 
-      {/* ── Floating Alert Button ── */}
+      {/* â”€â”€ Floating Alert Button â”€â”€ */}
       <AnimatePresence>
         {alertVisible && (
           <motion.div
@@ -527,15 +455,15 @@ const ParkingStatus: React.FC = () => {
                 <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border-2 border-[#131b2e]" />
               </div>
               <div className="text-left">
-                <p className="text-[10px] uppercase font-bold tracking-tight opacity-60">Thông báo mới nhất</p>
-                <p className="font-bold text-sm">Phát hiện đỗ sai vị trí tại Khu B</p>
+                <p className="text-[10px] uppercase font-bold tracking-tight opacity-60">ThÃ´ng bÃ¡o má»›i nháº¥t</p>
+                <p className="font-bold text-sm">PhÃ¡t hiá»‡n Ä‘á»— sai vá»‹ trÃ­ táº¡i Khu B</p>
               </div>
             </button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ── Slot Selection Bottom Sheet ── */}
+      {/* â”€â”€ Slot Selection Bottom Sheet â”€â”€ */}
       <AnimatePresence>
         {selectedSlot && (
           <motion.div
@@ -546,8 +474,8 @@ const ParkingStatus: React.FC = () => {
           >
             <div className="bg-slate-900 text-white px-10 py-5 rounded-full shadow-2xl flex items-center gap-8 border border-white/10 pointer-events-auto">
               <div className="flex flex-col">
-                <span className="text-[10px] font-black uppercase tracking-widest opacity-50">Vị trí đã chọn</span>
-                <span className="text-lg font-black tracking-tight">Tầng {selectedLevel} • Ô {selectedSlot}</span>
+                <span className="text-[10px] font-black uppercase tracking-widest opacity-50">Vá»‹ trÃ­ Ä‘Ã£ chá»n</span>
+                <span className="text-lg font-black tracking-tight">Táº§ng {selectedLevel} â€¢ Ã” {selectedSlot}</span>
               </div>
               <button
                 onClick={() => {
@@ -557,7 +485,7 @@ const ParkingStatus: React.FC = () => {
                 }}
                 className="bg-blue-600 text-white px-8 py-3 rounded-full font-bold hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
               >
-                Tiếp tục thanh toán
+                Tiáº¿p tá»¥c thanh toÃ¡n
                 <ArrowRight className="w-5 h-5" />
               </button>
             </div>
