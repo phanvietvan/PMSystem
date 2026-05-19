@@ -1,6 +1,5 @@
-import React from 'react';
 import BrandLogo from '../components/brand/BrandLogo';
-import { motion } from 'framer-motion';
+import { motion, type Variants } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useLottie } from 'lottie-react';
 import Navbar from '../components/layout/Navbar';
@@ -24,25 +23,25 @@ const LandingPage = () => {
     }
   };
 
-  const itemVariants = {
+  const itemVariants: Variants = {
     hidden: { opacity: 0, y: 30 },
     visible: {
       opacity: 1,
       y: 0,
       transition: {
         duration: 1,
-        ease: [0.22, 1, 0.36, 1]
+        ease: [0.22, 1, 0.36, 1] as const,
       }
     }
   };
 
-  const floatingVariants = {
+  const floatingVariants: Variants = {
     animate: {
       y: [0, -15, 0],
       transition: {
         duration: 5,
         repeat: Infinity,
-        ease: "easeInOut"
+        ease: 'easeInOut',
       }
     }
   };

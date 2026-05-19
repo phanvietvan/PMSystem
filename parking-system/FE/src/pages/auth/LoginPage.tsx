@@ -188,7 +188,7 @@ const LoginPage = () => {
                   </div>
                 </div>
                 <div className="text-right mt-1.5">
-                  <Link to="/forgot-password" size="sm" className="text-xs font-bold text-primary hover:text-primary-container transition-colors">Quên mật khẩu?</Link>
+                  <Link to="/forgot-password" className="text-xs font-bold text-primary hover:text-primary-container transition-colors">Quên mật khẩu?</Link>
                 </div>
               </div>
 

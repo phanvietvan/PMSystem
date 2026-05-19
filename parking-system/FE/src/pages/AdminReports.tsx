@@ -1,30 +1,9 @@
-import React from 'react';
-import BrandLogo from '../components/brand/BrandLogo';
-import { 
-  LayoutDashboard, 
-  CalendarDays, 
-  Map as MapIcon, 
-  BarChart3, 
-  Users, 
-  Settings, 
-  HelpCircle, 
-  LogOut, 
-  FileText,
-  Table as TableIcon,
-  Calendar,
+import {
   TrendingUp,
   Leaf,
   ShieldCheck,
   MoreVertical,
-  ChevronDown,
-  Menu,
-  Car,
-  Bell,
-  Search,
-  User
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import AdminLayout from '../components/admin/AdminLayout';
 
 const AdminReports = () => {

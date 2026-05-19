@@ -1,30 +1,12 @@
-import React from 'react';
-import BrandLogo from '../components/brand/BrandLogo';
-import { 
-  LayoutDashboard, 
-  CalendarDays, 
-  Map as MapIcon, 
-  BarChart3, 
-  Users, 
-  Settings, 
-  HelpCircle, 
-  LogOut, 
-  Bell, 
-  Search, 
+import {
+  LayoutDashboard,
   Camera,
-  Wifi,
   ShieldCheck,
   Zap,
   Activity,
   AlertTriangle,
   Play,
-  Maximize2,
-  Menu,
-  Car,
-  User
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import AdminLayout from '../components/admin/AdminLayout';
 
 const AdminMonitoring = () => {

@@ -1,29 +1,12 @@
-import React, { useState } from 'react';
-import BrandLogo from '../components/brand/BrandLogo';
-import { 
-  LayoutDashboard, 
-  CalendarDays, 
-  Map as MapIcon, 
-  BarChart3, 
-  Users, 
-  Settings, 
-  HelpCircle, 
-  LogOut, 
+import { useState } from 'react';
+import {
   Car,
   Bell,
   Lock,
   Globe,
-  Database,
-  CreditCard,
-  Smartphone,
-  Save,
-  ChevronRight,
   ShieldCheck,
   Zap,
-  Menu,
-  Search
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import AdminLayout from '../components/admin/AdminLayout';
 
