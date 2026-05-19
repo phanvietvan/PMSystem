@@ -50,11 +50,11 @@ const ParkingStatus: React.FC = () => {
 
   const selectedParking = location.state?.selectedParking ||
     JSON.parse(localStorage.getItem('selectedParking') || 'null') ||
-    { name: 'Landmark 81 - BÃ£i Ä‘á»— A1', floor: 'Táº§ng 1', block: 'Block A' };
+    { name: 'Landmark 81 - Bãi đỗ A1', floor: 'Tầng 1', block: 'Block A' };
 
   useEffect(() => {
-    if (selectedParking.floor?.includes('Táº§ng')) {
-      const n = parseInt(selectedParking.floor.replace('Táº§ng ', ''));
+    if (selectedParking.floor?.includes('Tầng')) {
+      const n = parseInt(selectedParking.floor.replace('Tầng ', ''));
       if (!isNaN(n) && n <= 3) setSelectedLevel(n);
     }
   }, []);
@@ -101,7 +101,7 @@ const ParkingStatus: React.FC = () => {
 
             {/* Floor selector */}
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-4">Chá»n táº§ng</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-4">Chọn tầng</p>
               <div className="space-y-2">
                 {floors.map((f) => {
                   const active = selectedLevel === f;
@@ -128,19 +128,19 @@ const ParkingStatus: React.FC = () => {
 
             {/* Legend */}
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-4">ChÃº thÃ­ch</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-4">Chú thích</p>
               <div className="space-y-4 px-1">
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                  <span className="text-[13px] text-slate-600">Äang trá»‘ng</span>
+                  <span className="text-[13px] text-slate-600">Đang trống</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="material-symbols-outlined text-[18px] text-slate-400">directions_car</span>
-                  <span className="text-[13px] text-slate-600">Xe Ä‘ang Ä‘á»—</span>
+                  <span className="text-[13px] text-slate-600">Xe đang đỗ</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
-                  <span className="text-[13px] text-slate-600">ÄÃ£ Ä‘Æ°á»£c Ä‘áº·t</span>
+                  <span className="text-[13px] text-slate-600">Đã đặt chỗ</span>
                 </div>
               </div>
             </div>
@@ -157,7 +157,7 @@ const ParkingStatus: React.FC = () => {
                   <span className="w-1.5 h-1.5 rounded-full bg-white" /> LIVE
                 </div>
               </div>
-              <p className="mt-2 text-[11px] text-slate-400 text-center italic">Cam 04 â€¢ Gate Entrance</p>
+              <p className="mt-2 text-[11px] text-slate-400 text-center italic">Cam 04 • Gate Entrance</p>
             </div>
           </div>
         </aside>
@@ -174,21 +174,21 @@ const ParkingStatus: React.FC = () => {
             className="flex flex-col md:flex-row justify-between items-end mb-4 gap-6"
           >
             <div>
-              <h1 className="text-3xl font-extrabold text-[#000] mb-1 tracking-tight">GiÃ¡m sÃ¡t háº¡ táº§ng</h1>
+              <h1 className="text-3xl font-extrabold text-[#000] mb-1 tracking-tight">Giám sát hạ tầng</h1>
               <div className="flex items-center gap-2 text-slate-500">
                 <span className="material-symbols-outlined text-[17px] animate-spin" style={{ animationDuration: '3s' }}>sync</span>
-                <p className="text-[13px]">Há»‡ thá»‘ng phÃ¢n tÃ­ch hÃ¬nh áº£nh AI Ä‘á»“ng bá»™ má»—i 2 giÃ¢y.</p>
+                <p className="text-[13px]">Hệ thống phân tích hình ảnh AI đồng bộ mỗi 2 giây.</p>
               </div>
             </div>
 
             {/* Quick stats */}
             <div className="flex gap-6">
               <div className="bg-white border border-slate-100 p-4 rounded-xl shadow-sm flex flex-col min-w-[130px]">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">CÃ²n trá»‘ng</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Còn trống</span>
                 <span className="text-2xl font-extrabold text-emerald-600 mt-1">{availableCount}</span>
               </div>
               <div className="bg-white border border-slate-100 p-4 rounded-xl shadow-sm flex flex-col min-w-[130px]">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Äang Ä‘á»—</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Đang đỗ</span>
                 <span className="text-2xl font-extrabold text-[#000] mt-1">{occupiedCount}</span>
               </div>
             </div>
@@ -205,14 +205,14 @@ const ParkingStatus: React.FC = () => {
             {/* Card header */}
             <div className="flex justify-between items-center mb-3">
               <div>
-                <h2 className="text-xl font-extrabold text-[#000]">Máº·t báº±ng Táº§ng {selectedLevel}</h2>
+                <h2 className="text-xl font-extrabold text-[#000]">Mặt bằng Tầng {selectedLevel}</h2>
                 <p className="text-[13px] text-slate-500 mt-0.5">
-                  {selectedParking.name.split(' - ')[0]} â€¢ {selectedParking.block}
+                  {selectedParking.name.split(' - ')[0]} • {selectedParking.block}
                 </p>
               </div>
               <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-full text-[11px] font-bold">
                 <span className="material-symbols-outlined text-[15px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                Há»† THá»NG ÄANG TRá»°C TUYáº¾N
+                HỆ THỐNG ĐANG TRỰC TUYẾN
               </div>
             </div>
 
@@ -224,9 +224,9 @@ const ParkingStatus: React.FC = () => {
                 {/* Outer Road Lane background */}
                 <rect x="30" y="220" width="740" height="60" rx="10" fill="#e2e8f0" opacity="0.6" />
                 
-                {/* Central Lobby Core (Sáº£nh thang mÃ¡y) */}
+                {/* Central Lobby Core (Sảnh thang máy) */}
                 <rect x="345" y="180" width="110" height="140" rx="15" fill="#ffffff" stroke="#e2e8f0" strokeWidth="1.5" />
-                <text x="400" y="235" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#64748b" letterSpacing="1">Sáº¢NH THANG</text>
+                <text x="400" y="235" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#64748b" letterSpacing="1">SẢNH THANG</text>
                 <text x="400" y="250" textAnchor="middle" fontSize="8" fill="#94a3b8">LIFT & STAIRS</text>
                 
                 {/* Icon symbols inside central lobby */}
@@ -420,15 +420,15 @@ const ParkingStatus: React.FC = () => {
               <div className="flex gap-4">
                 <button className="flex items-center gap-2 px-5 py-2.5 bg-slate-100 rounded-xl text-[#000] text-sm font-bold hover:bg-slate-200 transition-colors">
                   <span className="material-symbols-outlined text-[18px]">zoom_in</span>
-                  PhÃ³ng to sÆ¡ Ä‘á»“
+                  Phóng to sơ đồ
                 </button>
                 <button className="flex items-center gap-2 px-5 py-2.5 bg-slate-100 rounded-xl text-[#000] text-sm font-bold hover:bg-slate-200 transition-colors">
                   <span className="material-symbols-outlined text-[18px]">analytics</span>
-                  Xem bÃ¡o cÃ¡o ngÃ y
+                  Xem báo cáo ngày
                 </button>
               </div>
               <div className="flex items-center gap-2 text-slate-400 text-[11px]">
-                <span>Dá»¯ liá»‡u Ä‘Æ°á»£c mÃ£ hÃ³a 256-bit AES</span>
+                <span>Dữ liệu được mã hóa 256-bit AES</span>
                 <span className="material-symbols-outlined text-[15px]">lock</span>
               </div>
             </div>
@@ -455,8 +455,8 @@ const ParkingStatus: React.FC = () => {
                 <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border-2 border-[#131b2e]" />
               </div>
               <div className="text-left">
-                <p className="text-[10px] uppercase font-bold tracking-tight opacity-60">ThÃ´ng bÃ¡o má»›i nháº¥t</p>
-                <p className="font-bold text-sm">PhÃ¡t hiá»‡n Ä‘á»— sai vá»‹ trÃ­ táº¡i Khu B</p>
+                <p className="text-[10px] uppercase font-bold tracking-tight opacity-60">Thông báo mới nhất</p>
+                <p className="font-bold text-sm">Phát hiện đỗ sai vị trí tại Khu B</p>
               </div>
             </button>
           </motion.div>
@@ -474,8 +474,8 @@ const ParkingStatus: React.FC = () => {
           >
             <div className="bg-slate-900 text-white px-10 py-5 rounded-full shadow-2xl flex items-center gap-8 border border-white/10 pointer-events-auto">
               <div className="flex flex-col">
-                <span className="text-[10px] font-black uppercase tracking-widest opacity-50">Vá»‹ trÃ­ Ä‘Ã£ chá»n</span>
-                <span className="text-lg font-black tracking-tight">Táº§ng {selectedLevel} â€¢ Ã” {selectedSlot}</span>
+                <span className="text-[10px] font-black uppercase tracking-widest opacity-50">Vị trí đã chọn</span>
+                <span className="text-lg font-black tracking-tight">Tầng {selectedLevel} • Ô {selectedSlot}</span>
               </div>
               <button
                 onClick={() => {
@@ -485,7 +485,7 @@ const ParkingStatus: React.FC = () => {
                 }}
                 className="bg-blue-600 text-white px-8 py-3 rounded-full font-bold hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
               >
-                Tiáº¿p tá»¥c thanh toÃ¡n
+                Tiếp tục thanh toán
                 <ArrowRight className="w-5 h-5" />
               </button>
             </div>
