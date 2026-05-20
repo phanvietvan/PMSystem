@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Repositories.Entities;
+using Repositories.Enums;
 using Repositories.Interfaces;
 
 namespace Repositories.Implementations;
@@ -31,4 +32,15 @@ public class UserRepository : Repository<User>, IUserRepository
         await _dbSet
             .Include(u => u.RefreshTokens)
             .FirstOrDefaultAsync(u => u.Id == userId);
+
+    /// <summary>
+    /// Bypasses the global soft-delete filter to find a PendingVerification
+    /// record by email — used during OTP registration to reuse existing rows.
+    /// </summary>
+    public async Task<User?> GetPendingByEmailAsync(string email) =>
+        await _context.Users
+            .IgnoreQueryFilters()   // bypass IsDeleted global filter
+            .FirstOrDefaultAsync(u =>
+                u.Email == email.ToLower() &&
+                u.Status == UserStatus.PendingVerification);
 }

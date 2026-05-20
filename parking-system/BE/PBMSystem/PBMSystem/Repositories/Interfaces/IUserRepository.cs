@@ -14,4 +14,10 @@ public interface IUserRepository : IRepository<User>
     Task<bool> EmailExistsAsync(string email);
     Task<bool> UsernameExistsAsync(string username);
     Task<User?> GetWithRefreshTokensAsync(Guid userId);
+
+    /// <summary>
+    /// Returns a PendingVerification user by email (ignores the soft-delete
+    /// global filter so it can find records before they are fully active).
+    /// </summary>
+    Task<User?> GetPendingByEmailAsync(string email);
 }

@@ -8,12 +8,23 @@ namespace Services.Interfaces;
 /// </summary>
 public interface IAuthService
 {
-    Task<ApiResponse<AuthResponse>> RegisterAsync(RegisterRequest request, string? ipAddress = null);
+    // ── Standard Auth ─────────────────────────────────────────────────────────
     Task<ApiResponse<AuthResponse>> LoginAsync(LoginRequest request, string? ipAddress = null);
-    Task<ApiResponse<AuthResponse>> GoogleLoginAsync(GoogleLoginRequest request, string? ipAddress = null);
     Task<ApiResponse<AuthResponse>> RefreshTokenAsync(string refreshToken, string? ipAddress = null);
     Task<ApiResponse<bool>> RevokeTokenAsync(string refreshToken, string? ipAddress = null);
     Task<ApiResponse<bool>> ChangePasswordAsync(Guid userId, ChangePasswordRequest request);
     Task<ApiResponse<UserResponse>> GetProfileAsync(Guid userId);
+    Task<ApiResponse<AuthResponse>> LoginWithGoogleAsync(string idToken, string? ipAddress = null);
+    Task<ApiResponse<UserResponse>> UpdateProfileAsync(Guid userId, UpdateProfileRequest request);
     Task<ApiResponse<IEnumerable<UserResponse>>> GetAllUsersAsync();
+    Task<ApiResponse<UserResponse>> UpdateUserAsAdminAsync(
+        Guid actorId, string actorRole, Guid targetUserId, AdminUpdateUserRequest request);
+
+    // ── OTP Registration ──────────────────────────────────────────────────────
+    Task<ApiResponse<OtpSendResponse>> SendRegisterOtpAsync(SendRegisterOtpRequest request);
+    Task<ApiResponse<AuthResponse>> VerifyRegisterOtpAsync(VerifyRegisterOtpRequest request, string? ipAddress = null);
+
+    // ── Forgot / Reset Password ───────────────────────────────────────────────
+    Task<ApiResponse<OtpSendResponse>> SendForgotPasswordOtpAsync(ForgotPasswordRequest request);
+    Task<ApiResponse<bool>> ResetPasswordAsync(ResetPasswordRequest request);
 }

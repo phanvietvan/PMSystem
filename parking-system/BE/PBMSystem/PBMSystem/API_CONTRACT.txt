@@ -1,0 +1,621 @@
+================================================================================
+  PBMSystem — API Contract Reference (Frontend Guide)
+  Base URL: https://localhost:{port}/api
+  All request bodies: Content-Type: application/json
+  All responses:      Content-Type: application/json
+================================================================================
+
+Every response from the API shares the same envelope shape:
+
+{
+  "success": true | false,
+  "message": "string or null",
+  "data":    { ... } | true | null,
+  "errors":  ["string", ...] | null
+}
+
+Always check "success" first. If false, read "message" for the reason.
+"errors" is only populated on field validation failures (wrong format, etc.).
+
+--------------------------------------------------------------------------------
+  AUTHENTICATION HEADER
+--------------------------------------------------------------------------------
+
+Protected endpoints require a Bearer token in the Authorization header:
+
+  Authorization: Bearer <accessToken>
+
+The accessToken is returned by /register/verify-otp and /login and /refresh.
+
+--------------------------------------------------------------------------------
+  REGISTRATION FLOW  (2 steps)
+--------------------------------------------------------------------------------
+
+  Step 1 — Send OTP to email
+  Step 2 — Verify OTP + submit account details → receive tokens
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │  1a. SEND REGISTER OTP                                                  │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  POST /api/auth/register/send-otp     (RegistrationController)
+  Auth required: NO
+
+  --- Request Body ---
+
+  Field   Type     Required   Rules
+  ------- -------- ---------- -------------------------------------------------
+  email   string   YES        Must be a valid email format
+
+  Example:
+  {
+    "email": "john@example.com"
+  }
+
+  --- Success Response (200 OK) ---
+
+  {
+    "success": true,
+    "message": "OTP sent. Please check your email.",
+    "data": {
+      "message": "OTP sent. Please check your email.",
+      "otpCode": "048291"     // DEV MODE ONLY — null in production
+    },
+    "errors":  null
+  }
+
+  --- Failure Responses (400 Bad Request) ---
+
+  "message": "This email is already registered."
+  "message": "Please wait 42 seconds before requesting a new code."
+             (seconds countdown — exact number returned in the message)
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │  1b. VERIFY REGISTER OTP  (completes registration)                      │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  POST /api/auth/register/verify       (RegistrationController)
+  Auth required: NO
+
+  --- Request Body ---
+
+  Field       Type     Required   Rules
+  ----------- -------- ---------- ----------------------------------------------
+  email       string   YES        Same email used in send-otp
+  otp         string   YES        Exactly 6 digits (e.g. "048291")
+  username    string   YES        Min 3 chars, max 50 chars
+  password    string   YES        Min 8 chars
+  firstName   string   NO         Free text
+  lastName    string   NO         Free text
+
+  Example:
+  {
+    "email":     "john@example.com",
+    "otp":       "048291",
+    "username":  "john_doe",
+    "password":  "Secure@1234",
+    "firstName": "John",
+    "lastName":  "Doe"
+  }
+
+  --- Success Response (200 OK) ---
+
+  {
+    "success": true,
+    "message": null,
+    "data": {
+      "accessToken":       "eyJhbG...",
+      "refreshToken":      "abc123...",
+      "accessTokenExpiry": "2026-05-15T10:30:00Z",
+      "user": {
+        "id":        "a1b2c3d4-...",
+        "email":     "john@example.com",
+        "username":  "john_doe",
+        "firstName": "John",
+        "lastName":  "Doe",
+        "createdAt": "2026-05-15T10:15:00Z"
+      }
+    },
+    "errors": null
+  }
+
+  --- Failure Responses (400 Bad Request) ---
+
+  "message": "Invalid OTP."
+  "message": "OTP has expired. Please request a new one."
+  "message": "Username is already taken."
+
+--------------------------------------------------------------------------------
+  FORGOT PASSWORD FLOW  (2 steps)
+--------------------------------------------------------------------------------
+
+  Step 1 — Send OTP to the registered email
+  Step 2 — Verify OTP + submit new password
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │  2a. FORGOT PASSWORD  (send OTP)                                        │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  POST /api/auth/password/forgot       (PasswordController)
+  Auth required: NO
+
+  --- Request Body ---
+
+  Field   Type     Required   Rules
+  ------- -------- ---------- -------------------------------------------------
+  email   string   YES        Must be a valid email format
+
+  Example:
+  {
+    "email": "john@example.com"
+  }
+
+  --- Response (always 200 OK) ---
+
+  This endpoint always returns 200 regardless of whether the email exists.
+  This is intentional — it prevents attackers from discovering registered emails.
+
+  {
+    "success": true,
+    "message": "If that email is registered, an OTP has been sent.",
+    "data": {
+      "message": "If that email is registered, an OTP has been sent.",
+      "otpCode": "739201"     // DEV MODE ONLY — null in production
+    },
+    "errors":  null
+  }
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │  2b. RESET PASSWORD                                                     │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  POST /api/auth/password/reset        (PasswordController)
+  Auth required: NO
+
+  --- Request Body ---
+
+  Field         Type     Required   Rules
+  ------------- -------- ---------- --------------------------------------------
+  email         string   YES        The registered email
+  otp           string   YES        Exactly 6 digits
+  newPassword   string   YES        Min 8 chars
+
+  Example:
+  {
+    "email":       "john@example.com",
+    "otp":         "739201",
+    "newPassword": "NewSecure@5678"
+  }
+
+  --- Success Response (200 OK) ---
+
+  {
+    "success": true,
+    "message": "Password has been reset successfully.",
+    "data":    true,
+    "errors":  null
+  }
+
+  Note: all existing sessions across all devices are revoked. The user must
+  log in again on every device after a successful password reset.
+
+  --- Failure Responses (400 Bad Request) ---
+
+  "message": "Invalid OTP."
+  "message": "OTP has expired. Please request a new one."
+
+  Note on forgot-password send: the endpoint always returns 200 even if the
+  email is not registered. However, if the email IS registered and a code was
+  recently sent, the cooldown applies and a 400 is returned with the wait time.
+
+--------------------------------------------------------------------------------
+  3. LOGIN                                                (AuthController)
+--------------------------------------------------------------------------------
+
+  POST /api/auth/login
+  Auth required: NO
+
+  --- Request Body ---
+
+  Field             Type      Required   Rules
+  ----------------- --------- ---------- ---------------------------------------
+  emailOrUsername   string    YES        Accepts either the email or the username
+  password          string    YES
+
+  Example:
+  {
+    "emailOrUsername": "john@example.com",
+    "password":        "Secure@1234"
+  }
+
+  --- Success Response (200 OK) ---
+
+  {
+    "success": true,
+    "message": null,
+    "data": {
+      "accessToken":       "eyJhbG...",
+      "refreshToken":      "abc123...",
+      "accessTokenExpiry": "2026-05-15T10:30:00Z",
+      "user": {
+        "id":        "a1b2c3d4-...",
+        "email":     "john@example.com",
+        "username":  "john_doe",
+        "firstName": "John",
+        "lastName":  "Doe",
+        "createdAt": "2026-05-15T10:15:00Z"
+      }
+    },
+    "errors": null
+  }
+
+  --- Failure Response (401 Unauthorized) ---
+
+  "message": "Invalid credentials."
+  "message": "Your account has been suspended."
+  "message": "Account is inactive."
+  "message": "Please complete email verification before logging in."
+
+--------------------------------------------------------------------------------
+  4. REFRESH TOKEN                                        (AuthController)
+--------------------------------------------------------------------------------
+
+  POST /api/auth/refresh
+  Auth required: NO
+
+  Use when the accessToken has expired. The old refreshToken is immediately
+  invalidated — always store and use the newly returned one.
+
+  --- Request Body ---
+
+  Field          Type      Required
+  -------------- --------- --------
+  refreshToken   string    YES
+
+  Example:
+  {
+    "refreshToken": "abc123..."
+  }
+
+  --- Success Response (200 OK) ---
+
+  Same shape as Login success — new accessToken, refreshToken, expiry, and user.
+
+  --- Failure Response (401 Unauthorized) ---
+
+  "message": "Invalid refresh token."
+  "message": "Refresh token has expired or been revoked."
+
+--------------------------------------------------------------------------------
+  5. REVOKE TOKEN  (Logout)                              (AuthController)
+--------------------------------------------------------------------------------
+
+  POST /api/auth/revoke
+  Auth required: YES  (Bearer token in header)
+
+  Invalidates a single refresh token — use for "logout from this device".
+
+  --- Request Body ---
+
+  Field          Type      Required
+  -------------- --------- --------
+  refreshToken   string    YES
+
+  Example:
+  {
+    "refreshToken": "abc123..."
+  }
+
+  --- Success Response (200 OK) ---
+
+  {
+    "success": true,
+    "message": "Token revoked.",
+    "data":    true,
+    "errors":  null
+  }
+
+  --- Failure Response (400 Bad Request) ---
+
+  "message": "Token not found or already inactive."
+
+--------------------------------------------------------------------------------
+  6. CHANGE PASSWORD                    /api/auth/password/change  (PasswordController)
+--------------------------------------------------------------------------------
+
+  POST /api/auth/password/change
+  Auth required: YES  (Bearer token in header)
+
+  Changes password and revokes ALL active sessions on all devices.
+
+  --- Request Body ---
+
+  Field             Type      Required   Rules
+  ----------------- --------- ---------- ---------------------------------------
+  currentPassword   string    YES        Must match the current stored password
+  newPassword       string    YES        Min 8 chars
+
+  Example:
+  {
+    "currentPassword": "Secure@1234",
+    "newPassword":     "NewSecure@5678"
+  }
+
+  --- Success Response (200 OK) ---
+
+  {
+    "success": true,
+    "message": "Password changed successfully.",
+    "data":    true,
+    "errors":  null
+  }
+
+  --- Failure Response (400 Bad Request) ---
+
+  "message": "Current password is incorrect."
+
+--------------------------------------------------------------------------------
+  7. GET PROFILE  (Me)                                   (AuthController)
+--------------------------------------------------------------------------------
+
+  GET /api/auth/me
+  Auth required: YES  (Bearer token in header)
+  Request body:  NONE
+
+  --- Success Response (200 OK) ---
+
+  {
+    "success": true,
+    "message": null,
+    "data": {
+      "id":        "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "email":     "john@example.com",
+      "username":  "john_doe",
+      "firstName": "John",
+      "lastName":  "Doe",
+      "createdAt": "2026-05-15T10:15:00Z"
+    },
+    "errors": null
+  }
+
+  --- Failure Response (404 Not Found) ---
+
+  "message": "User not found."
+
+--------------------------------------------------------------------------------
+  OTP BEHAVIOUR NOTES  (for frontend UX)
+--------------------------------------------------------------------------------
+
+  - OTP is exactly 6 digits, zero-padded (e.g. "004821"). Always send as string.
+  - OTP expires 5 minutes after it was issued.
+  - If expired, call send-otp / forgot-password again to get a fresh code.
+  - Re-requesting an OTP before the previous one expires overwrites it —
+    only the latest code will work.
+  - The "otp" field must be sent as a string, not a number, to preserve
+    leading zeros (e.g. "007341" not 7341).
+  - Each email address is rate-limited to 1 OTP send per 60 seconds.
+    Requesting again within the window returns 400 with the exact seconds
+    remaining: "Please wait 38 seconds before requesting a new code."
+    The cooldown resets after 60 seconds or after a successful verification.
+
+--------------------------------------------------------------------------------
+  VALIDATION ERRORS
+--------------------------------------------------------------------------------
+
+  When fields fail validation rules, the API returns 400 with an errors array:
+
+  {
+    "success": false,
+    "message": "One or more validation errors occurred.",
+    "data":    null,
+    "errors":  [
+      "The Email field is not a valid e-mail address.",
+      "The Password must be at least 8 characters.",
+      "The Otp field must be a string with a maximum length of 6."
+    ]
+  }
+
+--------------------------------------------------------------------------------
+  TOKEN STORAGE RECOMMENDATIONS  (for frontend)
+--------------------------------------------------------------------------------
+
+  accessToken   — Keep in memory only (JS variable / React state).
+                  Short-lived (15 min production, 60 min development).
+                  Do NOT store in localStorage — vulnerable to XSS.
+
+  refreshToken  — Store in an HttpOnly cookie (preferred) or secure storage.
+                  Longer-lived (7 days production, 30 days development).
+                  Replace it every time /refresh is called — old one is invalid.
+
+  Typical auth flow:
+    1. send-otp  → user enters email
+    2. verify-otp → store accessToken in memory, refreshToken in HttpOnly cookie
+    3. API call fails 401 → call /refresh → update stored tokens → retry
+    4. Logout → call /revoke → clear both tokens
+
+  Typical forgot-password flow:
+    1. forgot-password → user enters email
+    2. reset-password  → user enters OTP + new password
+    3. Redirect to login (all sessions were revoked)
+
+--------------------------------------------------------------------------------
+  FIELD TYPES REFERENCE
+--------------------------------------------------------------------------------
+
+  string          Plain text, UTF-8
+  bool            true or false
+  Guid / UUID     "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"  (lowercase hex)
+  DateTime        ISO 8601 UTC — "2026-05-15T10:15:00Z"
+  OTP             6-character numeric string — always send as string "006821"
+
+================================================================================
+  AFTER-MERGE (Session 9) — Google, roles, profile
+  Added below existing contract. OTP registration/password flows unchanged.
+================================================================================
+
+  All authenticated user objects (login, refresh, verify, me, profile, users)
+  now include these fields when present:
+
+    phoneNumber   string | null
+    address       string | null
+    role          "User" | "Staff" | "Admin"
+    status        "Active" | "Inactive" | "Banned" | "PendingVerification"
+    lastLoginAt   ISO 8601 UTC | null
+    createdAt     ISO 8601 UTC
+
+  JWT access tokens include role as a claim. Protected admin routes require
+  Authorization: Bearer <token> AND role Admin or Staff (enforced server-side).
+
+--------------------------------------------------------------------------------
+  8. GOOGLE LOGIN                                         (AuthController)
+--------------------------------------------------------------------------------
+
+  POST /api/auth/google
+  Auth required: NO
+
+  Accepts a Google ID token (JWT) or OAuth access token string.
+
+  --- Request Body ---
+
+  Field      Type      Required
+  ---------  --------  --------
+  idToken    string    YES
+
+  Example:
+  {
+    "idToken": "eyJhbGciOiJSUzI1NiIs..."
+  }
+
+  --- Success Response (200 OK) ---
+
+  Same shape as Login success (accessToken, refreshToken, accessTokenExpiry, user).
+  New users are auto-registered with role User and status Active.
+  If the email had a PendingVerification OTP row, Google login completes that
+  account (clears OTP fields) without requiring register/verify.
+
+  --- Failure Response (400 Bad Request) ---
+
+  "message": "Invalid Google token."
+  "message": "Could not retrieve email from Google token."
+  "message": "Your account has been suspended."
+  "message": "Account is inactive."
+  "message": "Google login failed due to an internal error."
+
+--------------------------------------------------------------------------------
+  9. UPDATE OWN PROFILE                                   (AuthController)
+--------------------------------------------------------------------------------
+
+  PUT /api/auth/profile
+  Auth required: YES  (Bearer token — any role)
+
+  --- Request Body ---
+
+  Field         Type     Required   Rules
+  ------------  -------  ---------  ------------------------------------------
+  firstName     string   YES        Min 2, max 50
+  lastName      string   YES        Min 2, max 50
+  phoneNumber   string   YES
+  address       string   YES
+
+  Example:
+  {
+    "firstName":   "John",
+    "lastName":    "Doe",
+    "phoneNumber": "+84901234567",
+    "address":     "123 Main St, District 1"
+  }
+
+  --- Success Response (200 OK) ---
+
+  {
+    "success": true,
+    "message": "Profile updated successfully.",
+    "data": { ...user object with fields above... },
+    "errors": null
+  }
+
+--------------------------------------------------------------------------------
+  10. LIST USERS                                          (UsersController)
+--------------------------------------------------------------------------------
+
+  GET /api/users
+  Auth required: YES  — roles: Admin OR Staff
+
+  Request body: NONE
+
+  Returns all users except PendingVerification rows.
+
+  --- Success Response (200 OK) ---
+
+  {
+    "success": true,
+    "message": null,
+    "data": [ { ...user... }, { ...user... } ],
+    "errors": null
+  }
+
+  --- Failure Response (403 Forbidden) ---
+
+  Returned when JWT role is User (not Admin/Staff).
+
+--------------------------------------------------------------------------------
+  11. ADMIN UPDATE USER                                   (UsersController)
+--------------------------------------------------------------------------------
+
+  PUT /api/users/{id}
+  Auth required: YES  — roles: Admin OR Staff
+
+  {id} = user Guid from list or profile.
+
+  Staff cannot set role to Admin (400 if attempted).
+
+  --- Request Body ---
+
+  Field         Type     Required   Notes
+  ------------  -------  ---------  ------------------------------------------
+  firstName     string   YES        Min 2, max 50
+  lastName      string   YES        Min 2, max 50
+  phoneNumber   string   NO
+  address       string   NO
+  role          string   YES        "User" | "Staff" | "Admin"
+  status        string   YES        "Active" | "Inactive" | "Banned"
+
+  Example:
+  {
+    "firstName":   "Jane",
+    "lastName":    "Smith",
+    "phoneNumber": "+84909876543",
+    "address":     "456 Oak Ave",
+    "role":        "Staff",
+    "status":      "Active"
+  }
+
+  --- Success Response (200 OK) ---
+
+  {
+    "success": true,
+    "message": "User updated successfully.",
+    "data": { ...updated user... },
+    "errors": null
+  }
+
+  --- Failure Responses (400 Bad Request) ---
+
+  "message": "Invalid role."
+  "message": "Invalid status."
+  "message": "Staff cannot assign Admin role."
+  "message": "User not found."
+
+--------------------------------------------------------------------------------
+  ROLES REFERENCE (Session 9)
+--------------------------------------------------------------------------------
+
+  Role    Value   Typical use
+  ------  -----   -----------------------------------------------------------
+  User    0       Default for register, Google, OTP verify
+  Staff   1       Can list/update users; cannot promote to Admin
+  Admin   2       Full user management including Admin role assignment
+
+  Promote the first Admin via database (no API seed). Re-login after role change.
+
+================================================================================

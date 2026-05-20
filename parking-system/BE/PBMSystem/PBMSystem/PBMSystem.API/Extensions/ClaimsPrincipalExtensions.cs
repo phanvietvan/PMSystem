@@ -19,4 +19,7 @@ public static class ClaimsPrincipalExtensions
 
         throw new UnauthorizedAccessException("User ID claim is missing or malformed.");
     }
+
+    public static string GetUserRole(this ClaimsPrincipal principal) =>
+        principal.FindFirstValue(ClaimTypes.Role) ?? "User";
 }

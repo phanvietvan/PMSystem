@@ -1,25 +1,31 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\Admin\\Desktop\\Parking Building Management System\\parking-system\\BE\\PBMSystem\\PBMSystem\\Repositories\\Repositories.csproj": {}
+    "C:\\Users\\insig\\source\\repos\\Parking-Building-Management-System\\parking-system\\BE\\PBMSystem\\PBMSystem\\Repositories\\Repositories.csproj": {}
   },
   "projects": {
-    "C:\\Users\\Admin\\Desktop\\Parking Building Management System\\parking-system\\BE\\PBMSystem\\PBMSystem\\Repositories\\Repositories.csproj": {
+    "C:\\Users\\insig\\source\\repos\\Parking-Building-Management-System\\parking-system\\BE\\PBMSystem\\PBMSystem\\Repositories\\Repositories.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\Admin\\Desktop\\Parking Building Management System\\parking-system\\BE\\PBMSystem\\PBMSystem\\Repositories\\Repositories.csproj",
+        "projectUniqueName": "C:\\Users\\insig\\source\\repos\\Parking-Building-Management-System\\parking-system\\BE\\PBMSystem\\PBMSystem\\Repositories\\Repositories.csproj",
         "projectName": "Repositories",
-        "projectPath": "C:\\Users\\Admin\\Desktop\\Parking Building Management System\\parking-system\\BE\\PBMSystem\\PBMSystem\\Repositories\\Repositories.csproj",
-        "packagesPath": "C:\\Users\\Admin\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\Admin\\Desktop\\Parking Building Management System\\parking-system\\BE\\PBMSystem\\PBMSystem\\Repositories\\obj\\",
+        "projectPath": "C:\\Users\\insig\\source\\repos\\Parking-Building-Management-System\\parking-system\\BE\\PBMSystem\\PBMSystem\\Repositories\\Repositories.csproj",
+        "packagesPath": "C:\\Users\\insig\\AppData\\Local\\Temp\\cursor-sandbox-cache\\bbb6d1f941217e8d7138963f81943713\\nuget",
+        "outputPath": "C:\\Users\\insig\\source\\repos\\Parking-Building-Management-System\\parking-system\\BE\\PBMSystem\\PBMSystem\\Repositories\\obj\\",
         "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
         "configFilePaths": [
-          "C:\\Users\\Admin\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "C:\\Users\\insig\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
         "originalTargetFrameworks": [
           "net8.0"
         ],
         "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -54,7 +60,7 @@
               "target": "Package",
               "version": "[8.0.0, )"
             },
-            "Microsoft.EntityFrameworkCore.SqlServer": {
+            "Microsoft.EntityFrameworkCore.Sqlite": {
               "target": "Package",
               "version": "[8.0.0, )"
             },
@@ -92,26 +98,12 @@
           ],
           "assetTargetFallback": true,
           "warn": true,
-          "downloadDependencies": [
-            {
-              "name": "Microsoft.AspNetCore.App.Ref",
-              "version": "[8.0.27, 8.0.27]"
-            },
-            {
-              "name": "Microsoft.NETCore.App.Ref",
-              "version": "[8.0.27, 8.0.27]"
-            },
-            {
-              "name": "Microsoft.WindowsDesktop.App.Ref",
-              "version": "[8.0.27, 8.0.27]"
-            }
-          ],
           "frameworkReferences": {
             "Microsoft.NETCore.App": {
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.314/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.304/PortableRuntimeIdentifierGraph.json"
         }
       }
     }

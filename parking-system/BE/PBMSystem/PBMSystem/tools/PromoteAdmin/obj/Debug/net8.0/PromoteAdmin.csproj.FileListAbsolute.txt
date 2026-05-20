@@ -1,0 +1,6 @@
+C:\Users\insig\source\repos\Parking-Building-Management-System\parking-system\BE\PBMSystem\PBMSystem\tools\PromoteAdmin\obj\Debug\net8.0\PromoteAdmin.csproj.AssemblyReference.cache
+C:\Users\insig\source\repos\Parking-Building-Management-System\parking-system\BE\PBMSystem\PBMSystem\tools\PromoteAdmin\obj\Debug\net8.0\PromoteAdmin.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\insig\source\repos\Parking-Building-Management-System\parking-system\BE\PBMSystem\PBMSystem\tools\PromoteAdmin\obj\Debug\net8.0\PromoteAdmin.AssemblyInfoInputs.cache
+C:\Users\insig\source\repos\Parking-Building-Management-System\parking-system\BE\PBMSystem\PBMSystem\tools\PromoteAdmin\obj\Debug\net8.0\PromoteAdmin.AssemblyInfo.cs
+C:\Users\insig\source\repos\Parking-Building-Management-System\parking-system\BE\PBMSystem\PBMSystem\tools\PromoteAdmin\obj\Debug\net8.0\PromoteAdmin.csproj.CoreCompileInputs.cache
+C:\Users\insig\source\repos\Parking-Building-Management-System\parking-system\BE\PBMSystem\PBMSystem\tools\PromoteAdmin\obj\Debug\net8.0\PromoteAdmin.sourcelink.json

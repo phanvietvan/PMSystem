@@ -15,6 +15,7 @@ public class AppDbContext : DbContext
 
     public DbSet<User> Users => Set<User>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<ParkingSession> ParkingSessions => Set<ParkingSession>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -32,7 +33,17 @@ public class AppDbContext : DbContext
             entity.Property(u => u.PasswordHash).IsRequired();
             entity.Property(u => u.FirstName).HasMaxLength(100);
             entity.Property(u => u.LastName).HasMaxLength(100);
+            entity.Property(u => u.PhoneNumber).HasMaxLength(20);
+            entity.Property(u => u.Address).HasMaxLength(500);
             entity.Property(u => u.Status).HasConversion<int>();
+            entity.Property(u => u.Role).HasConversion<int>();
+
+            // OTP fields — nullable, cleared after successful verification
+            entity.Property(u => u.OtpCode).HasMaxLength(6);
+            entity.Property(u => u.OtpExpiry);
+
+            // Cooldown — nullable, set on every OTP send
+            entity.Property(u => u.OtpLastSentAt);
 
             // Soft-delete global filter — automatically excludes deleted rows
             entity.HasQueryFilter(u => !u.IsDeleted);
@@ -46,12 +57,22 @@ public class AppDbContext : DbContext
 
             entity.Property(rt => rt.Token).IsRequired().HasMaxLength(512);
             entity.Property(rt => rt.ReplacedByToken).HasMaxLength(512);
-            entity.Property(rt => rt.CreatedByIp).HasMaxLength(45); // IPv6 max length
+            entity.Property(rt => rt.CreatedByIp).HasMaxLength(45);
 
             entity.HasOne(rt => rt.User)
                   .WithMany(u => u.RefreshTokens)
                   .HasForeignKey(rt => rt.UserId)
                   .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── ParkingSession ───────────────────────────────────────────────────
+        modelBuilder.Entity<ParkingSession>(entity =>
+        {
+            entity.HasKey(ps => ps.Id);
+            entity.HasIndex(ps => ps.QrCode).IsUnique();
+            entity.Property(ps => ps.LicensePlate).IsRequired();
+            entity.Property(ps => ps.QrCode).IsRequired();
+            entity.HasQueryFilter(ps => !ps.IsDeleted);
         });
     }
 
