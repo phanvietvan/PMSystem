@@ -84,3 +84,17 @@ public class ApiResponse<T>
     public static ApiResponse<T> Fail(string message, List<string>? errors = null) =>
         new() { Success = false, Message = message, Errors = errors };
 }
+
+public class GoogleLoginRequest
+{
+    [Required]
+    public string IdToken { get; set; } = string.Empty;
+}
+
+public class GoogleUserInfo
+{
+    public string Email { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Given_Name { get; set; } = string.Empty;
+    public string Family_Name { get; set; } = string.Empty;
+}

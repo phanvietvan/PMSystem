@@ -44,6 +44,19 @@ public class AuthController : ControllerBase
         return result.Success ? Ok(result) : Unauthorized(result);
     }
 
+    /// <summary>Login or Register with Google OAuth.</summary>
+    [HttpPost("google")]
+    [ProducesResponseType(typeof(ApiResponse<AuthResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<AuthResponse>), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Google([FromBody] GoogleLoginRequest request)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        var result = await _authService.GoogleLoginAsync(request, GetClientIp());
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
     /// <summary>Issue new access + refresh token pair using a valid refresh token.</summary>
     [HttpPost("refresh")]
     [ProducesResponseType(typeof(ApiResponse<AuthResponse>), StatusCodes.Status200OK)]
