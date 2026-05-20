@@ -15,7 +15,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PBMSystem.API")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+fa15695bc76ea2b2226445c6031c5ceebaed3053")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+288cbcf753ccdb65405d846452e67f9379b7def7")]
 [assembly: System.Reflection.AssemblyProductAttribute("PBMSystem.API")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PBMSystem.API")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

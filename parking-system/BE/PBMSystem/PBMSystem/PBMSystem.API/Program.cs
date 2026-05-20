@@ -14,16 +14,23 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.Configure<JwtSettings>(
     builder.Configuration.GetSection("JwtSettings"));
 
-// ── Database ──────────────────────────────────────────────────────────────────
+builder.Services.Configure<SmtpSettings>(
+    builder.Configuration.GetSection("SmtpSettings"));
+
+// ── Database (SQLite) ─────────────────────────────────────────────────────────
+// The .db file is created automatically on first run in the project directory.
+// It is gitignored — each developer gets their own local copy.
+// To switch to SQL Server later: replace UseSqlite with UseSqlServer here,
+// swap the package in both .csproj files, and update the connection string.
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(
+    options.UseSqlite(
         builder.Configuration.GetConnectionString("DefaultConnection"),
-        sql => sql.MigrationsAssembly("Repositories")   // migrations live in Repositories
+        sql => sql.MigrationsAssembly("Repositories")
     ));
 
 // ── Repository + Services Layers ─────────────────────────────────────────────
-builder.Services.AddRepositories();   // from Repositories project
-builder.Services.AddPBMServices();    // from Services project
+builder.Services.AddRepositories();
+builder.Services.AddPBMServices();
 
 // ── JWT Authentication ────────────────────────────────────────────────────────
 var jwtSettings = builder.Configuration
@@ -64,9 +71,14 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("DefaultPolicy", policy =>
     {
-        policy.WithOrigins(
-                builder.Configuration.GetSection("AllowedOrigins").Get<string[]>()
-                ?? ["http://localhost:3000"])
+        var origins = new List<string> { "http://localhost:5173", "http://localhost:3000", "https://parking-building-management-system.vercel.app" };
+        var configuredOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>();
+        if (configuredOrigins != null)
+        {
+            origins.AddRange(configuredOrigins);
+        }
+
+        policy.WithOrigins(origins.Distinct().ToArray())
               .AllowAnyMethod()
               .AllowAnyHeader();
     });
@@ -75,10 +87,11 @@ builder.Services.AddCors(options =>
 // ── Build ─────────────────────────────────────────────────────────────────────
 var app = builder.Build();
 
-// ── Auto-apply migrations on startup (dev only) ───────────────────────────────
-if (app.Environment.IsDevelopment())
+// ── Auto-apply migrations on startup ─────────────────────────────────────────
+// SQLite: creates the .db file and applies all pending migrations automatically.
+// No manual `dotnet ef database update` needed during development.
+using (var scope = app.Services.CreateScope())
 {
-    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await db.Database.MigrateAsync();
 }

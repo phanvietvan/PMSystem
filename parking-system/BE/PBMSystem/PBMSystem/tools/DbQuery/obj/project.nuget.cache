@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "dgSpecHash": "osmc8sL8xT0=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\insig\\source\\repos\\Parking-Building-Management-System\\parking-system\\BE\\PBMSystem\\PBMSystem\\tools\\DbQuery\\DbQuery.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\insig\\AppData\\Local\\Temp\\cursor-sandbox-cache\\bbb6d1f941217e8d7138963f81943713\\nuget\\microsoft.data.sqlite\\8.0.0\\microsoft.data.sqlite.8.0.0.nupkg.sha512",
+    "C:\\Users\\insig\\AppData\\Local\\Temp\\cursor-sandbox-cache\\bbb6d1f941217e8d7138963f81943713\\nuget\\microsoft.data.sqlite.core\\8.0.0\\microsoft.data.sqlite.core.8.0.0.nupkg.sha512",
+    "C:\\Users\\insig\\AppData\\Local\\Temp\\cursor-sandbox-cache\\bbb6d1f941217e8d7138963f81943713\\nuget\\sqlitepclraw.bundle_e_sqlite3\\2.1.6\\sqlitepclraw.bundle_e_sqlite3.2.1.6.nupkg.sha512",
+    "C:\\Users\\insig\\AppData\\Local\\Temp\\cursor-sandbox-cache\\bbb6d1f941217e8d7138963f81943713\\nuget\\sqlitepclraw.core\\2.1.6\\sqlitepclraw.core.2.1.6.nupkg.sha512",
+    "C:\\Users\\insig\\AppData\\Local\\Temp\\cursor-sandbox-cache\\bbb6d1f941217e8d7138963f81943713\\nuget\\sqlitepclraw.lib.e_sqlite3\\2.1.6\\sqlitepclraw.lib.e_sqlite3.2.1.6.nupkg.sha512",
+    "C:\\Users\\insig\\AppData\\Local\\Temp\\cursor-sandbox-cache\\bbb6d1f941217e8d7138963f81943713\\nuget\\sqlitepclraw.provider.e_sqlite3\\2.1.6\\sqlitepclraw.provider.e_sqlite3.2.1.6.nupkg.sha512",
+    "C:\\Users\\insig\\AppData\\Local\\Temp\\cursor-sandbox-cache\\bbb6d1f941217e8d7138963f81943713\\nuget\\system.memory\\4.5.3\\system.memory.4.5.3.nupkg.sha512"
+  ],
+  "logs": []
+}

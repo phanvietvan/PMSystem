@@ -27,7 +27,9 @@ public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<AppDbConte
             .Build();
 
         var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
-        optionsBuilder.UseSqlServer(
+
+        // SQLite — reads the file path from appsettings
+        optionsBuilder.UseSqlite(
             config.GetConnectionString("DefaultConnection"),
             sql => sql.MigrationsAssembly("Repositories"));
 
