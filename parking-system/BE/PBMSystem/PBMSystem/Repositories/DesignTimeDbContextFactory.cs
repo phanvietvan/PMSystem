@@ -27,9 +27,15 @@ public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<AppDbConte
             .Build();
 
         var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
-        optionsBuilder.UseSqlServer(
-            config.GetConnectionString("DefaultConnection"),
-            sql => sql.MigrationsAssembly("Repositories"));
+        var connString = config.GetConnectionString("DefaultConnection") ?? "";
+        if (connString.Contains("aivencloud.com") || connString.StartsWith("postgres://") || connString.Contains("Port=20256") || connString.Contains("Host="))
+        {
+            optionsBuilder.UseNpgsql(connString, sql => sql.MigrationsAssembly("Repositories"));
+        }
+        else
+        {
+            optionsBuilder.UseSqlServer(connString, sql => sql.MigrationsAssembly("Repositories"));
+        }
 
         return new AppDbContext(optionsBuilder.Options);
     }

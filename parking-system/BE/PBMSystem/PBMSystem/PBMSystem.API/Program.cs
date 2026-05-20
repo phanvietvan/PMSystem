@@ -16,10 +16,17 @@ builder.Services.Configure<JwtSettings>(
 
 // ── Database ──────────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
-        sql => sql.MigrationsAssembly("Repositories")   // migrations live in Repositories
-    ));
+{
+    var connString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "";
+    if (connString.Contains("aivencloud.com") || connString.StartsWith("postgres://") || connString.Contains("Port=20256") || connString.Contains("Host="))
+    {
+        options.UseNpgsql(connString, sql => sql.MigrationsAssembly("Repositories"));
+    }
+    else
+    {
+        options.UseSqlServer(connString, sql => sql.MigrationsAssembly("Repositories"));
+    }
+});
 
 // ── Repository + Services Layers ─────────────────────────────────────────────
 builder.Services.AddRepositories();   // from Repositories project
