@@ -42,7 +42,7 @@ const App = () => {
   useEffect(() => {
     const init = async () => {
       await new Promise(resolve => setTimeout(resolve, 800));
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      if (navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function') {
         await startCamera();
       }
     };
@@ -98,8 +98,8 @@ const App = () => {
         owner: 'NGUYỄN VĂN A'
       };
       
-      setScannedResult(mockData);
-      setRecentLogs(prev => [mockData, ...prev.slice(0, 4)]);
+      setScannedResult(mockData as any);
+      setRecentLogs(prev => [mockData as any, ...prev.slice(0, 4)]);
       
       setTimeout(() => {
         setScannedResult(null);
