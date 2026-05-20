@@ -71,9 +71,14 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("DefaultPolicy", policy =>
     {
-        policy.WithOrigins(
-                builder.Configuration.GetSection("AllowedOrigins").Get<string[]>()
-                ?? ["http://localhost:3000"])
+        var origins = new List<string> { "http://localhost:5173", "http://localhost:3000", "https://parking-building-management-system.vercel.app" };
+        var configuredOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>();
+        if (configuredOrigins != null)
+        {
+            origins.AddRange(configuredOrigins);
+        }
+
+        policy.WithOrigins(origins.Distinct().ToArray())
               .AllowAnyMethod()
               .AllowAnyHeader();
     });
