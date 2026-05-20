@@ -31,9 +31,9 @@ function ProfileCheckWrapper({ children }: { children: React.ReactNode }) {
     if (storedUser) {
       try {
         const user = JSON.parse(storedUser);
-        const isForceUpdate = 
-          !user.firstName || !user.lastName || 
-          !user.phoneNumber || !user.licensePlate || 
+        const isForceUpdate =
+          !user.firstName || !user.lastName ||
+          !user.phoneNumber || !user.licensePlate ||
           !user.vehicleType || !user.address ||
           user.firstName === 'Google' || user.lastName === 'User';
         const publicAuthPaths = ['/login', '/register', '/forgot-password', '/profile'];
@@ -54,33 +54,33 @@ function App() {
     <Router>
       <ProfileCheckWrapper>
         <Routes>
-        <Route path="/profile" element={<ProfilePage />} />
-        {/* Admin Dashboard Routes — Admin role only */}
-        <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-        <Route path="/admin/monitoring" element={<AdminRoute><AdminMonitoring /></AdminRoute>} />
-        <Route path="/admin/reservations" element={<AdminRoute><AdminReservations /></AdminRoute>} />
-        <Route path="/admin/reports" element={<AdminRoute><AdminReports /></AdminRoute>} />
-        <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
-        <Route path="/admin/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />
+          <Route path="/profile" element={<ProfilePage />} />
+          {/* Admin Dashboard Routes — Admin role only */}
+          <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+          <Route path="/admin/monitoring" element={<AdminRoute><AdminMonitoring /></AdminRoute>} />
+          <Route path="/admin/reservations" element={<AdminRoute><AdminReservations /></AdminRoute>} />
+          <Route path="/admin/reports" element={<AdminRoute><AdminReports /></AdminRoute>} />
+          <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
+          <Route path="/admin/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />
 
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/status" element={<ParkingStatus />} />
-        <Route path="/reserve" element={<ReservationPage />} />
-        <Route path="/payment" element={<PaymentPage />} />
-        <Route path="/success" element={<SuccessPage />} />
-        <Route path="/gate-scan" element={<GateScanPage />} />
-        <Route path="/navigation" element={<NavigationPage />} />
-        <Route path="/active-session" element={<ActiveSessionPage />} />
-        <Route path="/contact" element={<ContactPage />} />
-        
-        {/* Premium Auth Routes */}
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        
-        {/* Fallback */}
-        <Route path="*" element={<LandingPage />} />
-      </Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/status" element={<ParkingStatus />} />
+          <Route path="/reserve" element={<ReservationPage />} />
+          <Route path="/payment" element={<PaymentPage />} />
+          <Route path="/success" element={<SuccessPage />} />
+          <Route path="/gate-scan" element={<GateScanPage />} />
+          <Route path="/navigation" element={<NavigationPage />} />
+          <Route path="/active-session" element={<ActiveSessionPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+
+          {/* Premium Auth Routes */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+
+          {/* Fallback */}
+          <Route path="*" element={<LandingPage />} />
+        </Routes>
       </ProfileCheckWrapper>
     </Router>
   );

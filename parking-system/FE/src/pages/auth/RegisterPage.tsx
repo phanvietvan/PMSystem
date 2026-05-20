@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import BrandLogo from '../../components/brand/BrandLogo';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle } from 'lucide-react';
 import { useGoogleLogin } from '@react-oauth/google';
 
 const RegisterPage = () => {
@@ -13,6 +13,8 @@ const RegisterPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [otp, setOtp] = useState('');
+  const [devOtpCode, setDevOtpCode] = useState('');
   const [error, setError] = useState('');
   
   const navigate = useNavigate();
@@ -56,39 +58,80 @@ const RegisterPage = () => {
     e.preventDefault();
     setError('');
 
-    if (step < 1) {
-      setStep(step + 1);
-    } else {
+    if (step === 0) {
+      setStep(1);
+    } else if (step === 1) {
+      if (password !== confirmPassword) {
+        setError('Mật khẩu xác nhận không khớp.');
+        return;
+      }
+      if (password.length < 6) {
+        setError('Mật khẩu phải chứa ít nhất 6 ký tự.');
+        return;
+      }
+
       setLoading(true);
-      
-      // Auto-generate username from email
+      try {
+        // Step 1: Request OTP
+        const response = await api.post('/auth/register/send-otp', {
+          email: email.toLowerCase().trim()
+        });
+
+        const apiResponse = response.data;
+        // In dev mode (EnableMailtrap=false), backend returns the OTP code in response
+        if (apiResponse.data && apiResponse.data.otpCode) {
+          setDevOtpCode(apiResponse.data.otpCode);
+        } else {
+          setDevOtpCode('');
+        }
+
+        setLoading(false);
+        setStep(2);
+      } catch (err: any) {
+        setLoading(false);
+        console.error('Send OTP Error:', err.response?.data);
+        setError(err.response?.data?.message || 'Không thể gửi mã OTP. Vui lòng kiểm tra lại email.');
+      }
+    } else if (step === 2) {
+      if (otp.length !== 6) {
+        setError('Mã OTP phải chứa đúng 6 chữ số.');
+        return;
+      }
+
+      setLoading(true);
       const username = email.split('@')[0];
 
       try {
-        const response = await api.post('/auth/register', {
-          firstName,
-          lastName,
-          email,
+        // Step 2: Verify OTP and Register
+        const response = await api.post('/auth/register/verify', {
+          email: email.toLowerCase().trim(),
+          otp,
           username,
-          password
+          password,
+          firstName: firstName.trim(),
+          lastName: lastName.trim()
         });
 
-        console.log('Registration Success:', response.data);
+        const apiResponse = response.data;
+        const { user, accessToken } = apiResponse.data;
+
+        localStorage.setItem('token', accessToken);
+        localStorage.setItem('user', JSON.stringify(user));
+        
+        window.dispatchEvent(new Event('user-login'));
         setLoading(false);
-        navigate('/login');
+        navigate('/');
       } catch (err: any) {
         setLoading(false);
-        console.error('Registration Error Details:', err.response?.data);
+        console.error('Verify OTP Error Details:', err.response?.data);
         
-        // Trích xuất lỗi chi tiết từ Backend (nếu có)
         const beErrors = err.response?.data?.errors;
-        let errorMessage = 'Đăng ký thất bại.';
+        let errorMessage = 'Xác minh OTP và đăng ký thất bại.';
         
         if (beErrors) {
-          // Lấy tất cả các lỗi validation gộp lại thành 1 chuỗi
           errorMessage = Object.values(beErrors).flat().join(' | ');
         } else {
-          errorMessage = err.response?.data?.message || 'Vui lòng kiểm tra lại thông tin.';
+          errorMessage = err.response?.data?.message || 'Mã OTP không chính xác hoặc đã hết hạn.';
         }
         
         setError(errorMessage);
@@ -162,6 +205,8 @@ const RegisterPage = () => {
                   <p className="text-xs font-bold text-red-600">{error}</p>
                 </div>
               )}
+
+
 
               {step === 0 && (
                 <div className="space-y-6 animate-fade-in-up">
@@ -255,7 +300,36 @@ const RegisterPage = () => {
                     type="submit"
                     disabled={loading}
                   >
-                    <span className="relative z-10">{loading ? 'ĐANG XỬ LÝ...' : 'Hoàn tất đăng ký'}</span>
+                    <span className="relative z-10">{loading ? 'ĐANG GỬI OTP...' : 'Đăng ký & Gửi OTP'}</span>
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shine_1.5s_infinite] pointer-events-none"></div>
+                  </button>
+                </div>
+              )}
+
+              {step === 2 && (
+                <div className="space-y-6 animate-fade-in-up">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/70 ml-1">Mã xác thực OTP (6 chữ số)</label>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-4.5 flex items-center pointer-events-none text-outline group-focus-within:text-primary transition-colors">
+                        <span className="material-symbols-outlined text-[20px]">verified</span>
+                      </div>
+                      <input 
+                        className="premium-input block w-full pl-12 pr-4 py-3 rounded-full border border-outline-variant focus:outline-none transition-all text-center text-lg font-bold tracking-[0.25em]" 
+                        maxLength={6} 
+                        required 
+                        value={otp} 
+                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))} 
+                        placeholder="000000" 
+                      />
+                    </div>
+                  </div>
+                  <button 
+                    className={`group relative overflow-hidden w-full py-3 bg-primary hover:bg-primary-container text-white font-semibold rounded-full transition-all duration-300 shadow-md shadow-primary/10 hover:shadow-lg hover:shadow-primary/20 transform hover:-translate-y-0.5 active:scale-[0.98] text-sm ${loading ? 'opacity-80 cursor-wait' : ''}`} 
+                    type="submit"
+                    disabled={loading}
+                  >
+                    <span className="relative z-10">{loading ? 'ĐANG XÁC MINH...' : 'Xác nhận & Hoàn tất'}</span>
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shine_1.5s_infinite] pointer-events-none"></div>
                   </button>
                 </div>
