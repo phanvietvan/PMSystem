@@ -6,6 +6,8 @@ using Repositories.Entities;
 using Repositories.Enums;
 using Repositories.Interfaces;
 using Services.Interfaces;
+using System.Net.Http;
+using System.Net.Http.Json;
 
 namespace Services.Implementations;
 
@@ -75,6 +77,62 @@ public class AuthService : IAuthService
 
         _logger.LogInformation("User logged in: {UserId}", user.Id);
         return await IssueTokensAsync(user, ipAddress);
+    }
+
+    public async Task<ApiResponse<AuthResponse>> GoogleLoginAsync(GoogleLoginRequest request, string? ipAddress = null)
+    {
+        try
+        {
+            using var client = new HttpClient();
+            var response = await client.GetAsync($"https://www.googleapis.com/oauth2/v3/userinfo?access_token={request.IdToken}");
+            if (!response.IsSuccessStatusCode)
+            {
+                return ApiResponse<AuthResponse>.Fail("Invalid Google access token.");
+            }
+
+            var googleUser = await response.Content.ReadFromJsonAsync<GoogleUserInfo>();
+            if (googleUser == null || string.IsNullOrEmpty(googleUser.Email))
+            {
+                return ApiResponse<AuthResponse>.Fail("Failed to retrieve user information from Google.");
+            }
+
+            var user = await _userRepo.GetByEmailAsync(googleUser.Email);
+            if (user == null)
+            {
+                // Register a new user
+                user = new User
+                {
+                    Email = googleUser.Email.ToLower().Trim(),
+                    Username = googleUser.Email.Split('@')[0].ToLower().Trim() + "_" + Guid.NewGuid().ToString("N").Substring(0, 4),
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString()), // Random password
+                    FirstName = googleUser.Given_Name ?? "Google",
+                    LastName = googleUser.Family_Name ?? "User",
+                    Status = UserStatus.Active
+                };
+                await _userRepo.AddAsync(user);
+                await _userRepo.SaveChangesAsync();
+                _logger.LogInformation("New user registered via Google: {UserId} ({Email})", user.Id, user.Email);
+            }
+            else
+            {
+                if (user.Status == UserStatus.Banned)
+                    return ApiResponse<AuthResponse>.Fail("Your account has been suspended.");
+                if (user.Status == UserStatus.Inactive)
+                    return ApiResponse<AuthResponse>.Fail("Account is inactive.");
+
+                user.LastLoginAt = DateTime.UtcNow;
+                _userRepo.Update(user);
+                await _userRepo.SaveChangesAsync();
+                _logger.LogInformation("User logged in via Google: {UserId}", user.Id);
+            }
+
+            return await IssueTokensAsync(user, ipAddress);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in Google Login");
+            return ApiResponse<AuthResponse>.Fail("An error occurred during Google Login processing.");
+        }
     }
 
     public async Task<ApiResponse<AuthResponse>> RefreshTokenAsync(string refreshToken, string? ipAddress = null)
