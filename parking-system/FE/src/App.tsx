@@ -64,7 +64,7 @@ function App() {
           <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
           <Route path="/admin/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />
 
-          <Route path="/" element={<ProtectedRoute><LandingPage /></ProtectedRoute>} />
+          <Route path="/" element={<LandingPage />} />
           <Route path="/status" element={<ProtectedRoute><ParkingStatus /></ProtectedRoute>} />
           <Route path="/reserve" element={<ProtectedRoute><ReservationPage /></ProtectedRoute>} />
           <Route path="/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
@@ -80,7 +80,7 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
           {/* Fallback */}
-          <Route path="*" element={<ProtectedRoute><LandingPage /></ProtectedRoute>} />
+          <Route path="*" element={<LandingPage />} />
         </Routes>
       </ProfileCheckWrapper>
     </Router>
