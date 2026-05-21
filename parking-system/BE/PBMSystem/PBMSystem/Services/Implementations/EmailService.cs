@@ -164,4 +164,56 @@ public class EmailService : IEmailService
             _ => throw new ArgumentOutOfRangeException(nameof(purpose))
         };
     }
+
+    public async Task SendContactEmailAsync(string fromName, string fromEmail, string? phone, string subject, string message)
+    {
+        var emailSubject = $"[PM System Contact] {subject} - Từ: {fromName}";
+        var body = $"""
+            <!DOCTYPE html>
+            <html>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; color: #333; line-height: 1.6;">
+                <h2 style="color: #1a1a2e; border-bottom: 2px solid #3b82f6; padding-bottom: 8px;">Yêu cầu liên hệ mới</h2>
+                <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                    <tr>
+                        <td style="padding: 8px; font-weight: bold; width: 150px;">Họ và tên:</td>
+                        <td style="padding: 8px;">{fromName}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; font-weight: bold;">Địa chỉ Email:</td>
+                        <td style="padding: 8px;"><a href="mailto:{fromEmail}">{fromEmail}</a></td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; font-weight: bold;">Số điện thoại:</td>
+                        <td style="padding: 8px;">{phone ?? "Không cung cấp"}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; font-weight: bold;">Chủ đề:</td>
+                        <td style="padding: 8px;">{subject}</td>
+                    </tr>
+                </table>
+                <div style="background: #f4f6f9; padding: 20px; border-radius: 8px; margin-top: 20px; white-space: pre-wrap;">
+                    <strong>Nội dung tin nhắn:</strong><br/>
+                    {message}
+                </div>
+                <p style="color: #888; font-size: 11px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 10px;">
+                    Thư này được gửi tự động từ hệ thống quản lý đỗ xe PM System.
+                </p>
+            </body>
+            </html>
+            """;
+
+        var mailMessage = new MimeMessage();
+        mailMessage.From.Add(new MailboxAddress(_smtp.FromName, _smtp.FromAddress));
+        mailMessage.To.Add(MailboxAddress.Parse("pmsystem.system" + "@" + "gmail.com"));
+        mailMessage.Subject = emailSubject;
+        mailMessage.Body = new TextPart("html") { Text = body };
+
+        using var client = new SmtpClient();
+        await client.ConnectAsync(_smtp.Host, _smtp.Port, SecureSocketOptions.StartTls);
+        await client.AuthenticateAsync(_smtp.Username, _smtp.Password);
+        await client.SendAsync(mailMessage);
+        await client.DisconnectAsync(true);
+
+        _logger.LogInformation("Contact submission email successfully sent to pmsystem.system@gmail.com");
+    }
 }

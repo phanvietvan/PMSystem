@@ -130,6 +130,65 @@ public class ParkingSessionsController : ControllerBase
         });
     }
 
+    /// <summary>
+    /// Returns all license plates that currently have an active (not yet checked-out) session.
+    /// Used by the FE to lock vehicles that are still parked.
+    /// </summary>
+    [HttpGet("active-plates")]
+    public async Task<IActionResult> GetActivePlates()
+    {
+        var plates = await _context.ParkingSessions
+            .Where(ps => ps.Status == "Active")
+            .Select(ps => ps.LicensePlate)
+            .Distinct()
+            .ToListAsync();
+        return Ok(plates);
+    }
+
+    /// <summary>
+    /// Returns all parking slots that currently have an active session.
+    /// Used by the FE to lock slots on the map.
+    /// </summary>
+    [HttpGet("active-slots")]
+    public async Task<IActionResult> GetActiveSlots()
+    {
+        var slots = await _context.ParkingSessions
+            .Where(ps => ps.Status == "Active" && !string.IsNullOrEmpty(ps.ParkingSlot))
+            .Select(ps => ps.ParkingSlot)
+            .Distinct()
+            .ToListAsync();
+        return Ok(slots);
+    }
+
+    /// <summary>
+    /// Returns all active sessions whose license plate matches any in the given list.
+    /// Plates are compared after stripping dashes, dots and spaces.
+    /// </summary>
+    [HttpPost("active-by-plates")]
+    public async Task<IActionResult> GetActiveByPlates([FromBody] List<string> plates)
+    {
+        if (plates == null || plates.Count == 0)
+            return Ok(Array.Empty<object>());
+
+        var normalized = plates
+            .Select(p => p.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper())
+            .ToList();
+
+        var activeSessions = await _context.ParkingSessions
+            .Where(ps => ps.Status == "Active")
+            .ToListAsync();
+
+        var matched = activeSessions
+            .Where(ps =>
+            {
+                var norm = ps.LicensePlate.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper();
+                return normalized.Contains(norm);
+            })
+            .ToList();
+
+        return Ok(matched);
+    }
+
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {

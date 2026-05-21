@@ -196,6 +196,11 @@ const ForgotPasswordPage = () => {
                 <div className="space-y-6 animate-fade-in-up">
                   <div className="text-center p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30">
                     <p className="text-xs text-on-surface-variant">Mã OTP đã được gửi. Vui lòng nhập mã để đặt lại mật khẩu.</p>
+                    {devOtpCode && (
+                      <p className="text-[11px] font-black text-indigo-600 mt-2 bg-indigo-50 py-1 px-3 rounded-full inline-block">
+                        Mã OTP của bạn: {devOtpCode}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/70 ml-1">Mã xác thực OTP (6 chữ số)</label>
