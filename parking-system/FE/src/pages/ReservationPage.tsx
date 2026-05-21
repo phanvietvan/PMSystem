@@ -31,6 +31,7 @@ const ReservationPage = () => {
   });
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isVehicleDropdownOpen, setIsVehicleDropdownOpen] = useState(false);
 
   const selectedParking = parkingLots.find(p => p.id === formData.parkingLotId) || parkingLots[0];
 
@@ -157,35 +158,77 @@ const ReservationPage = () => {
 
                 {/* License Plate selection if they have multiple */}
                 {userVehicles.length > 0 ? (
-                  <div className="space-y-2">
+                  <div className="space-y-2 relative">
                     <label className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-400/90 ml-1.5 flex items-center gap-1.5">
                       <span className="material-symbols-outlined text-[15px] text-blue-500">credit_card</span> Chọn phương tiện gửi
                     </label>
-                    <div className="relative group">
-                      <select
-                        value={formData.licensePlate}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          const found = userVehicles.find(v => v.plate === val);
-                          setFormData(prev => ({
-                            ...prev,
-                            licensePlate: val,
-                            vehicleType: found ? (found.type.toLowerCase() === 'motorbike' ? 'bike' : found.type.toLowerCase() === 'bicycle' ? 'bike' : found.type.toLowerCase()) : 'car'
-                          }));
-                        }}
-                        className="premium-input block w-full px-6 py-4 rounded-full border border-outline-variant focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/60 transition-all text-sm font-semibold appearance-none bg-white cursor-pointer shadow-sm"
-                      >
-                        {userVehicles.map((veh, i) => (
-                          <option key={i} value={veh.plate}>
-                            {veh.plate} ({veh.type === 'Car' ? 'Ô tô' : veh.type === 'Motorbike' ? 'Xe máy' : 'Xe đạp/Xe điện'})
-                          </option>
-                        ))}
-                        <option value="CUSTOM">+ Nhập biển số xe khác</option>
-                      </select>
-                      <div className="absolute inset-y-0 right-0 pr-6 flex items-center pointer-events-none text-slate-400">
-                        <span className="material-symbols-outlined text-[20px]">keyboard_arrow_down</span>
-                      </div>
+                    <div
+                      onClick={() => setIsVehicleDropdownOpen(!isVehicleDropdownOpen)}
+                      className="w-full bg-white border border-outline-variant/80 hover:border-blue-500/40 rounded-full py-4 px-6 text-slate-900 font-extrabold flex items-center justify-between cursor-pointer transition-all duration-300 group shadow-sm hover:shadow-md"
+                    >
+                      <span className="text-sm truncate pr-2">
+                        {formData.licensePlate === 'CUSTOM' || !userVehicles.some(v => v.plate === formData.licensePlate)
+                          ? (formData.licensePlate === 'CUSTOM' ? '+ Nhập biển số xe khác' : (formData.licensePlate || 'Chọn xe của bạn'))
+                          : `${formData.licensePlate} (${
+                              userVehicles.find(v => v.plate === formData.licensePlate)?.type === 'Car' ? 'Ô tô' : 
+                              userVehicles.find(v => v.plate === formData.licensePlate)?.type === 'Motorbike' ? 'Xe máy' : 'Xe đạp/Xe điện'
+                            })`
+                        }
+                      </span>
+                      <span className={`material-symbols-outlined text-[20px] text-slate-400 group-hover:text-blue-500 transition-all duration-300 ${isVehicleDropdownOpen ? 'rotate-180' : ''}`}>
+                        keyboard_arrow_down
+                      </span>
                     </div>
+
+                    <AnimatePresence>
+                      {isVehicleDropdownOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -12, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -12, scale: 0.95 }}
+                          transition={{ duration: 0.2, ease: "easeOut" }}
+                          className="absolute z-[2500] left-0 right-0 mt-3.5 bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl border border-slate-100/90 max-h-64 overflow-y-auto divide-y divide-slate-50 scrollbar-thin overflow-hidden p-2"
+                        >
+                          {userVehicles.map((veh, i) => (
+                            <div
+                              key={i}
+                              onClick={() => {
+                                setFormData(prev => ({
+                                  ...prev,
+                                  licensePlate: veh.plate,
+                                  vehicleType: veh.type.toLowerCase() === 'motorbike' ? 'bike' : veh.type.toLowerCase() === 'bicycle' ? 'bike' : veh.type.toLowerCase()
+                                }));
+                                setIsVehicleDropdownOpen(false);
+                              }}
+                              className={`px-5 py-3.5 rounded-2xl hover:bg-blue-50/50 cursor-pointer transition-all duration-200 flex items-center justify-between my-0.5
+                                ${formData.licensePlate === veh.plate ? 'bg-blue-50 text-blue-600 font-bold' : 'text-slate-600'}`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <span className="material-symbols-outlined text-[18px]">
+                                  {veh.type.toLowerCase() === 'car' ? 'directions_car' : veh.type.toLowerCase() === 'motorbike' ? 'two_wheeler' : 'pedal_bike'}
+                                </span>
+                                <span className="font-extrabold text-sm text-slate-800">{veh.plate}</span>
+                              </div>
+                              <span className="text-[10px] text-slate-400 font-black uppercase">
+                                {veh.type === 'Car' ? 'Ô tô' : veh.type === 'Motorbike' ? 'Xe máy' : 'Xe đạp/Xe điện'}
+                              </span>
+                            </div>
+                          ))}
+                          
+                          <div
+                            onClick={() => {
+                              setFormData(prev => ({ ...prev, licensePlate: 'CUSTOM' }));
+                              setIsVehicleDropdownOpen(false);
+                            }}
+                            className={`px-5 py-3.5 rounded-2xl hover:bg-blue-50/50 cursor-pointer transition-all duration-200 flex items-center gap-3 my-0.5
+                              ${formData.licensePlate === 'CUSTOM' ? 'bg-blue-50 text-blue-600 font-bold' : 'text-slate-600'}`}
+                          >
+                            <span className="material-symbols-outlined text-[18px]">add_circle</span>
+                            <span className="font-extrabold text-sm text-slate-800">+ Nhập biển số xe khác</span>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
 
                     {(formData.licensePlate === 'CUSTOM' || !userVehicles.some(v => v.plate === formData.licensePlate)) && (
                       <div className="relative group pt-2 animate-fade-in-up">
@@ -277,30 +320,32 @@ const ReservationPage = () => {
                 </div>
 
                 {/* Vehicle Type Tab Selector */}
-                <div className="space-y-3">
-                  <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-400/90 ml-1.5">Loại phương tiện</p>
+                {(userVehicles.length === 0 || formData.licensePlate === 'CUSTOM' || !userVehicles.some(v => v.plate === formData.licensePlate)) && (
+                  <div className="space-y-3 animate-fade-in-up">
+                    <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-400/90 ml-1.5">Loại phương tiện</p>
 
-                  <div className="grid grid-cols-3 gap-3 p-1.5 bg-slate-50 border border-slate-100 rounded-3xl">
-                    {['car', 'suv', 'bike'].map((type) => (
-                      <button
-                        key={type}
-                        type="button"
-                        onClick={() => setFormData({ ...formData, vehicleType: type })}
-                        className={`flex flex-col items-center justify-center py-4 rounded-2xl transition-all duration-300 gap-1.5 relative overflow-hidden group
-                          ${formData.vehicleType === type
-                            ? 'bg-white text-blue-600 shadow-md shadow-blue-500/5 font-extrabold scale-[1.03] border border-slate-100'
-                            : 'text-slate-400 hover:text-slate-600 font-semibold'}`}
-                      >
-                        <span className="material-symbols-outlined text-[22px] transition-transform duration-300 group-hover:scale-110">
-                          {type === 'car' ? 'directions_car' : type === 'suv' ? 'airport_shuttle' : 'two_wheeler'}
-                        </span>
-                        <span className="text-[10px] uppercase tracking-wider font-extrabold">
-                          {type === 'car' ? 'Ô tô 4-7' : type === 'suv' ? 'SUV/Tải' : 'Xe máy'}
-                        </span>
-                      </button>
-                    ))}
+                    <div className="grid grid-cols-3 gap-3 p-1.5 bg-slate-50 border border-slate-100 rounded-3xl">
+                      {['car', 'suv', 'bike'].map((type) => (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, vehicleType: type })}
+                          className={`flex flex-col items-center justify-center py-4 rounded-2xl transition-all duration-300 gap-1.5 relative overflow-hidden group
+                            ${formData.vehicleType === type
+                              ? 'bg-white text-blue-600 shadow-md shadow-blue-500/5 font-extrabold scale-[1.03] border border-slate-100'
+                              : 'text-slate-400 hover:text-slate-600 font-semibold'}`}
+                        >
+                          <span className="material-symbols-outlined text-[22px] transition-transform duration-300 group-hover:scale-110">
+                            {type === 'car' ? 'directions_car' : type === 'suv' ? 'airport_shuttle' : 'two_wheeler'}
+                          </span>
+                          <span className="text-[10px] uppercase tracking-wider font-extrabold">
+                            {type === 'car' ? 'Ô tô 4-7' : type === 'suv' ? 'SUV/Tải' : 'Xe máy'}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Subtle Info alert */}
                 <div className="flex items-start gap-3 p-4 bg-indigo-50/50 border border-indigo-100/60 rounded-[1.5rem]">
