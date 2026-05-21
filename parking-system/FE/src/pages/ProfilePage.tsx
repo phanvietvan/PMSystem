@@ -84,7 +84,6 @@ const ProfilePage = () => {
       });
 
       if (response.data.success) {
-        // Update user in local storage
         const updatedUser = {
           ...currentUser,
           firstName: response.data.data.firstName,
@@ -92,7 +91,8 @@ const ProfilePage = () => {
           phoneNumber: response.data.data.phoneNumber,
           licensePlate: response.data.data.licensePlate,
           vehicleType: response.data.data.vehicleType,
-          address: response.data.data.address
+          address: response.data.data.address,
+          avatarUrl: response.data.data.avatarUrl || currentUser.avatarUrl
         };
         localStorage.setItem('user', JSON.stringify(updatedUser));
         setCurrentUser(updatedUser);
@@ -154,6 +154,21 @@ const ProfilePage = () => {
           )}
 
           <div className="text-center mb-8">
+            {/* Avatar Profile Section */}
+            <div className="flex justify-center mb-4">
+              <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white shadow-lg relative bg-blue-100 flex items-center justify-center text-blue-600">
+                {currentUser.avatarUrl && currentUser.avatarUrl !== 'null' && currentUser.avatarUrl !== 'undefined' ? (
+                  <img 
+                    src={currentUser.avatarUrl} 
+                    alt="Profile Avatar" 
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover" 
+                  />
+                ) : (
+                  <User size={40} className="opacity-80" />
+                )}
+              </div>
+            </div>
             <h1 className="text-2xl font-extrabold text-slate-950">Thông tin cá nhân</h1>
             <p className="text-xs text-slate-400 mt-1">Cập nhật thông tin hồ sơ tài khoản của bạn</p>
           </div>

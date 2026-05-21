@@ -26,5 +26,6 @@ public interface IAuthService
 
     // ── Forgot / Reset Password ───────────────────────────────────────────────
     Task<ApiResponse<OtpSendResponse>> SendForgotPasswordOtpAsync(ForgotPasswordRequest request);
+    Task<ApiResponse<bool>> VerifyForgotPasswordOtpAsync(VerifyForgotPasswordOtpRequest request);
     Task<ApiResponse<bool>> ResetPasswordAsync(ResetPasswordRequest request);
 }

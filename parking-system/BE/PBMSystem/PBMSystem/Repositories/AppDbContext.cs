@@ -1,5 +1,6 @@
 using Repositories.Entities;
 using Microsoft.EntityFrameworkCore;
+using MongoDB.EntityFrameworkCore.Extensions;
 
 namespace Repositories;
 
@@ -11,7 +12,10 @@ namespace Repositories;
 /// </summary>
 public class AppDbContext : DbContext
 {
-    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
+    {
+        Database.AutoTransactionBehavior = AutoTransactionBehavior.Never;
+    }
 
     public DbSet<User> Users => Set<User>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
@@ -21,59 +25,13 @@ public class AppDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        // ── User ─────────────────────────────────────────────────────────────
-        modelBuilder.Entity<User>(entity =>
-        {
-            entity.HasKey(u => u.Id);
-            entity.HasIndex(u => u.Email).IsUnique();
-            entity.HasIndex(u => u.Username).IsUnique();
+        modelBuilder.Entity<User>().ToCollection("Users");
+        modelBuilder.Entity<RefreshToken>().ToCollection("RefreshTokens");
+        modelBuilder.Entity<ParkingSession>().ToCollection("ParkingSessions");
 
-            entity.Property(u => u.Email).IsRequired().HasMaxLength(256);
-            entity.Property(u => u.Username).IsRequired().HasMaxLength(50);
-            entity.Property(u => u.PasswordHash).IsRequired();
-            entity.Property(u => u.FirstName).HasMaxLength(100);
-            entity.Property(u => u.LastName).HasMaxLength(100);
-            entity.Property(u => u.PhoneNumber).HasMaxLength(20);
-            entity.Property(u => u.Address).HasMaxLength(500);
-            entity.Property(u => u.Status).HasConversion<int>();
-            entity.Property(u => u.Role).HasConversion<int>();
-
-            // OTP fields — nullable, cleared after successful verification
-            entity.Property(u => u.OtpCode).HasMaxLength(6);
-            entity.Property(u => u.OtpExpiry);
-
-            // Cooldown — nullable, set on every OTP send
-            entity.Property(u => u.OtpLastSentAt);
-
-            // Soft-delete global filter — automatically excludes deleted rows
-            entity.HasQueryFilter(u => !u.IsDeleted);
-        });
-
-        // ── RefreshToken ──────────────────────────────────────────────────────
-        modelBuilder.Entity<RefreshToken>(entity =>
-        {
-            entity.HasKey(rt => rt.Id);
-            entity.HasIndex(rt => rt.Token).IsUnique();
-
-            entity.Property(rt => rt.Token).IsRequired().HasMaxLength(512);
-            entity.Property(rt => rt.ReplacedByToken).HasMaxLength(512);
-            entity.Property(rt => rt.CreatedByIp).HasMaxLength(45);
-
-            entity.HasOne(rt => rt.User)
-                  .WithMany(u => u.RefreshTokens)
-                  .HasForeignKey(rt => rt.UserId)
-                  .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        // ── ParkingSession ───────────────────────────────────────────────────
-        modelBuilder.Entity<ParkingSession>(entity =>
-        {
-            entity.HasKey(ps => ps.Id);
-            entity.HasIndex(ps => ps.QrCode).IsUnique();
-            entity.Property(ps => ps.LicensePlate).IsRequired();
-            entity.Property(ps => ps.QrCode).IsRequired();
-            entity.HasQueryFilter(ps => !ps.IsDeleted);
-        });
+        // Global query filters for soft-delete
+        modelBuilder.Entity<User>().HasQueryFilter(u => !u.IsDeleted);
+        modelBuilder.Entity<ParkingSession>().HasQueryFilter(ps => !ps.IsDeleted);
     }
 
     /// <summary>

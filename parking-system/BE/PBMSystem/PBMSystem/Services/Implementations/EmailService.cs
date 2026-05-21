@@ -43,23 +43,35 @@ public class EmailService : IEmailService
     /// </summary>
     public async Task<string?> SendOtpEmailAsync(string toEmail, string otp, EmailOtpPurpose purpose)
     {
-        if (_isDevelopment && !_smtp.EnableMailtrap)
+        _logger.LogInformation("DEBUG: SMTP Settings Loaded - Host: {Host}, Username: {Username}", _smtp.Host, _smtp.Username);
+
+        // If credentials are the default placeholders, use dev fallback mode
+        if (string.IsNullOrWhiteSpace(_smtp.Username) || 
+            _smtp.Username.Contains("MAILTRAP_") || 
+            _smtp.Username.Contains("REPLACE_WITH"))
+        {
             return await HandleDevModeAsync(toEmail, otp, purpose);
+        }
 
-        if (_isDevelopment && _smtp.EnableMailtrap)
-            return await HandleMailtrapModeAsync(toEmail, otp, purpose);
-
-        // Production — real SMTP, OTP never exposed in response
-        await SendSmtpAsync(toEmail, otp, purpose);
-        return null;
+        // Real SMTP sending
+        try
+        {
+            await SendSmtpAsync(toEmail, otp, purpose);
+            _logger.LogInformation("Successfully sent OTP email to real inbox: {Email}", toEmail);
+            return _isDevelopment ? otp : null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send real SMTP email to {Email}. Falling back to dev mode OTP.", toEmail);
+            if (_isDevelopment)
+            {
+                // In dev mode, return OTP so development is not blocked even if SMTP is misconfigured
+                return otp;
+            }
+            throw;
+        }
     }
 
-    // ── Modes ─────────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Dev default: no SMTP, OTP goes to console and API response.
-    /// Flip EnableMailtrap to true in appsettings.Development.json to switch modes.
-    /// </summary>
     private Task<string?> HandleDevModeAsync(string toEmail, string otp, EmailOtpPurpose purpose)
     {
         _logger.LogWarning(
@@ -68,43 +80,12 @@ public class EmailService : IEmailService
             "  To    : {Email}\n" +
             "  Purpose: {Purpose}\n" +
             "  Code  : {Otp}\n" +
-            "  Tip   : Set SmtpSettings.EnableMailtrap = true\n" +
-            "          in appsettings.Development.json to test\n" +
-            "          with a real Mailtrap inbox instead.\n" +
+            "  Tip   : Configure your actual SMTP credentials\n" +
+            "          in appsettings.Development.json to send real emails.\n" +
             "──────────────────────────────────────────────",
             toEmail, purpose, otp);
 
         return Task.FromResult<string?>(otp);
-    }
-
-    /// <summary>
-    /// Dev opt-in: sends to Mailtrap sandbox, OTP also returned in response
-    /// so the frontend doesn't need to check the inbox during testing.
-    /// </summary>
-    private async Task<string?> HandleMailtrapModeAsync(string toEmail, string otp, EmailOtpPurpose purpose)
-    {
-        _logger.LogInformation(
-            "[DEV + MAILTRAP] Sending OTP to {Email} via Mailtrap sandbox", toEmail);
-
-        try
-        {
-            await SendSmtpAsync(toEmail, otp, purpose);
-
-            _logger.LogInformation(
-                "[DEV + MAILTRAP] Email delivered to Mailtrap inbox for {Email}. " +
-                "OTP also included in API response for convenience.", toEmail);
-        }
-        catch (Exception ex)
-        {
-            // Mailtrap send failed — fall back to console-only so dev work isn't blocked.
-            _logger.LogError(ex,
-                "[DEV + MAILTRAP] Failed to send via Mailtrap. " +
-                "Check your Username/Password in appsettings.Development.json. " +
-                "OTP: {Otp}", otp);
-        }
-
-        // Always return OTP in dev+mailtrap mode regardless of send result
-        return otp;
     }
 
     // ── SMTP Core ─────────────────────────────────────────────────────────────

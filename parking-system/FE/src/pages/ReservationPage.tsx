@@ -38,6 +38,10 @@ const ReservationPage = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     localStorage.setItem('selectedParking', JSON.stringify(selectedParking));
+    localStorage.setItem('reservationDate', formData.date);
+    localStorage.setItem('reservationStartTime', formData.startTime);
+    localStorage.setItem('reservationVehicleType', formData.vehicleType);
+    localStorage.setItem('reservationLicensePlate', formData.licensePlate);
     navigate('/status', { state: { selectedParking } });
   };
 

@@ -17,16 +17,11 @@ builder.Services.Configure<JwtSettings>(
 builder.Services.Configure<SmtpSettings>(
     builder.Configuration.GetSection("SmtpSettings"));
 
-// ── Database (SQLite) ─────────────────────────────────────────────────────────
-// The .db file is created automatically on first run in the project directory.
-// It is gitignored — each developer gets their own local copy.
-// To switch to SQL Server later: replace UseSqlite with UseSqlServer here,
-// swap the package in both .csproj files, and update the connection string.
+// ── Database (MongoDB) ────────────────────────────────────────────────────────
+var mongoUri = builder.Configuration.GetConnectionString("MongoConnection") ?? "mongodb://localhost:27017";
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
-        sql => sql.MigrationsAssembly("Repositories")
-    ));
+    options.UseMongoDB(mongoUri, "pbmsystem_dev"));
+
 
 // ── Repository + Services Layers ─────────────────────────────────────────────
 builder.Services.AddRepositories();
@@ -71,7 +66,13 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("DefaultPolicy", policy =>
     {
-        var origins = new List<string> { "http://localhost:5173", "http://localhost:3000", "https://parking-building-management-system.vercel.app" };
+        var origins = new List<string> { 
+            "http://localhost:5173", 
+            "http://localhost:5174", 
+            "http://localhost:5175", 
+            "http://localhost:3000", 
+            "https://parking-building-management-system.vercel.app" 
+        };
         var configuredOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>();
         if (configuredOrigins != null)
         {
@@ -87,13 +88,100 @@ builder.Services.AddCors(options =>
 // ── Build ─────────────────────────────────────────────────────────────────────
 var app = builder.Build();
 
-// ── Auto-apply migrations on startup ─────────────────────────────────────────
-// SQLite: creates the .db file and applies all pending migrations automatically.
-// No manual `dotnet ef database update` needed during development.
+// ── Auto-apply seeding on startup ─────────────────────────────────────────────
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await db.Database.MigrateAsync();
+    // For MongoDB: ensure the database and collections are created
+    await db.Database.EnsureCreatedAsync();
+
+    // Seed default users if none exist in the database
+    if (!await db.Users.AnyAsync())
+    {
+        var passwordHash = BCrypt.Net.BCrypt.HashPassword("DevPass123!");
+        var users = new List<Repositories.Entities.User>
+        {
+            new Repositories.Entities.User
+            {
+                Id = Guid.Parse("11111111-1111-1111-1111-111111111101"),
+                Email = "user@pbm.dev",
+                Username = "user_dev",
+                PasswordHash = passwordHash,
+                FirstName = "Dev",
+                LastName = "User",
+                PhoneNumber = "+84900000001",
+                Address = "1 Dev Seed Street",
+                Role = Repositories.Enums.UserRole.User,
+                Status = Repositories.Enums.UserStatus.Active,
+                CreatedAt = DateTime.UtcNow
+            },
+            new Repositories.Entities.User
+            {
+                Id = Guid.Parse("11111111-1111-1111-1111-111111111102"),
+                Email = "staff@pbm.dev",
+                Username = "staff_dev",
+                PasswordHash = passwordHash,
+                FirstName = "Dev",
+                LastName = "Staff",
+                PhoneNumber = "+84900000001",
+                Address = "1 Dev Seed Street",
+                Role = Repositories.Enums.UserRole.Staff,
+                Status = Repositories.Enums.UserStatus.Active,
+                CreatedAt = DateTime.UtcNow
+            },
+            new Repositories.Entities.User
+            {
+                Id = Guid.Parse("11111111-1111-1111-1111-111111111103"),
+                Email = "admin@pbm.dev",
+                Username = "admin_dev",
+                PasswordHash = passwordHash,
+                FirstName = "Dev",
+                LastName = "Admin",
+                PhoneNumber = "+84900000001",
+                Address = "1 Dev Seed Street",
+                Role = Repositories.Enums.UserRole.Admin,
+                Status = Repositories.Enums.UserStatus.Active,
+                CreatedAt = DateTime.UtcNow
+            }
+        };
+
+        await db.Users.AddRangeAsync(users);
+        await db.SaveChangesAsync();
+        Console.WriteLine("Seeded 3 default dev users into database.");
+    }
+
+    // Ensure vietvanphan04@gmail.com is Admin
+    var vietvanUser = await db.Users.FirstOrDefaultAsync(u => u.Email == "vietvanphan04@gmail.com");
+    if (vietvanUser != null)
+    {
+        if (vietvanUser.Role != Repositories.Enums.UserRole.Admin)
+        {
+            vietvanUser.Role = Repositories.Enums.UserRole.Admin;
+            await db.SaveChangesAsync();
+            Console.WriteLine("Updated vietvanphan04@gmail.com to Admin.");
+        }
+    }
+    else
+    {
+        var passwordHash = BCrypt.Net.BCrypt.HashPassword("DevPass123!");
+        var adminUser = new Repositories.Entities.User
+        {
+            Id = Guid.NewGuid(),
+            Email = "vietvanphan04@gmail.com",
+            Username = "vietvanphan04",
+            PasswordHash = passwordHash,
+            FirstName = "Viet Van",
+            LastName = "Phan",
+            PhoneNumber = "+84900000000",
+            Address = "Dev Street",
+            Role = Repositories.Enums.UserRole.Admin,
+            Status = Repositories.Enums.UserStatus.Active,
+            CreatedAt = DateTime.UtcNow
+        };
+        await db.Users.AddAsync(adminUser);
+        await db.SaveChangesAsync();
+        Console.WriteLine("Created and seeded vietvanphan04@gmail.com as Admin.");
+    }
 }
 
 // ── Middleware Pipeline ───────────────────────────────────────────────────────

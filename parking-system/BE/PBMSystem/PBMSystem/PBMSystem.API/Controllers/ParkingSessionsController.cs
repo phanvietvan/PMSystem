@@ -37,13 +37,35 @@ public class ParkingSessionsController : ControllerBase
             EntryPhoto = request.EntryPhoto,
             EntryTime = DateTime.UtcNow,
             Status = "Active",
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            ParkingLotName = request.ParkingLotName,
+            VehicleType = request.VehicleType,
+            ReservationDate = request.ReservationDate,
+            ReservationStartTime = request.ReservationStartTime,
+            ParkingSlot = request.ParkingSlot
         };
 
         _context.ParkingSessions.Add(session);
         await _context.SaveChangesAsync();
 
         return Ok(session);
+    }
+
+    private decimal CalculateFee(DateTime entryTime, DateTime exitTime)
+    {
+        var elapsed = exitTime - entryTime;
+        var elapsedMinutes = (int)Math.Ceiling(elapsed.TotalMinutes);
+        
+        // Base fee: 10,000 VNĐ for the first hour (60 minutes)
+        decimal fee = 10000;
+        
+        if (elapsedMinutes > 60)
+        {
+            // Extra fee: 500 VNĐ per additional minute
+            fee += (elapsedMinutes - 60) * 500;
+        }
+        
+        return fee;
     }
 
     [HttpGet("verify/{qrCode}")]
@@ -57,7 +79,16 @@ public class ParkingSessionsController : ControllerBase
             return NotFound(new { message = "Không tìm thấy phiên gửi xe hoặc mã QR không hợp lệ/đã thanh toán." });
         }
 
-        return Ok(session);
+        var exitTime = DateTime.UtcNow;
+        var fee = CalculateFee(session.EntryTime, exitTime);
+        var durationMinutes = (int)Math.Ceiling((exitTime - session.EntryTime).TotalMinutes);
+
+        return Ok(new
+        {
+            session,
+            fee,
+            durationMinutes
+        });
     }
 
     [HttpPost("checkout")]
@@ -88,9 +119,12 @@ public class ParkingSessionsController : ControllerBase
 
         await _context.SaveChangesAsync();
 
+        var fee = CalculateFee(session.EntryTime, session.ExitTime.Value);
+
         return Ok(new
         {
             session,
+            fee,
             isPlateMatched = session.IsPlateMatched,
             message = session.IsPlateMatched == true ? "Xác thực thành công. Cho phép xe ra." : "Cảnh báo: Biển số xe ra không trùng khớp với biển số xe vào!"
         });
