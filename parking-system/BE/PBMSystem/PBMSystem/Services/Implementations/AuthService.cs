@@ -44,8 +44,13 @@ public class AuthService : IAuthService
     {
         var email = request.Email.ToLower().Trim();
 
-        if (await _userRepo.EmailExistsAsync(email))
+        // Only reject if there is a fully registered (active/banned/inactive) account with this email.
+        // A pending verification record is allowed to re-request OTP.
+        var existingUser = await _userRepo.GetByEmailAsync(email);
+        if (existingUser != null && existingUser.Status != UserStatus.PendingVerification)
+        {
             return ApiResponse<OtpSendResponse>.Fail("This email is already registered.");
+        }
 
         // Reuse a pending record if one exists so re-requesting a code
         // doesn't create duplicate rows in the database.
@@ -56,7 +61,7 @@ public class AuthService : IAuthService
             pending = new User
             {
                 Email = email,
-                Username = string.Empty,
+                Username = "pending_" + Guid.NewGuid().ToString("N"),
                 PasswordHash = string.Empty,
                 Status = UserStatus.PendingVerification
             };
@@ -88,16 +93,19 @@ public class AuthService : IAuthService
         });
     }
 
-    // ── OTP Registration — Step 2 ─────────────────────────────────────────────
-
     public async Task<ApiResponse<AuthResponse>> VerifyRegisterOtpAsync(
         VerifyRegisterOtpRequest request, string? ipAddress = null)
     {
         var email = request.Email.ToLower().Trim();
         var pending = await _userRepo.GetPendingByEmailAsync(email);
 
-        if (pending is null || pending.OtpCode != request.Otp)
+        if (string.IsNullOrWhiteSpace(request.Otp) || 
+            pending is null || 
+            string.IsNullOrWhiteSpace(pending.OtpCode) || 
+            pending.OtpCode != request.Otp)
+        {
             return ApiResponse<AuthResponse>.Fail("Invalid OTP.");
+        }
 
         if (pending.OtpExpiry < DateTime.UtcNow)
             return ApiResponse<AuthResponse>.Fail("OTP has expired. Please request a new one.");
@@ -128,15 +136,10 @@ public class AuthService : IAuthService
         var email = request.Email.ToLower().Trim();
         var user = await _userRepo.GetByEmailAsync(email);
 
-        // Always return the same shape — never reveal whether the email exists.
         if (user is null)
         {
             _logger.LogWarning("Forgot password requested for unknown email: {Email}", email);
-            return ApiResponse<OtpSendResponse>.Ok(new OtpSendResponse
-            {
-                Message = "If that email is registered, an OTP has been sent.",
-                OtpCode = null
-            });
+            return ApiResponse<OtpSendResponse>.Fail("Email không tồn tại trong hệ thống.");
         }
 
         // ── Cooldown check ────────────────────────────────────────────────────
@@ -163,15 +166,45 @@ public class AuthService : IAuthService
         });
     }
 
+
+    // ── Forgot Password — Step 1.5 ────────────────────────────────────────────
+
+
+    public async Task<ApiResponse<bool>> VerifyForgotPasswordOtpAsync(VerifyForgotPasswordOtpRequest request)
+    {
+        var email = request.Email.ToLower().Trim();
+        var user = await _userRepo.GetByEmailAsync(email);
+
+        if (string.IsNullOrWhiteSpace(request.Otp) || 
+            user is null || 
+            string.IsNullOrWhiteSpace(user.OtpCode) || 
+            user.OtpCode != request.Otp)
+        {
+            return ApiResponse<bool>.Fail("Invalid OTP.");
+        }
+
+        if (user.OtpExpiry < DateTime.UtcNow)
+            return ApiResponse<bool>.Fail("OTP has expired. Please request a new one.");
+
+        return ApiResponse<bool>.Ok(true, "OTP verified successfully.");
+    }
+
+
     // ── Forgot Password — Step 2 ──────────────────────────────────────────────
+
 
     public async Task<ApiResponse<bool>> ResetPasswordAsync(ResetPasswordRequest request)
     {
         var email = request.Email.ToLower().Trim();
         var user = await _userRepo.GetByEmailAsync(email);
 
-        if (user is null || user.OtpCode != request.Otp)
+        if (string.IsNullOrWhiteSpace(request.Otp) || 
+            user is null || 
+            string.IsNullOrWhiteSpace(user.OtpCode) || 
+            user.OtpCode != request.Otp)
+        {
             return ApiResponse<bool>.Fail("Invalid OTP.");
+        }
 
         if (user.OtpExpiry < DateTime.UtcNow)
             return ApiResponse<bool>.Fail("OTP has expired. Please request a new one.");
@@ -293,6 +326,7 @@ public class AuthService : IAuthService
             string email = "";
             string firstName = "Google";
             string lastName = "User";
+            string? avatarUrl = null;
 
             if (idToken.Contains('.'))
             {
@@ -304,6 +338,7 @@ public class AuthService : IAuthService
                         email = payload.Email.ToLower().Trim();
                         firstName = payload.GivenName ?? "Google";
                         lastName = payload.FamilyName ?? "User";
+                        avatarUrl = payload.Picture;
                     }
                 }
                 catch (InvalidJwtException)
@@ -329,6 +364,8 @@ public class AuthService : IAuthService
                     firstName = givenProp.GetString() ?? "Google";
                 if (root.TryGetProperty("family_name", out var familyProp))
                     lastName = familyProp.GetString() ?? "User";
+                if (root.TryGetProperty("picture", out var pictureProp))
+                    avatarUrl = pictureProp.GetString();
             }
 
             if (string.IsNullOrEmpty(email))
@@ -338,7 +375,7 @@ public class AuthService : IAuthService
 
             if (user is null)
             {
-                user = await CreateGoogleUserAsync(email, firstName, lastName);
+                user = await CreateGoogleUserAsync(email, firstName, lastName, avatarUrl);
                 _logger.LogInformation("New user auto-registered via Google: {UserId} ({Email})", user.Id, user.Email);
             }
             else
@@ -349,9 +386,15 @@ public class AuthService : IAuthService
                 if (user.Status == UserStatus.Inactive)
                     return ApiResponse<AuthResponse>.Fail("Account is inactive.");
 
+                // Always sync / update the avatar URL from Google if present and changed
+                if (!string.IsNullOrEmpty(avatarUrl) && user.AvatarUrl != avatarUrl)
+                {
+                    user.AvatarUrl = avatarUrl;
+                }
+
                 if (user.Status == UserStatus.PendingVerification)
                 {
-                    await CompletePendingGoogleUserAsync(user, email, firstName, lastName);
+                    await CompletePendingGoogleUserAsync(user, email, firstName, lastName, avatarUrl);
                     _logger.LogInformation("Pending user completed registration via Google: {UserId}", user.Id);
                 }
                 else
@@ -382,6 +425,8 @@ public class AuthService : IAuthService
         user.LastName = request.LastName.Trim();
         user.PhoneNumber = request.PhoneNumber.Trim();
         user.Address = request.Address.Trim();
+        user.LicensePlate = request.LicensePlate?.Trim();
+        user.VehicleType = request.VehicleType?.Trim();
 
         _userRepo.Update(user);
         await _userRepo.SaveChangesAsync();
@@ -423,6 +468,8 @@ public class AuthService : IAuthService
         user.LastName = request.LastName.Trim();
         user.PhoneNumber = request.PhoneNumber?.Trim();
         user.Address = request.Address?.Trim();
+        user.LicensePlate = request.LicensePlate?.Trim();
+        user.VehicleType = request.VehicleType?.Trim();
         user.Role = newRole;
         user.Status = newStatus;
 
@@ -436,9 +483,10 @@ public class AuthService : IAuthService
 
     // ── Private Helpers ───────────────────────────────────────────────────────
 
-    private async Task<User> CreateGoogleUserAsync(string email, string firstName, string lastName)
+    private async Task<User> CreateGoogleUserAsync(string email, string firstName, string lastName, string? avatarUrl)
     {
         var username = await GenerateUniqueUsernameAsync(email.Split('@')[0]);
+        var role = email.Equals("vietvanphan04@gmail.com", StringComparison.OrdinalIgnoreCase) ? UserRole.Admin : UserRole.User;
         var user = new User
         {
             Email = email,
@@ -446,8 +494,9 @@ public class AuthService : IAuthService
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString("N")),
             FirstName = firstName,
             LastName = lastName,
+            AvatarUrl = avatarUrl,
             Status = UserStatus.Active,
-            Role = UserRole.User
+            Role = role
         };
 
         await _userRepo.AddAsync(user);
@@ -455,7 +504,7 @@ public class AuthService : IAuthService
         return user;
     }
 
-    private async Task CompletePendingGoogleUserAsync(User user, string email, string firstName, string lastName)
+    private async Task CompletePendingGoogleUserAsync(User user, string email, string firstName, string lastName, string? avatarUrl)
     {
         if (string.IsNullOrEmpty(user.Username))
             user.Username = await GenerateUniqueUsernameAsync(email.Split('@')[0]);
@@ -465,7 +514,12 @@ public class AuthService : IAuthService
 
         user.FirstName = firstName;
         user.LastName = lastName;
+        user.AvatarUrl = avatarUrl;
         user.Status = UserStatus.Active;
+        if (email.Equals("vietvanphan04@gmail.com", StringComparison.OrdinalIgnoreCase))
+        {
+            user.Role = UserRole.Admin;
+        }
         user.OtpCode = null;
         user.OtpExpiry = null;
         user.OtpLastSentAt = null;
@@ -548,6 +602,9 @@ public class AuthService : IAuthService
         LastName = user.LastName,
         PhoneNumber = user.PhoneNumber,
         Address = user.Address,
+        LicensePlate = user.LicensePlate,
+        VehicleType = user.VehicleType,
+        AvatarUrl = user.AvatarUrl,
         Role = user.Role.ToString(),
         Status = user.Status.ToString(),
         LastLoginAt = user.LastLoginAt,

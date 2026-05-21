@@ -29,14 +29,29 @@ public class PasswordController : ControllerBase
     /// </summary>
     [HttpPost("forgot")]
     [ProducesResponseType(typeof(ApiResponse<OtpSendResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<OtpSendResponse>), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Forgot([FromBody] ForgotPasswordRequest request)
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        // Always 200 regardless of whether the email exists — security by design
         var result = await _authService.SendForgotPasswordOtpAsync(request);
-        return Ok(result);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
+    /// <summary>
+    /// Step 1.5: Verify the forgot password OTP.
+    /// </summary>
+    [HttpPost("verify-otp")]
+    [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> VerifyOtp([FromBody] VerifyForgotPasswordOtpRequest request)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        var result = await _authService.VerifyForgotPasswordOtpAsync(request);
+        return result.Success ? Ok(result) : BadRequest(result);
     }
 
     /// <summary>

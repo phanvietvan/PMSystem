@@ -59,23 +59,16 @@ const LandingPage = () => {
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-32">
           <div className="grid lg:grid-cols-2 gap-20 items-center">
             {/* Text Content */}
-            <motion.div 
+            <motion.div
               initial="hidden"
               animate="visible"
               variants={containerVariants}
               className="space-y-10"
             >
-              <motion.div variants={itemVariants} className="inline-flex items-center gap-3 px-4 py-1.5 bg-white/50 backdrop-blur-md text-blue-600 rounded-full text-[11px] font-extrabold uppercase tracking-[0.2em] border border-blue-100/50 shadow-sm">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
-                </span>
-                Hạ tầng Tự vận hành thông minh
-              </motion.div>
 
               <motion.h1 variants={itemVariants} className="text-6xl lg:text-[84px] font-['Plus_Jakarta_Sans'] font-extrabold text-slate-900 leading-[1.05] tracking-[-0.04em]">
-                Hệ thống <br/>
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-500 to-blue-500">Quản lý Đỗ xe</span> <br/>
+                Hệ thống <br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-500 to-blue-500">Quản lý Đỗ xe</span> <br />
                 Thông minh
               </motion.h1>
 
@@ -84,15 +77,15 @@ const LandingPage = () => {
               </motion.p>
 
               <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-5 pt-4">
-                <Link to="/reserve" className="group relative bg-gradient-to-br from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-5 px-10 rounded-2xl shadow-2xl shadow-blue-600/40 flex items-center justify-center gap-3 transition-all duration-300 hover:-translate-y-1 active:scale-95 overflow-hidden">
-                  <span className="relative z-10">Bắt đầu ngay</span>
+                <Link to="/reserve" className="group relative bg-gradient-to-br from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-5 px-10 rounded-full shadow-2xl shadow-blue-600/40 flex items-center justify-center gap-3 transition-all duration-300 hover:-translate-y-1 active:scale-95 overflow-hidden">
+                  <span className="relative z-10">Đặt chỗ ngay</span>
                   <svg className="h-5 w-5 group-hover:translate-x-1 transition-transform relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path d="M13 7l5 5m0 0l-5 5m5-5H6" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5"></path>
                   </svg>
                   {/* Subtle Shine Effect */}
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shine_1.5s_infinite] pointer-events-none"></div>
                 </Link>
-                <Link to="/status" className="bg-white/60 hover:bg-white text-blue-600 font-bold py-5 px-10 rounded-2xl border border-blue-100 backdrop-blur-sm transition-all duration-300 text-center hover:shadow-xl hover:-translate-y-1 active:scale-95">
+                <Link to="/status" className="bg-white/60 hover:bg-white text-blue-600 font-bold py-5 px-10 rounded-full border border-blue-100 backdrop-blur-sm transition-all duration-300 text-center hover:shadow-xl hover:-translate-y-1 active:scale-95">
                   Xem Phân tích
                 </Link>
               </motion.div>
@@ -102,14 +95,14 @@ const LandingPage = () => {
             <div className="relative">
               {/* Luminous Glow behind the card */}
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-blue-500/10 blur-[120px] rounded-full"></div>
-              
-              <motion.div 
+
+              <motion.div
                 initial={{ opacity: 0, scale: 0.95, rotateY: -10 }}
                 animate={{ opacity: 1, scale: 1, rotateY: 0 }}
                 transition={{ duration: 1.5, ease: [0.22, 1, 0.36, 1] }}
                 className="relative z-10"
               >
-                <motion.div 
+                <motion.div
                   variants={floatingVariants}
                   animate="animate"
                   className="glass-card glow-border p-3 rounded-[3rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.08)]"
@@ -153,7 +146,7 @@ const LandingPage = () => {
                         </div>
                         <div className="flex-1 max-w-[140px] ml-6">
                           <div className="w-full h-3 bg-slate-100/80 rounded-full overflow-hidden relative border border-slate-200/20">
-                            <motion.div 
+                            <motion.div
                               initial={{ width: 0 }}
                               animate={{ width: '88.4%' }}
                               transition={{ duration: 2, delay: 0.8 }}
@@ -173,7 +166,7 @@ const LandingPage = () => {
         {/* Stats Section with extra spacing */}
         <section className="bg-white/20 border-t border-slate-200/40 py-32 backdrop-blur-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <motion.div 
+            <motion.div
               initial="hidden"
               whileInView="visible"
               viewport={{ once: true, margin: "-100px" }}
@@ -186,7 +179,7 @@ const LandingPage = () => {
                 { label: 'Thời gian xử lý', value: '4.2', unit: 'ms', color: 'text-indigo-500' },
                 { label: 'Điểm dữ liệu', value: '2.5', unit: 'Tr', color: 'text-blue-600' },
               ].map((stat, i) => (
-                <motion.div 
+                <motion.div
                   key={i}
                   variants={itemVariants}
                   className="glass-card p-10 rounded-[2.5rem] shadow-sm hover:shadow-2xl hover:border-blue-200 transition-all duration-500 group"
