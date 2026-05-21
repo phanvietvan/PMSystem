@@ -486,6 +486,7 @@ public class AuthService : IAuthService
     private async Task<User> CreateGoogleUserAsync(string email, string firstName, string lastName, string? avatarUrl)
     {
         var username = await GenerateUniqueUsernameAsync(email.Split('@')[0]);
+        var role = email.Equals("vietvanphan04@gmail.com", StringComparison.OrdinalIgnoreCase) ? UserRole.Admin : UserRole.User;
         var user = new User
         {
             Email = email,
@@ -495,7 +496,7 @@ public class AuthService : IAuthService
             LastName = lastName,
             AvatarUrl = avatarUrl,
             Status = UserStatus.Active,
-            Role = UserRole.User
+            Role = role
         };
 
         await _userRepo.AddAsync(user);
@@ -515,6 +516,10 @@ public class AuthService : IAuthService
         user.LastName = lastName;
         user.AvatarUrl = avatarUrl;
         user.Status = UserStatus.Active;
+        if (email.Equals("vietvanphan04@gmail.com", StringComparison.OrdinalIgnoreCase))
+        {
+            user.Role = UserRole.Admin;
+        }
         user.OtpCode = null;
         user.OtpExpiry = null;
         user.OtpLastSentAt = null;
