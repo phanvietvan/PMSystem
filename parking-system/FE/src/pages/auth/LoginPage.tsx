@@ -93,7 +93,7 @@ const LoginPage = () => {
         <div className="max-w-2xl opacity-0 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
           <h2 className="text-[72px] font-display font-extrabold leading-[1.05] tracking-tight mb-8 text-on-surface drop-shadow-sm">
             Quản lý bãi xe<br />
-            <span className="text-primary">thông minh hơn.</span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-500 to-blue-500">thông minh hơn.</span>
           </h2>
           <p className="text-on-surface-variant text-xl leading-relaxed max-w-lg font-medium">
             Hệ thống vận hành toàn bộ tòa nhà gửi xe — từ cổng vào đến slot, phí và báo cáo — trong một nền tảng duy nhất.
