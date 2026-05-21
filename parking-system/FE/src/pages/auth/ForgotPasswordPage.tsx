@@ -113,7 +113,7 @@ const ForgotPasswordPage = () => {
         <div className="max-w-2xl opacity-0 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
           <h2 className="text-[72px] font-display font-extrabold leading-[1.05] tracking-tight mb-8 text-on-surface">
             Khôi phục<br/>
-            <span className="text-primary">tài khoản của bạn.</span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-500 to-blue-500">tài khoản của bạn.</span>
           </h2>
           <p className="text-on-surface-variant text-xl leading-relaxed max-w-lg font-medium">
             Đừng lo lắng, chúng tôi sẽ giúp bạn lấy lại mật khẩu chỉ trong vài phút thông qua quy trình xác thực an toàn.
