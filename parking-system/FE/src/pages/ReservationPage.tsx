@@ -84,45 +84,46 @@ const ReservationPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-mesh-gradient text-on-surface font-sans selection:bg-primary/10 relative overflow-x-hidden">
+    <div className="h-screen overflow-hidden bg-mesh-gradient text-on-surface font-sans selection:bg-primary/10 relative flex flex-col">
       <Navbar />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-20 relative mt-16 z-10">
-        {/* Floating Glowing Orbs */}
-        <div className="absolute top-[-5%] left-[-10%] w-[600px] h-[600px] bg-primary/10 blur-[180px] rounded-full pointer-events-none animate-pulse" style={{ animationDuration: '8s' }}></div>
-        <div className="absolute bottom-[-10%] right-[-15%] w-[700px] h-[700px] bg-indigo-500/10 blur-[200px] rounded-full pointer-events-none animate-pulse" style={{ animationDuration: '10s' }}></div>
+      {/* Floating Glowing Orbs */}
+      <div className="absolute top-[-5%] left-[-10%] w-[600px] h-[600px] bg-primary/10 blur-[180px] rounded-full pointer-events-none animate-pulse" style={{ animationDuration: '8s' }}></div>
+      <div className="absolute bottom-[-10%] right-[-15%] w-[700px] h-[700px] bg-indigo-500/10 blur-[200px] rounded-full pointer-events-none animate-pulse" style={{ animationDuration: '10s' }}></div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+      <main className="flex-1 h-full min-h-0 relative mt-20 px-4 sm:px-6 lg:px-8 pb-6 flex flex-col justify-center overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch w-full max-w-7xl mx-auto h-full min-h-0 pb-2">
 
           {/* Left Column: Form Section */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ type: 'spring', stiffness: 80, delay: 0.05 }}
-            className="lg:col-span-5 xl:col-span-5 relative"
+            className="lg:col-span-5 flex flex-col h-full min-h-0 relative"
           >
             {/* Outer Glow Outline for Form Card */}
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-[3rem] blur-2xl opacity-10 group-hover:opacity-20 transition-all duration-700 pointer-events-none"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-[2.5rem] blur-2xl opacity-10 pointer-events-none"></div>
 
-            <div className="glass-panel p-9 md:p-11 rounded-[3rem] glow-border relative overflow-hidden bg-white/80 shadow-[0_20px_50px_rgba(0,80,203,0.06)]">
+            <div className="glass-panel p-6 md:p-8 rounded-[2.5rem] glow-border relative overflow-hidden bg-white/85 shadow-[0_20px_50px_rgba(0,80,203,0.06)] flex flex-col h-full min-h-0">
               {/* Corner Decorative Gradient */}
-              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500/10 to-indigo-500/0 blur-2xl rounded-full"></div>
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500/10 to-indigo-500/0 blur-2xl rounded-full pointer-events-none"></div>
 
               {/* Step Banner */}
-              <header className="mb-9">
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] mb-4 shadow-sm">
+              <header className="mb-5 shrink-0">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-[9px] font-black text-blue-600 uppercase tracking-[0.2em] mb-2.5 shadow-sm">
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-ping"></span>
                   BƯỚC 1: NHẬP THÔNG TIN
                 </div>
-                <h1 className="text-4xl font-display font-extrabold text-slate-900 tracking-tight leading-none mb-3">
+                <h1 className="text-3xl font-display font-black text-slate-900 tracking-tight leading-none mb-1.5">
                   Đăng ký giữ chỗ
                 </h1>
-                <p className="text-slate-500/90 text-sm font-medium leading-relaxed">
+                <p className="text-slate-500/90 text-[11px] font-medium leading-relaxed">
                   Thiết lập thời gian và vị trí đỗ xe thông minh chỉ trong vài giây.
                 </p>
               </header>
 
-              <form onSubmit={handleSubmit} className="space-y-7">
+              <form onSubmit={handleSubmit} className="flex-1 min-h-0 flex flex-col justify-between">
+                <div className="flex-1 min-h-0 overflow-y-auto space-y-5 pr-2 pb-2 scrollbar-thin">
 
                 {/* Date Picker */}
                 <div className="space-y-2">
@@ -357,7 +358,7 @@ const ReservationPage = () => {
 
                 {/* Next Step Action Button */}
                 <button
-                  className="group relative overflow-hidden w-full py-4.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold rounded-full transition-all duration-300 shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transform hover:-translate-y-1 active:scale-[0.98] text-sm flex items-center justify-center gap-2"
+                  className="group relative overflow-hidden w-full py-4.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold rounded-full transition-all duration-300 shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 active:scale-[0.98] text-sm flex items-center justify-center gap-2 mt-4 shrink-0 cursor-pointer"
                   type="submit"
                 >
                   <span className="relative z-10 uppercase tracking-widest font-black text-xs">TIẾP THEO: CHỌN VỊ TRÍ CHI TIẾT</span>
@@ -373,68 +374,63 @@ const ReservationPage = () => {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ type: 'spring', stiffness: 80, delay: 0.15 }}
-            className="lg:col-span-7 xl:col-span-7 lg:sticky lg:top-32 self-start"
+            className="lg:col-span-7 flex flex-col h-full min-h-0 gap-6"
           >
-            <div className="flex flex-col gap-6">
-
-              {/* Ultra-premium Live Map Frame */}
-              <div className="relative bg-white border border-slate-100 rounded-[3rem] p-2 shadow-[0_20px_50px_rgba(0,0,0,0.04)] overflow-hidden group">
-                <div className="absolute top-4 left-4 z-50 pointer-events-none">
-                  <div className="glass-panel px-4 py-2 rounded-full border border-slate-200/60 shadow-lg backdrop-blur-md flex items-center gap-2.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-800 flex items-center gap-1">
-                      <Cpu size={12} className="text-emerald-500" /> BẢN ĐỒ
-                    </span>
-                  </div>
-                </div>
-
-                <div className="rounded-[2.5rem] overflow-hidden h-[420px] relative z-10">
-                  <ParkingMap selectedDestination={selectedParking} allParkingLots={parkingLots} />
+            {/* Ultra-premium Live Map Frame (Fills remaining height) */}
+            <div className="flex-1 min-h-0 relative bg-white border border-slate-100 rounded-[2.5rem] p-2 shadow-[0_20px_50px_rgba(0,0,0,0.04)] overflow-hidden group flex flex-col">
+              <div className="absolute top-4 left-4 z-50 pointer-events-none">
+                <div className="glass-panel px-4 py-2 rounded-full border border-slate-200/60 shadow-lg backdrop-blur-md flex items-center gap-2.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-800 flex items-center gap-1">
+                    <Cpu size={12} className="text-emerald-500" /> BẢN ĐỒ
+                  </span>
                 </div>
               </div>
 
-              {/* Digital Twin Dashboard Panel */}
-              <div className="glass-panel p-6 rounded-[2.5rem] glow-border relative overflow-hidden bg-white/70 shadow-sm flex flex-col gap-5">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-blue-50 border border-blue-100/60 text-blue-600 rounded-2xl flex items-center justify-center shadow-inner">
-                    <Map className="w-5 h-5 text-blue-500" />
-                  </div>
-                  <div>
-                    <h3 className="font-display font-extrabold text-slate-800 text-base leading-none">Thông số Bãi Đỗ Số Hóa</h3>
-                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-wider mt-1.5">Giám sát hạ tầng thời gian thực</p>
-                  </div>
-                </div>
+              <div className="rounded-[2rem] overflow-hidden flex-1 min-h-0 relative z-10">
+                <ParkingMap selectedDestination={selectedParking} allParkingLots={parkingLots} />
+              </div>
+            </div>
 
-                <div className="grid grid-cols-3 gap-4 mt-1">
-                  <div className="flex flex-col p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
-                    <span className="text-[9px] uppercase tracking-wider text-slate-400 font-extrabold flex items-center gap-1.5">
-                      <Layers size={10} className="text-blue-500" /> Tầng định vị
-                    </span>
-                    <span className="text-base font-extrabold text-slate-800 mt-1">{selectedParking.floor}</span>
-                  </div>
-                  <div className="flex flex-col p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
-                    <span className="text-[9px] uppercase tracking-wider text-slate-400 font-extrabold flex items-center gap-1.5">
-                      <Compass size={10} className="text-blue-500" /> Phân Khu
-                    </span>
-                    <span className="text-base font-extrabold text-slate-800 mt-1">{selectedParking.block}</span>
-                  </div>
-                  <div className="flex flex-col p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
-                    <span className="text-[9px] uppercase tracking-wider text-slate-400 font-extrabold flex items-center gap-1.5">
-                      <MapPin size={10} className="text-blue-500" /> Tọa độ GPS
-                    </span>
-                    <span className="text-xs font-black text-slate-800 mt-2.5 truncate">{selectedParking.latitude}, {selectedParking.longitude}</span>
-                  </div>
+            {/* Digital Twin Dashboard Panel */}
+            <div className="shrink-0 glass-panel p-5 rounded-[2rem] glow-border relative overflow-hidden bg-white/70 shadow-sm flex flex-col gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-blue-50 border border-blue-100/60 text-blue-600 rounded-2xl flex items-center justify-center shadow-inner">
+                  <Map className="w-5 h-5 text-blue-500" />
+                </div>
+                <div>
+                  <h3 className="font-display font-extrabold text-slate-800 text-base leading-none">Thông số Bãi Đỗ Số Hóa</h3>
+                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-wider mt-1.5">Giám sát hạ tầng thời gian thực</p>
                 </div>
               </div>
 
+              <div className="grid grid-cols-3 gap-4 mt-1">
+                <div className="flex flex-col p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
+                  <span className="text-[9px] uppercase tracking-wider text-slate-400 font-extrabold flex items-center gap-1.5">
+                    <Layers size={10} className="text-blue-500" /> Tầng định vị
+                  </span>
+                  <span className="text-base font-extrabold text-slate-800 mt-1">{selectedParking.floor}</span>
+                </div>
+                <div className="flex flex-col p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
+                  <span className="text-[9px] uppercase tracking-wider text-slate-400 font-extrabold flex items-center gap-1.5">
+                    <Compass size={10} className="text-blue-500" /> Phân Khu
+                  </span>
+                  <span className="text-base font-extrabold text-slate-800 mt-1">{selectedParking.block}</span>
+                </div>
+                <div className="flex flex-col p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
+                  <span className="text-[9px] uppercase tracking-wider text-slate-400 font-extrabold flex items-center gap-1.5">
+                    <MapPin size={10} className="text-blue-500" /> Tọa độ GPS
+                  </span>
+                  <span className="text-xs font-black text-slate-800 mt-2.5 truncate">{selectedParking.latitude}, {selectedParking.longitude}</span>
+                </div>
+              </div>
             </div>
           </motion.div>
-
         </div>
       </main>
 
-      <footer className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 text-center border-t border-slate-100/60 mt-12 relative z-10">
-        <p className="text-slate-400/80 text-xs font-bold tracking-wide">© 2026 PM System Smart Parking Solutions. All rights reserved.</p>
+      <footer className="shrink-0 py-3 text-center border-t border-slate-100/60 relative z-10 bg-white/20 backdrop-blur-xs">
+        <p className="text-slate-400/80 text-[10px] font-bold tracking-wide">© 2026 PM System Smart Parking Solutions. All rights reserved.</p>
       </footer>
     </div>
   );
