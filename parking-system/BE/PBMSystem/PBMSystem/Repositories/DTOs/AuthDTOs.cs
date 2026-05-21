@@ -68,6 +68,9 @@ public class UpdateProfileRequest
 
     [Required]
     public string Address { get; set; } = string.Empty;
+
+    public string? LicensePlate { get; set; }
+    public string? VehicleType { get; set; }
 }
 
 public class AdminUpdateUserRequest
@@ -80,6 +83,8 @@ public class AdminUpdateUserRequest
 
     public string? PhoneNumber { get; set; }
     public string? Address { get; set; }
+    public string? LicensePlate { get; set; }
+    public string? VehicleType { get; set; }
 
     [Required]
     public string Role { get; set; } = "User";
@@ -125,6 +130,16 @@ public class ForgotPasswordRequest
     public string Email { get; set; } = string.Empty;
 }
 
+/// <summary>Step 1.5: verify the forgot password OTP before advancing.</summary>
+public class VerifyForgotPasswordOtpRequest
+{
+    [Required, EmailAddress]
+    public string Email { get; set; } = string.Empty;
+
+    [Required, StringLength(6, MinimumLength = 6)]
+    public string Otp { get; set; } = string.Empty;
+}
+
 /// <summary>Step 2: verify the OTP and set a new password.</summary>
 public class ResetPasswordRequest
 {
@@ -157,6 +172,9 @@ public class UserResponse
     public string? LastName { get; set; }
     public string? PhoneNumber { get; set; }
     public string? Address { get; set; }
+    public string? LicensePlate { get; set; }
+    public string? VehicleType { get; set; }
+    public string? AvatarUrl { get; set; }
     public string Role { get; set; } = "User";
     public string Status { get; set; } = "Active";
     public DateTime? LastLoginAt { get; set; }

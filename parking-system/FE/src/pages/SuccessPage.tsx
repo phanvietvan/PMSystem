@@ -1,26 +1,54 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, Download, Share2, ArrowRight, Loader2, ShieldCheck } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 
 const SuccessPage = () => {
   const navigate = useNavigate();
-  const [status, setStatus] = useState<'qr' | 'opening'>('qr');
+  const location = useLocation();
+  const mode = location.state?.mode || 'reserve';
+  const [status, setStatus] = useState<'qr' | 'opening'>(mode === 'checkout' ? 'opening' : 'qr');
+  const [licensePlate, setLicensePlate] = useState('51F-123.45');
+
+  const selectedSlot = localStorage.getItem('selectedSlot') || 'A3';
+  const selectedLevel = localStorage.getItem('selectedLevel') || '3';
 
   useEffect(() => {
-    // Giả lập sau 5 giây (khi khách dơ mã lên cho staff quét)
-    const timer = setTimeout(() => {
-      setStatus('opening');
-      
-      // Sau 3 giây mở barie thì chuyển qua trang navigation
-      setTimeout(() => {
-        navigate('/navigation');
-      }, 4000);
-    }, 6000);
+    // Sync license plate
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        if (user.licensePlate) {
+          setLicensePlate(user.licensePlate);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
 
-    return () => clearTimeout(timer);
-  }, [navigate]);
+    if (mode === 'checkout') {
+      // Exit/Checkout Flow: Show barrier opening animation then redirect home
+      const timer = setTimeout(() => {
+        navigate('/');
+      }, 5000);
+      return () => clearTimeout(timer);
+    } else {
+      // Reservation/Entry Flow: Show QR, simulate staff scanning, then show barrier opening and navigate to map
+      const timer = setTimeout(() => {
+        setStatus('opening');
+        
+        const navTimer = setTimeout(() => {
+          navigate('/navigation');
+        }, 4000);
+        
+        return () => clearTimeout(navTimer);
+      }, 6000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [navigate, mode]);
 
   return (
     <div className="min-h-screen bg-mesh-gradient selection:bg-primary/10 relative">
@@ -46,7 +74,7 @@ const SuccessPage = () => {
               {/* QR Code Container */}
               <div className="bg-surface-container-low p-8 rounded-[2.5rem] border border-outline-variant/20 relative mb-10 group">
                 <div className="absolute inset-0 bg-white/20 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-[2.5rem] pointer-events-none">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-primary">Biển số: 51F-123.45</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-primary">Biển số: {licensePlate}</span>
                 </div>
                 {/* Mock QR SVG */}
                 <svg width="200" height="200" viewBox="0 0 200 200" className="mx-auto" xmlns="http://www.w3.org/2000/svg">
@@ -70,7 +98,7 @@ const SuccessPage = () => {
               <div className="grid grid-cols-2 gap-4 mb-10">
                 <div className="p-4 bg-surface-container rounded-2xl border border-outline-variant/10">
                   <span className="text-[8px] font-black text-outline uppercase tracking-widest block mb-1">Vị trí</span>
-                  <p className="text-sm font-black text-on-surface">Tầng {(localStorage.getItem('selectedLevel') || '3').padStart(2, '0')} • {localStorage.getItem('selectedSlot') || 'A3'}</p>
+                  <p className="text-sm font-black text-on-surface">Tầng {selectedLevel.padStart(2, '0')} • {selectedSlot}</p>
                 </div>
                 <div className="p-4 bg-surface-container rounded-2xl border border-outline-variant/10">
                   <span className="text-[8px] font-black text-outline uppercase tracking-widest block mb-1">Thời gian</span>
@@ -122,8 +150,14 @@ const SuccessPage = () => {
                 <ShieldCheck className="text-white w-12 h-12" />
               </motion.div>
               
-              <h1 className="text-3xl font-display font-black text-on-surface mb-4">Xác thực thành công!</h1>
-              <p className="text-slate-500 font-medium mb-12">Hệ thống Staff đã xác nhận thông tin. Đang mở Barie...</p>
+              <h1 className="text-3xl font-display font-black text-on-surface mb-4">
+                {mode === 'checkout' ? 'Thanh toán thành công!' : 'Xác thực thành công!'}
+              </h1>
+              <p className="text-slate-500 font-medium mb-12">
+                {mode === 'checkout' 
+                  ? 'Hệ thống đã xác nhận thanh toán phí đỗ xe. Barrier lối ra đang mở...' 
+                  : 'Hệ thống Staff đã xác nhận thông tin đặt chỗ. Đang mở Barrier lối vào...'}
+              </p>
 
               {/* Barrier Animation Mockup */}
               <div className="relative w-full h-48 bg-slate-50 rounded-3xl border border-dashed border-slate-200 flex items-center justify-center overflow-hidden">
@@ -144,14 +178,20 @@ const SuccessPage = () => {
                   transition={{ delay: 2 }}
                   className="absolute inset-0 bg-blue-600/5 flex flex-col items-center justify-center"
                 >
-                  <div className="px-6 py-2 bg-emerald-500 text-white text-xs font-black rounded-full shadow-lg">BARRIER OPENED</div>
-                  <p className="mt-4 text-[10px] font-bold text-blue-600 uppercase tracking-widest animate-pulse">Vui lòng di chuyển vào bãi...</p>
+                  <div className="px-6 py-2 bg-emerald-500 text-white text-xs font-black rounded-full shadow-lg">
+                    {mode === 'checkout' ? 'EXIT BARRIER OPENED' : 'BARRIER OPENED'}
+                  </div>
+                  <p className="mt-4 text-[10px] font-bold text-blue-600 uppercase tracking-widest animate-pulse">
+                    {mode === 'checkout' ? 'Chúc quý khách thượng lộ bình an!' : 'Vui lòng di chuyển vào bãi...'}
+                  </p>
                 </motion.div>
               </div>
 
               <div className="mt-12 flex items-center justify-center gap-3">
                 <Loader2 className="w-4 h-4 text-primary animate-spin" />
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Đang chuyển hướng tới bản đồ...</span>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                  {mode === 'checkout' ? 'Đang chuyển hướng về Trang chủ...' : 'Đang chuyển hướng tới bản đồ...'}
+                </span>
               </div>
             </motion.div>
           )}
