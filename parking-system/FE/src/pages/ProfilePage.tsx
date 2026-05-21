@@ -14,10 +14,14 @@ const ProfilePage = () => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [licensePlate, setLicensePlate] = useState('');
-  const [vehicleType, setVehicleType] = useState('Car');
   const [address, setAddress] = useState('');
-  
+
+  // Multiple vehicles state
+  const [vehicles, setVehicles] = useState<{ plate: string; type: string }[]>([]);
+  const [isAdding, setIsAdding] = useState(false);
+  const [newPlate, setNewPlate] = useState('');
+  const [newType, setNewType] = useState('Car');
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -33,10 +37,42 @@ const ProfilePage = () => {
     setFirstName(parsedUser.firstName || '');
     setLastName(parsedUser.lastName || '');
     setPhoneNumber(parsedUser.phoneNumber || '');
-    setLicensePlate(parsedUser.licensePlate || '');
-    setVehicleType(parsedUser.vehicleType || 'Car');
     setAddress(parsedUser.address || '');
+
+    // Parse vehicles list
+    const lp = parsedUser.licensePlate || '';
+    if (lp.startsWith('[')) {
+      try {
+        setVehicles(JSON.parse(lp));
+      } catch (e) {
+        setVehicles([{ plate: lp, type: parsedUser.vehicleType || 'Car' }]);
+      }
+    } else {
+      setVehicles([{ plate: lp, type: parsedUser.vehicleType || 'Car' }]);
+    }
   }, [navigate]);
+
+  const handleAddVehicle = () => {
+    setIsAdding(true);
+    setNewPlate('');
+    setNewType('Car');
+  };
+
+  const saveNewVehicle = () => {
+    if (!newPlate.trim()) return;
+    if (vehicles.some(v => v.plate === newPlate.trim().toUpperCase())) {
+      setError('Biển số xe này đã được thêm.');
+      return;
+    }
+    setVehicles([...vehicles, { plate: newPlate.trim().toUpperCase(), type: newType }]);
+    setIsAdding(false);
+    setError('');
+  };
+
+  const handleRemoveVehicle = (index: number) => {
+    if (vehicles.length <= 1) return;
+    setVehicles(vehicles.filter((_, i) => i !== index));
+  };
 
   // Determine if profile update is mandatory based on persisted user profile fields
   const isForceUpdate = currentUser && (
@@ -56,9 +92,8 @@ const ProfilePage = () => {
       !firstName.trim() || 
       !lastName.trim() || 
       !phoneNumber.trim() || 
-      !licensePlate.trim() || 
-      !vehicleType.trim() || 
-      !address.trim()
+      !address.trim() ||
+      vehicles.length === 0
     ) {
       setError('Vui lòng điền đầy đủ tất cả thông tin yêu cầu.');
       return;
@@ -74,12 +109,15 @@ const ProfilePage = () => {
     setSuccess(false);
 
     try {
+      const serializedPlates = JSON.stringify(vehicles);
+      const primaryVehicleType = vehicles[0]?.type || 'Car';
+
       const response = await api.put('/auth/profile', {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         phoneNumber: phoneNumber.trim(),
-        licensePlate: licensePlate.trim(),
-        vehicleType: vehicleType.trim(),
+        licensePlate: serializedPlates,
+        vehicleType: primaryVehicleType,
         address: address.trim()
       });
 
@@ -252,43 +290,91 @@ const ProfilePage = () => {
               </div>
             </div>
 
-            {/* Biển số xe & Loại xe */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 ml-1">Biển số xe</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                    <Tag size={16} />
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Ví dụ: 29A-12345"
-                    value={licensePlate}
-                    onChange={(e) => setLicensePlate(e.target.value)}
-                    required
-                    className="premium-input block w-full pl-10 pr-4 py-2.5 rounded-full focus:outline-none transition-all text-xs font-medium"
-                  />
-                </div>
+            {/* Vehicles List */}
+            <div className="space-y-3 p-4 bg-slate-50/50 rounded-3xl border border-slate-100/60">
+              <div className="flex items-center justify-between ml-1">
+                <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">Danh sách phương tiện của bạn</label>
+                <button
+                  type="button"
+                  onClick={handleAddVehicle}
+                  className="text-[10px] font-black text-blue-600 uppercase tracking-wider hover:underline"
+                >
+                  + Thêm xe mới
+                </button>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 ml-1">Loại phương tiện</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                    <Car size={16} />
+              <div className="space-y-2">
+                {vehicles.map((veh, index) => (
+                  <div key={index} className="flex items-center gap-2 bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
+                    <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                      <span className="material-symbols-outlined text-[18px]">
+                        {veh.type.toLowerCase() === 'car' ? 'directions_car' : veh.type.toLowerCase() === 'motorbike' ? 'two_wheeler' : 'pedal_bike'}
+                      </span>
+                    </div>
+                    <div className="flex-grow min-w-0">
+                      <p className="text-xs font-extrabold text-slate-800 uppercase truncate">{veh.plate}</p>
+                      <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">
+                        {veh.type === 'Car' ? 'Ô tô' : veh.type === 'Motorbike' ? 'Xe máy' : 'Xe đạp / Xe điện'}
+                      </p>
+                    </div>
+                    {vehicles.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveVehicle(index)}
+                        className="w-8 h-8 rounded-full hover:bg-red-50 text-slate-400 hover:text-red-600 flex items-center justify-center transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">delete</span>
+                      </button>
+                    )}
                   </div>
-                  <select
-                    value={vehicleType}
-                    onChange={(e) => setVehicleType(e.target.value)}
-                    required
-                    className="premium-input block w-full pl-10 pr-4 py-2.5 rounded-full focus:outline-none transition-all text-xs font-medium appearance-none bg-white cursor-pointer"
-                  >
-                    <option value="Car">Ô tô (Car)</option>
-                    <option value="Motorbike">Xe máy (Motorbike)</option>
-                    <option value="Bicycle">Xe đạp / Xe điện (Bicycle)</option>
-                  </select>
-                </div>
+                ))}
               </div>
+
+              {/* Add New Vehicle Form Inline */}
+              {isAdding && (
+                <div className="p-4 bg-white rounded-2xl border border-slate-100 shadow-inner space-y-3 mt-2">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider ml-1">Biển số</label>
+                      <input
+                        type="text"
+                        placeholder="29A-12345"
+                        value={newPlate}
+                        onChange={(e) => setNewPlate(e.target.value.toUpperCase())}
+                        className="premium-input block w-full px-4 py-2 rounded-full focus:outline-none transition-all text-xs font-semibold uppercase"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider ml-1">Loại xe</label>
+                      <select
+                        value={newType}
+                        onChange={(e) => setNewType(e.target.value)}
+                        className="premium-input block w-full px-4 py-2 rounded-full focus:outline-none transition-all text-xs font-semibold appearance-none bg-white cursor-pointer"
+                      >
+                        <option value="Car">Ô tô</option>
+                        <option value="Motorbike">Xe máy</option>
+                        <option value="Bicycle">Xe đạp/Xe điện</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 justify-end pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsAdding(false)}
+                      className="px-3.5 py-1.5 text-[10px] font-extrabold text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      type="button"
+                      onClick={saveNewVehicle}
+                      className="px-3.5 py-1.5 text-[10px] font-extrabold text-white bg-blue-600 hover:bg-blue-700 rounded-full transition-colors"
+                    >
+                      Xác nhận
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Địa chỉ */}
