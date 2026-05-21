@@ -106,7 +106,9 @@ const GateScanPage = () => {
                 <div className="bg-surface-container rounded-2xl p-6 border border-outline-variant/10 text-left space-y-3">
                    <div className="flex justify-between items-center">
                      <span className="text-[9px] font-black text-outline uppercase tracking-widest">Vị trí đỗ của bạn</span>
-                     <span className="text-sm font-black text-primary">Tầng 03 • Ô A3</span>
+                     <span className="text-sm font-black text-primary">
+                       Tầng {(localStorage.getItem('selectedLevel') || '3').padStart(2, '0')} • Ô {localStorage.getItem('selectedSlot') || 'A3'}
+                     </span>
                    </div>
                    <div className="w-full h-1 bg-outline-variant/10 rounded-full overflow-hidden">
                      <motion.div 

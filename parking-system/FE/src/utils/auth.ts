@@ -10,6 +10,7 @@ export interface StoredUser {
   address?: string;
   role?: string | number;
   status?: string;
+  avatarUrl?: string;
 }
 
 export function getStoredUser(): StoredUser | null {

@@ -1,21 +1,121 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { CreditCard, Wallet, Apple, ArrowRight, ShieldCheck, Receipt } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
+import api from '../services/api';
 
 const PaymentPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const mode = location.state?.mode || 'reserve';
 
   const selectedSlot = localStorage.getItem('selectedSlot') || 'A3';
   const selectedLevel = localStorage.getItem('selectedLevel') || '3';
+  const [licensePlate, setLicensePlate] = useState('51F-123.45');
+  const [price, setPrice] = useState(50000);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Sync user plate if logged in
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        if (user.licensePlate) {
+          setLicensePlate(user.licensePlate);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    if (mode === 'checkout') {
+      const fetchCheckoutFee = async () => {
+        const sessionQr = localStorage.getItem('activeSessionQr');
+        if (sessionQr) {
+          try {
+            const response = await api.get(`/ParkingSessions/verify/${sessionQr}`);
+            if (response.data && response.data.fee !== undefined) {
+              setPrice(response.data.fee);
+            } else {
+              setPrice(10000);
+            }
+          } catch (e) {
+            console.error('Error fetching checkout fee from server', e);
+            setPrice(15000); // fallback
+          }
+        } else {
+          setPrice(10000);
+        }
+      };
+      fetchCheckoutFee();
+    } else {
+      setPrice(50000); // reservation standard flat rate
+    }
+  }, [mode]);
+
+  const handleConfirmPayment = async () => {
+    setLoading(true);
+    if (mode === 'checkout') {
+      const sessionQr = localStorage.getItem('activeSessionQr');
+      if (sessionQr) {
+        try {
+          // Perform backend checkout
+          await api.post('/ParkingSessions/checkout', {
+            qrCode: sessionQr,
+            exitLicensePlate: licensePlate,
+            exitPhoto: ''
+          });
+          // Remove from local storage upon successful database checkout completion
+          localStorage.removeItem('activeSessionQr');
+        } catch (e) {
+          console.error('Checkout post error on backend', e);
+        }
+      }
+    } else {
+      // For reservation mode: checkin a new active session in the database!
+      try {
+        const storedParking = localStorage.getItem('selectedParking');
+        let parkingLotName = 'Landmark 81 - Bãi đỗ A1';
+        if (storedParking) {
+          try {
+            parkingLotName = JSON.parse(storedParking).name;
+          } catch (e) {}
+        }
+        const reservationDate = localStorage.getItem('reservationDate') || '';
+        const reservationStartTime = localStorage.getItem('reservationStartTime') || '';
+        const reservationVehicleType = localStorage.getItem('reservationVehicleType') || 'car';
+        const reservationLicensePlate = localStorage.getItem('reservationLicensePlate') || licensePlate;
+        const selectedSlot = localStorage.getItem('selectedSlot') || 'A3';
+
+        const response = await api.post('/ParkingSessions/checkin', {
+          licensePlate: reservationLicensePlate,
+          entryPhoto: '',
+          parkingLotName: parkingLotName,
+          vehicleType: reservationVehicleType,
+          reservationDate: reservationDate,
+          reservationStartTime: reservationStartTime,
+          parkingSlot: selectedSlot
+        });
+        if (response.data && response.data.qrCode) {
+          localStorage.setItem('activeSessionQr', response.data.qrCode);
+        }
+      } catch (e) {
+        console.error('Error creating database active session on reservation', e);
+      }
+    }
+    setLoading(false);
+    navigate('/success', { state: { mode } });
+  };
 
   const orderSummary = {
-    date: '15/05/2024',
-    time: '08:30 AM',
+    date: new Date().toLocaleDateString('vi-VN'),
+    time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
     slot: selectedSlot,
     level: selectedLevel.padStart(2, '0'),
-    plate: '51F-123.45',
-    price: 50000
+    plate: licensePlate,
+    price: price
   };
 
   return (
@@ -30,8 +130,14 @@ const PaymentPage = () => {
         >
           {/* Left: Payment Methods */}
           <div className="space-y-6">
-            <h1 className="text-3xl font-display font-bold text-on-surface">Thanh toán</h1>
-            <p className="text-on-surface-variant text-sm font-medium">Chọn phương thức thanh toán để hoàn tất đặt chỗ.</p>
+            <h1 className="text-3xl font-display font-bold text-on-surface">
+              {mode === 'checkout' ? 'Thanh toán Lối ra' : 'Thanh toán Đặt chỗ'}
+            </h1>
+            <p className="text-on-surface-variant text-sm font-medium">
+              {mode === 'checkout' 
+                ? 'Vui lòng hoàn tất phí đỗ xe để mở barrier cổng ra.' 
+                : 'Chọn phương thức thanh toán để hoàn tất đăng ký đặt chỗ.'}
+            </p>
 
             <div className="space-y-3">
               {[
@@ -41,7 +147,9 @@ const PaymentPage = () => {
               ].map((method) => (
                 <button 
                   key={method.id}
-                  className="w-full flex items-center justify-between p-5 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl hover:border-primary hover:shadow-lg transition-all group"
+                  onClick={handleConfirmPayment}
+                  disabled={loading}
+                  className="w-full flex items-center justify-between p-5 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl hover:border-primary hover:shadow-lg transition-all group disabled:opacity-50"
                 >
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center group-hover:bg-primary/10 group-hover:text-primary transition-colors">
@@ -92,10 +200,11 @@ const PaymentPage = () => {
             </div>
 
             <button 
-              onClick={() => navigate('/success')}
-              className="w-full bg-on-surface text-surface font-bold py-4 rounded-2xl shadow-lg hover:bg-on-surface/90 transition-all flex items-center justify-center gap-3"
+              onClick={handleConfirmPayment}
+              disabled={loading}
+              className="w-full bg-on-surface text-surface font-bold py-4 rounded-2xl shadow-lg hover:bg-on-surface/90 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
             >
-              Xác nhận thanh toán
+              {loading ? 'Đang xử lý...' : 'Xác nhận thanh toán'}
               <ArrowRight className="w-5 h-5" />
             </button>
           </div>
