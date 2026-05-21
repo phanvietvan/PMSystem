@@ -35,8 +35,6 @@ const ReservationPage = () => {
   const selectedParking = parkingLots.find(p => p.id === formData.parkingLotId) || parkingLots[0];
 
   const [userVehicles, setUserVehicles] = useState<{ plate: string; type: string }[]>([]);
-  const [selectedVehicleIndex, setSelectedVehicleIndex] = useState<number>(-1);
-  const [isCustomPlate, setIsCustomPlate] = useState(false);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -56,11 +54,16 @@ const ReservationPage = () => {
         setUserVehicles(parsedVehicles);
         
         if (parsedVehicles.length > 0) {
-          setSelectedVehicleIndex(0);
           setFormData(prev => ({
             ...prev,
             licensePlate: parsedVehicles[0].plate,
             vehicleType: parsedVehicles[0].type.toLowerCase() === 'motorbike' ? 'bike' : parsedVehicles[0].type.toLowerCase() === 'bicycle' ? 'bike' : parsedVehicles[0].type.toLowerCase()
+          }));
+        } else {
+          setFormData(prev => ({
+            ...prev,
+            licensePlate: '',
+            vehicleType: 'car'
           }));
         }
       } catch (e) {
@@ -152,51 +155,40 @@ const ReservationPage = () => {
                   </div>
                 </div>
 
-                {/* Vehicle Selection dropdown or cards */}
+                {/* License Plate selection if they have multiple */}
                 {userVehicles.length > 0 ? (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     <label className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-400/90 ml-1.5 flex items-center gap-1.5">
                       <span className="material-symbols-outlined text-[15px] text-blue-500">credit_card</span> Chọn phương tiện gửi
                     </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {userVehicles.map((veh, index) => (
-                        <button
-                          key={index}
-                          type="button"
-                          onClick={() => {
-                            setSelectedVehicleIndex(index);
-                            setIsCustomPlate(false);
-                            setFormData(prev => ({
-                              ...prev,
-                              licensePlate: veh.plate,
-                              vehicleType: veh.type.toLowerCase() === 'motorbike' ? 'bike' : veh.type.toLowerCase() === 'bicycle' ? 'bike' : veh.type.toLowerCase()
-                            }));
-                          }}
-                          className={`flex items-center gap-2.5 p-3.5 rounded-2xl border text-left transition-all ${selectedVehicleIndex === index && !isCustomPlate ? 'border-blue-500 bg-blue-50/10 font-bold text-blue-600' : 'border-slate-100 hover:border-slate-200 bg-white text-slate-700'}`}
-                        >
-                          <span className="material-symbols-outlined text-[20px]">
-                            {veh.type.toLowerCase() === 'car' ? 'directions_car' : 'two_wheeler'}
-                          </span>
-                          <span className="text-xs uppercase tracking-wider font-extrabold truncate">{veh.plate}</span>
-                        </button>
-                      ))}
-                      
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedVehicleIndex(-1);
-                          setIsCustomPlate(true);
-                          setFormData(prev => ({ ...prev, licensePlate: '' }));
+                    <div className="relative group">
+                      <select
+                        value={formData.licensePlate}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const found = userVehicles.find(v => v.plate === val);
+                          setFormData(prev => ({
+                            ...prev,
+                            licensePlate: val,
+                            vehicleType: found ? (found.type.toLowerCase() === 'motorbike' ? 'bike' : found.type.toLowerCase() === 'bicycle' ? 'bike' : found.type.toLowerCase()) : 'car'
+                          }));
                         }}
-                        className={`flex items-center gap-2.5 p-3.5 rounded-2xl border text-left transition-all ${isCustomPlate ? 'border-blue-500 bg-blue-50/10 font-bold text-blue-600' : 'border-slate-100 hover:border-slate-200 bg-white text-slate-700'}`}
+                        className="premium-input block w-full px-6 py-4 rounded-full border border-outline-variant focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/60 transition-all text-sm font-semibold appearance-none bg-white cursor-pointer shadow-sm"
                       >
-                        <span className="material-symbols-outlined text-[20px]">add_circle</span>
-                        <span className="text-xs uppercase tracking-wider font-extrabold">Xe khác</span>
-                      </button>
+                        {userVehicles.map((veh, i) => (
+                          <option key={i} value={veh.plate}>
+                            {veh.plate} ({veh.type === 'Car' ? 'Ô tô' : veh.type === 'Motorbike' ? 'Xe máy' : 'Xe đạp/Xe điện'})
+                          </option>
+                        ))}
+                        <option value="CUSTOM">+ Nhập biển số xe khác</option>
+                      </select>
+                      <div className="absolute inset-y-0 right-0 pr-6 flex items-center pointer-events-none text-slate-400">
+                        <span className="material-symbols-outlined text-[20px]">keyboard_arrow_down</span>
+                      </div>
                     </div>
 
-                    {isCustomPlate && (
-                      <div className="relative group pt-1">
+                    {(formData.licensePlate === 'CUSTOM' || !userVehicles.some(v => v.plate === formData.licensePlate)) && (
+                      <div className="relative group pt-2 animate-fade-in-up">
                         <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-500 transition-colors">
                           <span className="material-symbols-outlined text-[20px]">badge</span>
                         </div>
@@ -204,7 +196,7 @@ const ReservationPage = () => {
                           className="premium-input block w-full pl-13 pr-5 py-3.5 rounded-full border border-outline-variant focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/60 transition-all text-sm font-semibold uppercase placeholder:text-slate-300 shadow-sm bg-white"
                           placeholder="VD: 51F-123.45"
                           type="text"
-                          value={formData.licensePlate}
+                          value={formData.licensePlate === 'CUSTOM' ? '' : formData.licensePlate}
                           onChange={(e) => setFormData({ ...formData, licensePlate: e.target.value.toUpperCase() })}
                           required
                         />
