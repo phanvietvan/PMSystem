@@ -308,14 +308,9 @@ const RegisterPage = () => {
 
               {step === 2 && (
                 <div className="space-y-6 animate-fade-in-up">
-                  {devOtpCode && (
-                    <div className="text-center p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30">
-                      <p className="text-xs text-on-surface-variant font-medium">Mã OTP đăng ký đã được gửi.</p>
-                      <p className="mt-2 text-[10px] font-black text-amber-600 bg-amber-50 py-1 px-2 rounded-lg border border-amber-100 inline-block">
-                        [ Giả lập: Mã OTP đăng ký của bạn là {devOtpCode} ]
-                      </p>
-                    </div>
-                  )}
+                  <div className="text-center p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30">
+                    <p className="text-xs text-on-surface-variant font-medium">Mã OTP đăng ký đã được gửi.</p>
+                  </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/70 ml-1">Mã xác thực OTP (6 chữ số)</label>
                     <div className="relative group">
