@@ -434,8 +434,9 @@ const ParkingStatus: React.FC = () => {
               </div>
             </div>
           </motion.div>
-        </div>
-      </main>
+        </main>
+      </div>
+
 
       {/* ── Floating Alert Button ── */}
       <AnimatePresence>
