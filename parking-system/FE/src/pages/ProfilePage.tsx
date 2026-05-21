@@ -396,12 +396,13 @@ const ProfilePage = () => {
 
               {success && (
                 <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex items-center gap-3 p-3 bg-green-50 border border-green-100 rounded-2xl"
+                  initial={{ opacity: 0, y: -50, scale: 0.9 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -20, scale: 0.9 }}
+                  className="fixed top-6 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 px-6 py-3.5 bg-emerald-500 text-white rounded-full shadow-lg shadow-emerald-500/25 border border-emerald-400/20"
                 >
-                  <CheckCircle2 className="text-green-500 shrink-0" size={16} />
-                  <p className="text-[11px] font-bold text-green-600 leading-tight">Đã cập nhật thông tin thành công! Đang chuyển hướng...</p>
+                  <CheckCircle2 className="text-white shrink-0 animate-bounce" size={18} />
+                  <span className="text-xs font-black tracking-wider uppercase">Cập nhật thông tin thành công!</span>
                 </motion.div>
               )}
             </AnimatePresence>
