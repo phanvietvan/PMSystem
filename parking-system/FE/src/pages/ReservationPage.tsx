@@ -34,17 +34,35 @@ const ReservationPage = () => {
 
   const selectedParking = parkingLots.find(p => p.id === formData.parkingLotId) || parkingLots[0];
 
+  const [userVehicles, setUserVehicles] = useState<{ plate: string; type: string }[]>([]);
+  const [selectedVehicleIndex, setSelectedVehicleIndex] = useState<number>(-1);
+  const [isCustomPlate, setIsCustomPlate] = useState(false);
+
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
       try {
         const parsed = JSON.parse(storedUser);
         setUser(parsed);
-        setFormData(prev => ({
-          ...prev,
-          licensePlate: parsed.licensePlate || '',
-          vehicleType: parsed.vehicleType?.toLowerCase() || 'car'
-        }));
+        
+        const lp = parsed.licensePlate || '';
+        let parsedVehicles = [];
+        if (lp.startsWith('[')) {
+          parsedVehicles = JSON.parse(lp);
+        } else if (lp) {
+          parsedVehicles = [{ plate: lp, type: parsed.vehicleType || 'Car' }];
+        }
+        
+        setUserVehicles(parsedVehicles);
+        
+        if (parsedVehicles.length > 0) {
+          setSelectedVehicleIndex(0);
+          setFormData(prev => ({
+            ...prev,
+            licensePlate: parsedVehicles[0].plate,
+            vehicleType: parsedVehicles[0].type.toLowerCase() === 'motorbike' ? 'bike' : parsedVehicles[0].type.toLowerCase() === 'bicycle' ? 'bike' : parsedVehicles[0].type.toLowerCase()
+          }));
+        }
       } catch (e) {
         console.error('Error parsing stored user:', e);
       }
@@ -71,9 +89,9 @@ const ReservationPage = () => {
         <div className="absolute bottom-[-10%] right-[-15%] w-[700px] h-[700px] bg-indigo-500/10 blur-[200px] rounded-full pointer-events-none animate-pulse" style={{ animationDuration: '10s' }}></div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
-          
+
           {/* Left Column: Form Section */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ type: 'spring', stiffness: 80, delay: 0.05 }}
@@ -101,18 +119,18 @@ const ReservationPage = () => {
               </header>
 
               <form onSubmit={handleSubmit} className="space-y-7">
-                
+
                 {/* Date Picker */}
                 <div className="space-y-2">
                   <label className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-400/90 ml-1.5 flex items-center gap-1.5">
                     <Calendar size={13} className="text-blue-500" /> Ngày gửi xe
                   </label>
                   <div className="relative group">
-                    <input 
-                      className="premium-input block w-full pl-5 pr-5 py-3.5 rounded-full border border-outline-variant focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/60 transition-all text-sm font-semibold cursor-pointer shadow-sm bg-white" 
-                      type="date" 
+                    <input
+                      className="premium-input block w-full pl-5 pr-5 py-3.5 rounded-full border border-outline-variant focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/60 transition-all text-sm font-semibold cursor-pointer shadow-sm bg-white"
+                      type="date"
                       value={formData.date}
-                      onChange={(e) => setFormData({...formData, date: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                       required
                     />
                   </div>
@@ -124,42 +142,102 @@ const ReservationPage = () => {
                     <Clock size={13} className="text-blue-500" /> Giờ bắt đầu
                   </label>
                   <div className="relative group">
-                    <input 
-                      className="premium-input block w-full pl-5 pr-5 py-3.5 rounded-full border border-outline-variant focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/60 transition-all text-sm font-semibold cursor-pointer shadow-sm bg-white" 
+                    <input
+                      className="premium-input block w-full pl-5 pr-5 py-3.5 rounded-full border border-outline-variant focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/60 transition-all text-sm font-semibold cursor-pointer shadow-sm bg-white"
                       type="time"
                       value={formData.startTime}
-                      onChange={(e) => setFormData({...formData, startTime: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
                       required
                     />
                   </div>
                 </div>
 
-                {/* License Plate */}
-                <div className="space-y-2">
-                  <label className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-400/90 ml-1.5 flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-[15px] text-blue-500">credit_card</span> Biển số xe
-                  </label>
-                  <div className="relative group">
-                    <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-500 transition-colors">
-                      <span className="material-symbols-outlined text-[20px]">badge</span>
+                {/* Vehicle Selection dropdown or cards */}
+                {userVehicles.length > 0 ? (
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-400/90 ml-1.5 flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[15px] text-blue-500">credit_card</span> Chọn phương tiện gửi
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {userVehicles.map((veh, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => {
+                            setSelectedVehicleIndex(index);
+                            setIsCustomPlate(false);
+                            setFormData(prev => ({
+                              ...prev,
+                              licensePlate: veh.plate,
+                              vehicleType: veh.type.toLowerCase() === 'motorbike' ? 'bike' : veh.type.toLowerCase() === 'bicycle' ? 'bike' : veh.type.toLowerCase()
+                            }));
+                          }}
+                          className={`flex items-center gap-2.5 p-3.5 rounded-2xl border text-left transition-all ${selectedVehicleIndex === index && !isCustomPlate ? 'border-blue-500 bg-blue-50/10 font-bold text-blue-600' : 'border-slate-100 hover:border-slate-200 bg-white text-slate-700'}`}
+                        >
+                          <span className="material-symbols-outlined text-[20px]">
+                            {veh.type.toLowerCase() === 'car' ? 'directions_car' : 'two_wheeler'}
+                          </span>
+                          <span className="text-xs uppercase tracking-wider font-extrabold truncate">{veh.plate}</span>
+                        </button>
+                      ))}
+                      
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedVehicleIndex(-1);
+                          setIsCustomPlate(true);
+                          setFormData(prev => ({ ...prev, licensePlate: '' }));
+                        }}
+                        className={`flex items-center gap-2.5 p-3.5 rounded-2xl border text-left transition-all ${isCustomPlate ? 'border-blue-500 bg-blue-50/10 font-bold text-blue-600' : 'border-slate-100 hover:border-slate-200 bg-white text-slate-700'}`}
+                      >
+                        <span className="material-symbols-outlined text-[20px]">add_circle</span>
+                        <span className="text-xs uppercase tracking-wider font-extrabold">Xe khác</span>
+                      </button>
                     </div>
-                    <input 
-                      className="premium-input block w-full pl-13 pr-5 py-3.5 rounded-full border border-outline-variant focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/60 transition-all text-sm font-semibold uppercase placeholder:text-slate-300 shadow-sm bg-white" 
-                      placeholder="VD: 51F-123.45" 
-                      type="text"
-                      value={formData.licensePlate}
-                      onChange={(e) => setFormData({...formData, licensePlate: e.target.value.toUpperCase()})}
-                      required
-                    />
+
+                    {isCustomPlate && (
+                      <div className="relative group pt-1">
+                        <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-500 transition-colors">
+                          <span className="material-symbols-outlined text-[20px]">badge</span>
+                        </div>
+                        <input
+                          className="premium-input block w-full pl-13 pr-5 py-3.5 rounded-full border border-outline-variant focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/60 transition-all text-sm font-semibold uppercase placeholder:text-slate-300 shadow-sm bg-white"
+                          placeholder="VD: 51F-123.45"
+                          type="text"
+                          value={formData.licensePlate}
+                          onChange={(e) => setFormData({ ...formData, licensePlate: e.target.value.toUpperCase() })}
+                          required
+                        />
+                      </div>
+                    )}
                   </div>
-                </div>
+                ) : (
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-400/90 ml-1.5 flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[15px] text-blue-500">credit_card</span> Biển số xe
+                    </label>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-500 transition-colors">
+                        <span className="material-symbols-outlined text-[20px]">badge</span>
+                      </div>
+                      <input
+                        className="premium-input block w-full pl-13 pr-5 py-3.5 rounded-full border border-outline-variant focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/60 transition-all text-sm font-semibold uppercase placeholder:text-slate-300 shadow-sm bg-white"
+                        placeholder="VD: 51F-123.45"
+                        type="text"
+                        value={formData.licensePlate}
+                        onChange={(e) => setFormData({ ...formData, licensePlate: e.target.value.toUpperCase() })}
+                        required
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {/* Custom Parking Lot Dropdown */}
                 <div className="space-y-2 relative">
                   <label className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-400/90 ml-1.5 flex items-center gap-1.5">
                     <MapPin size={13} className="text-blue-500" /> Chọn vị trí / bãi đỗ
                   </label>
-                  <div 
+                  <div
                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                     className="w-full bg-white border border-outline-variant/80 hover:border-blue-500/40 rounded-full py-4 px-6 text-slate-900 font-extrabold flex items-center justify-between cursor-pointer transition-all duration-300 group shadow-sm hover:shadow-md"
                   >
@@ -171,7 +249,7 @@ const ReservationPage = () => {
 
                   <AnimatePresence>
                     {isDropdownOpen && (
-                      <motion.div 
+                      <motion.div
                         initial={{ opacity: 0, y: -12, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -12, scale: 0.95 }}
@@ -179,10 +257,10 @@ const ReservationPage = () => {
                         className="absolute z-[2500] left-0 right-0 mt-3.5 bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl border border-slate-100/90 max-h-64 overflow-y-auto divide-y divide-slate-50 scrollbar-thin overflow-hidden p-2"
                       >
                         {parkingLots.map(lot => (
-                          <div 
+                          <div
                             key={lot.id}
                             onClick={() => {
-                              setFormData({...formData, parkingLotId: lot.id});
+                              setFormData({ ...formData, parkingLotId: lot.id });
                               setIsDropdownOpen(false);
                             }}
                             className={`px-5 py-3.5 rounded-2xl hover:bg-blue-50/50 cursor-pointer transition-all duration-200 flex items-center justify-between my-0.5
@@ -209,16 +287,16 @@ const ReservationPage = () => {
                 {/* Vehicle Type Tab Selector */}
                 <div className="space-y-3">
                   <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-400/90 ml-1.5">Loại phương tiện</p>
-                  
+
                   <div className="grid grid-cols-3 gap-3 p-1.5 bg-slate-50 border border-slate-100 rounded-3xl">
                     {['car', 'suv', 'bike'].map((type) => (
-                      <button 
+                      <button
                         key={type}
                         type="button"
-                        onClick={() => setFormData({...formData, vehicleType: type})}
+                        onClick={() => setFormData({ ...formData, vehicleType: type })}
                         className={`flex flex-col items-center justify-center py-4 rounded-2xl transition-all duration-300 gap-1.5 relative overflow-hidden group
-                          ${formData.vehicleType === type 
-                            ? 'bg-white text-blue-600 shadow-md shadow-blue-500/5 font-extrabold scale-[1.03] border border-slate-100' 
+                          ${formData.vehicleType === type
+                            ? 'bg-white text-blue-600 shadow-md shadow-blue-500/5 font-extrabold scale-[1.03] border border-slate-100'
                             : 'text-slate-400 hover:text-slate-600 font-semibold'}`}
                       >
                         <span className="material-symbols-outlined text-[22px] transition-transform duration-300 group-hover:scale-110">
@@ -241,8 +319,8 @@ const ReservationPage = () => {
                 </div>
 
                 {/* Next Step Action Button */}
-                <button 
-                  className="group relative overflow-hidden w-full py-4.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold rounded-full transition-all duration-300 shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transform hover:-translate-y-1 active:scale-[0.98] text-sm flex items-center justify-center gap-2" 
+                <button
+                  className="group relative overflow-hidden w-full py-4.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold rounded-full transition-all duration-300 shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transform hover:-translate-y-1 active:scale-[0.98] text-sm flex items-center justify-center gap-2"
                   type="submit"
                 >
                   <span className="relative z-10 uppercase tracking-widest font-black text-xs">TIẾP THEO: CHỌN VỊ TRÍ CHI TIẾT</span>
@@ -254,21 +332,21 @@ const ReservationPage = () => {
           </motion.div>
 
           {/* Right Column: Sticky Live Map & Digital Twin Panel */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ type: 'spring', stiffness: 80, delay: 0.15 }}
             className="lg:col-span-7 xl:col-span-7 lg:sticky lg:top-32 self-start"
           >
             <div className="flex flex-col gap-6">
-              
+
               {/* Ultra-premium Live Map Frame */}
               <div className="relative bg-white border border-slate-100 rounded-[3rem] p-2 shadow-[0_20px_50px_rgba(0,0,0,0.04)] overflow-hidden group">
                 <div className="absolute top-4 left-4 z-50 pointer-events-none">
                   <div className="glass-panel px-4 py-2 rounded-full border border-slate-200/60 shadow-lg backdrop-blur-md flex items-center gap-2.5">
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
                     <span className="text-[10px] font-black uppercase tracking-wider text-slate-800 flex items-center gap-1">
-                      <Cpu size={12} className="text-emerald-500" /> BẢN ĐỒ KỸ THUẬT SỐ LIVE
+                      <Cpu size={12} className="text-emerald-500" /> BẢN ĐỒ
                     </span>
                   </div>
                 </div>
@@ -319,7 +397,7 @@ const ReservationPage = () => {
       </main>
 
       <footer className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 text-center border-t border-slate-100/60 mt-12 relative z-10">
-        <p className="text-slate-400/80 text-xs font-bold tracking-wide">© 2024 PM System Smart Parking Solutions. All rights reserved.</p>
+        <p className="text-slate-400/80 text-xs font-bold tracking-wide">© 2026 PM System Smart Parking Solutions. All rights reserved.</p>
       </footer>
     </div>
   );
