@@ -154,7 +154,7 @@ const ProfilePage = () => {
   if (!currentUser) return null;
 
   return (
-    <div className="min-h-screen bg-mesh-gradient text-[#191c1e] selection:bg-blue-500/10" style={{ fontFamily: "'Manrope', sans-serif" }}>
+    <div className="min-h-screen bg-mesh-gradient text-[#191c1e] selection:bg-blue-500/10">
       {/* Viewport-fixed premium emerald success toast */}
       <AnimatePresence>
         {success && (
@@ -163,10 +163,10 @@ const ProfilePage = () => {
             animate={{ opacity: 1, y: 24, x: "-50%" }}
             exit={{ opacity: 0, y: -80, x: "-50%" }}
             transition={{ type: "spring", stiffness: 120, damping: 14 }}
-            className="fixed top-0 left-1/2 z-[99999] flex items-center gap-2 px-5 py-2.5 bg-emerald-500 text-white rounded-full shadow-xl shadow-emerald-500/25 border border-emerald-400/20 whitespace-nowrap"
+            className="fixed top-0 left-1/2 z-[99999] flex items-center gap-2.5 px-4.5 py-2 bg-emerald-500 text-white rounded-full shadow-lg shadow-emerald-500/20 border border-emerald-400/20 whitespace-nowrap"
           >
             <CheckCircle2 className="text-white shrink-0" size={15} />
-            <span className="text-[10px] font-black tracking-widest uppercase">Cập nhật thành công!</span>
+            <span className="text-xs font-semibold tracking-normal text-white">Cập nhật thành công!</span>
           </motion.div>
         )}
       </AnimatePresence>
