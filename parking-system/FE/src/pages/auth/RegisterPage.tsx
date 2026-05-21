@@ -152,7 +152,7 @@ const RegisterPage = () => {
         <div className="max-w-2xl opacity-0 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
           <h2 className="text-[72px] font-display font-extrabold leading-[1.05] tracking-tight mb-8 text-on-surface">
             Bắt đầu hành trình<br/>
-            <span className="text-primary">với PM System.</span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-500 to-blue-500">với PM System.</span>
           </h2>
           <p className="text-on-surface-variant text-xl leading-relaxed max-w-lg font-medium">
             Tạo tài khoản để trải nghiệm hệ thống quản lý bãi xe thông minh, đặt chỗ nhanh chóng và nhận ưu đãi đặc biệt.
