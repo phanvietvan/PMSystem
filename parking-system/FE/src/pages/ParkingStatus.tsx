@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Layers, Sparkles } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
+import { hasActiveSessions } from '../utils/auth';
+import api from '../services/api';
 
 /* ─── Types ─── */
 type SlotStatus = 'available' | 'occupied' | 'reserved';
@@ -14,7 +16,7 @@ interface ParkingSlot {
 }
 
 /* ─── Helpers ─── */
-const generateSlots = (prefix: string, count: number, level: number): ParkingSlot[] => {
+const generateSlots = (prefix: string, count: number, level: number, activeSlots: string[] = []): ParkingSlot[] => {
   return Array.from({ length: count }, (_, i) => {
     const seed = level * 100 + prefix.charCodeAt(0) * 10 + i;
     const val = (Math.sin(seed) + 1) / 2;
@@ -26,6 +28,10 @@ const generateSlots = (prefix: string, count: number, level: number): ParkingSlo
       status = val > 0.7 ? 'occupied' : val > 0.55 ? 'reserved' : 'available';
     } else {
       status = val > 0.6 ? 'occupied' : val > 0.45 ? 'reserved' : 'available';
+    }
+
+    if (activeSlots.includes(`${prefix}${i + 1}`)) {
+      status = 'occupied';
     }
 
     return {
@@ -45,7 +51,9 @@ const ParkingStatus: React.FC = () => {
   const location = useLocation();
   const [selectedLevel, setSelectedLevel] = useState(1);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
-  const [alertVisible, setAlertVisible] = useState(true);
+  const [showReservePrompt, setShowReservePrompt] = useState(false);
+  const [showActiveSessionWarning, setShowActiveSessionWarning] = useState(false);
+  const [activeSlots, setActiveSlots] = useState<string[]>([]);
   const floors = [1, 2, 3];
 
   const selectedParking = location.state?.selectedParking ||
@@ -57,13 +65,20 @@ const ParkingStatus: React.FC = () => {
       const n = parseInt(selectedParking.floor.replace('Tầng ', ''));
       if (!isNaN(n) && n <= 3) setSelectedLevel(n);
     }
+
+    // Fetch actual occupied slots from BE
+    api.get('/ParkingSessions/active-slots')
+      .then(res => {
+        if (res.data) setActiveSlots(res.data);
+      })
+      .catch(err => console.error('Error fetching active slots', err));
   }, []);
 
   // Clear selection on floor change
   useEffect(() => { setSelectedSlot(null); }, [selectedLevel]);
 
-  const westSlots = generateSlots('A', 10, selectedLevel);
-  const eastSlots = generateSlots('B', 10, selectedLevel);
+  const westSlots = generateSlots('A', 10, selectedLevel, activeSlots);
+  const eastSlots = generateSlots('B', 10, selectedLevel, activeSlots);
   const allSlots = [...westSlots, ...eastSlots];
   const availableCount = countByStatus(allSlots, 'available');
   const occupiedCount = countByStatus(allSlots, 'occupied');
@@ -148,20 +163,7 @@ const ParkingStatus: React.FC = () => {
             </div>
           </div>
 
-          {/* Live camera feed at the bottom */}
-          <div className="mt-6 pt-4 border-t border-slate-100/50">
-            <div className="rounded-2xl overflow-hidden relative shadow-sm group cursor-pointer border border-slate-100 aspect-video">
-              <img
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuA9aimOEQ5wLjZfZRHtypgdNlnx9glMT3tzVC0xu_7xkajY9OBhfoCOmjeIg7QIK95sZbCS36PROqfppVhrOjTleWWzZFfmqVD6Ac-c-Pd8endBFgbFgGUeZZorEziDOUjVLsffXyQFmlKRXcucvGmRWiIgBaCSa3eLBM6EBCGj4VNoSEY-zwLidZFUBGHtjdPWGlOKUb8OumQs_xFynQPRf_GLMeALTu6nwwxlp8P2FqnBmK4aWcZrQp-WDT8m_1IwhmrFRGVQovU"
-                alt="Live Camera Feed"
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-              />
-              <div className="absolute top-2 left-2 flex items-center gap-0.5 bg-red-600 px-1.5 py-0.5 rounded-full text-[8px] font-black text-white uppercase tracking-wider animate-pulse shadow-sm">
-                <span className="w-0.5 h-0.5 rounded-full bg-white" /> LIVE
-              </div>
-            </div>
-            <p className="mt-1.5 text-[9px] text-slate-400 text-center italic font-bold uppercase tracking-wider">Cam 04 • Cổng Vào số 1</p>
-          </div>
+
         </aside>
 
         {/* ── Main Viewport Panel (Locked height, no scrolling) ── */}
@@ -416,18 +418,7 @@ const ParkingStatus: React.FC = () => {
               </svg>
             </div>
 
-            {/* Bottom action bar */}
-            <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center shrink-0 gap-4">
-              <div className="flex gap-3">
-                <button className="flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-colors rounded-xl text-slate-800 text-[10px] font-extrabold uppercase tracking-wider cursor-pointer">
-                  <span className="material-symbols-outlined text-[14px]">zoom_in</span>
-                  Phóng to sơ đồ
-                </button>
-                <button className="flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-colors rounded-xl text-slate-800 text-[10px] font-extrabold uppercase tracking-wider cursor-pointer">
-                  <span className="material-symbols-outlined text-[14px]">analytics</span>
-                  Xem báo cáo ngày
-                </button>
-              </div>
+            <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col sm:flex-row justify-end items-center shrink-0 gap-4">
               <div className="flex items-center gap-1.5 text-slate-400 text-[9px] font-bold uppercase tracking-wider">
                 <span className="material-symbols-outlined text-[12px]">lock</span>
                 <span>Dữ liệu mã hóa 256-bit AES</span>
@@ -437,32 +428,6 @@ const ParkingStatus: React.FC = () => {
         </main>
       </div>
 
-
-      {/* ── Floating Alert Button ── */}
-      <AnimatePresence>
-        {alertVisible && (
-          <motion.div
-            initial={{ opacity: 0, y: 40, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 40, scale: 0.9 }}
-            className="fixed bottom-6 right-6 z-50"
-          >
-            <button
-              onClick={() => setAlertVisible(false)}
-              className="flex items-center gap-3 bg-slate-900/95 backdrop-blur-md text-white px-5 py-3.5 rounded-2xl shadow-xl hover:scale-105 active:scale-95 transition-all group border border-white/10 cursor-pointer"
-            >
-              <div className="relative">
-                <span className="material-symbols-outlined text-xl text-blue-400 animate-pulse">notifications_active</span>
-                <span className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-red-500 rounded-full border-2 border-slate-900" />
-              </div>
-              <div className="text-left">
-                <p className="text-[8px] uppercase font-black tracking-wider text-slate-400">Thông báo mới nhất</p>
-                <p className="font-bold text-xs mt-0.5">Phát hiện đỗ sai vị trí tại Khu B</p>
-              </div>
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* ── Slot Selection Bottom Sheet ── */}
       <AnimatePresence>
@@ -480,9 +445,21 @@ const ParkingStatus: React.FC = () => {
               </div>
               <button
                 onClick={() => {
+                  const isActive = hasActiveSessions();
+                  if (isActive) {
+                    setShowActiveSessionWarning(true);
+                    return;
+                  }
+
                   localStorage.setItem('selectedSlot', selectedSlot || 'A3');
                   localStorage.setItem('selectedLevel', selectedLevel.toString());
-                  navigate('/payment');
+                  
+                  const hasReservationDetails = localStorage.getItem('reservationDate') && localStorage.getItem('reservationLicensePlate');
+                  if (hasReservationDetails) {
+                    navigate('/payment');
+                  } else {
+                    setShowReservePrompt(true);
+                  }
                 }}
                 className="bg-blue-600 text-white px-5 py-2.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider hover:bg-blue-700 hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 shadow-lg shadow-blue-500/20 cursor-pointer"
               >
@@ -490,6 +467,119 @@ const ParkingStatus: React.FC = () => {
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Reservation Prompt Modal ── */}
+      <AnimatePresence>
+        {showReservePrompt && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 pointer-events-auto"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl border border-slate-100 flex flex-col items-center text-center relative overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-blue-500/10 to-transparent blur-xl rounded-full" />
+              
+              <div className="w-16 h-16 bg-blue-50 border border-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-6 shadow-sm">
+                <span className="material-symbols-outlined text-3xl text-blue-500 font-bold">info</span>
+              </div>
+              
+              <h3 className="text-lg font-black text-slate-900 tracking-tight leading-snug mb-2">
+                Thông tin đăng ký trống
+              </h3>
+              
+              <p className="text-slate-500 text-xs font-semibold leading-relaxed mb-8 px-2">
+                Vui lòng hoàn tất thông tin đăng ký giữ chỗ (như biển số xe, thời gian) để hệ thống ghi nhận chính xác trước khi thanh toán.
+              </p>
+              
+              <div className="flex flex-col gap-3 w-full">
+                <button
+                  onClick={() => {
+                    setShowReservePrompt(false);
+                    navigate('/reserve', { state: { fromStatus: true } });
+                  }}
+                  className="w-full bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-extrabold py-3.5 rounded-full text-[10px] uppercase tracking-wider transition-all shadow-lg shadow-blue-500/20 cursor-pointer"
+                >
+                  Nhập thông tin ngay
+                </button>
+                <button
+                  onClick={() => setShowReservePrompt(false)}
+                  className="w-full hover:bg-slate-50 text-slate-500 font-extrabold py-3.5 rounded-full text-[10px] uppercase tracking-wider transition-all cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Active Session Warning Modal ── */}
+      <AnimatePresence>
+        {showActiveSessionWarning && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 pointer-events-auto"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl border border-slate-100 flex flex-col items-center text-center relative overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-red-500/10 to-transparent blur-xl rounded-full" />
+              
+              <div className="w-16 h-16 bg-red-50 border border-red-100 text-red-600 rounded-full flex items-center justify-center mb-6 shadow-sm">
+                <span className="material-symbols-outlined text-3xl text-red-500 font-bold">warning</span>
+              </div>
+              
+              <h3 className="text-lg font-black text-slate-900 tracking-tight leading-snug mb-2">
+                Phiên đỗ đang hoạt động
+              </h3>
+              
+              <p className="text-slate-500 text-xs font-semibold leading-relaxed mb-8 px-2">
+                Bạn đang có một phiên đỗ xe chưa kết thúc (xe chưa ra khỏi bãi). Vui lòng hoàn tất thanh toán lối ra cho xe hiện tại trước khi thực hiện đặt chỗ mới.
+              </p>
+              
+              <div className="flex flex-col gap-2.5 w-full">
+                <button
+                  onClick={() => {
+                    setShowActiveSessionWarning(false);
+                    navigate('/active-session');
+                  }}
+                  className="w-full bg-slate-950 hover:bg-slate-900 active:scale-[0.98] text-white font-extrabold py-3.5 rounded-full text-[10px] uppercase tracking-wider transition-all shadow-lg cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-[14px]">visibility</span>
+                  Xem phiên đỗ hiện tại
+                </button>
+                <button
+                  onClick={() => {
+                    setShowActiveSessionWarning(false);
+                    navigate('/reserve', { state: { fromStatus: true, bypassActiveCheck: true } });
+                  }}
+                  className="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-extrabold py-3.5 rounded-full text-[10px] uppercase tracking-wider transition-all shadow-lg shadow-blue-500/10 cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-[14px]">directions_car</span>
+                  Đặt chỗ cho xe khác
+                </button>
+                <button
+                  onClick={() => setShowActiveSessionWarning(false)}
+                  className="w-full hover:bg-slate-50 text-slate-500 font-extrabold py-3 rounded-full text-[10px] uppercase tracking-wider transition-all cursor-pointer"
+                >
+                  Đóng
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

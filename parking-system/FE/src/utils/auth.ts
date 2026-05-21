@@ -86,3 +86,55 @@ export async function syncCurrentUserFromApi(
     return null;
   }
 }
+
+export function parseLicensePlate(raw: string | null | undefined): string {
+  if (!raw) return '51F-123.45';
+  const clean = raw.trim();
+  if (clean.startsWith('[') && clean.endsWith(']')) {
+    try {
+      const parsed = JSON.parse(clean);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const item = parsed[0];
+        return item.plate || item.PLATE || item.Plate || clean;
+      }
+    } catch (e) {}
+  }
+  return clean;
+}
+
+/* ─── Active Session QR Helpers (supports multiple parked vehicles) ─── */
+
+/** Get all active session QR codes */
+export function getActiveQrs(): string[] {
+  try {
+    const raw = localStorage.getItem('activeSessionQrs');
+    if (raw) return JSON.parse(raw) as string[];
+    // Migration: read old single-value key
+    const legacy = localStorage.getItem('activeSessionQr');
+    if (legacy) {
+      const arr = [legacy];
+      localStorage.setItem('activeSessionQrs', JSON.stringify(arr));
+      localStorage.removeItem('activeSessionQr');
+      return arr;
+    }
+  } catch {}
+  return [];
+}
+
+/** Add a QR code to active sessions */
+export function addActiveQr(qr: string): void {
+  const arr = getActiveQrs();
+  if (!arr.includes(qr)) arr.push(qr);
+  localStorage.setItem('activeSessionQrs', JSON.stringify(arr));
+}
+
+/** Remove a QR code from active sessions */
+export function removeActiveQr(qr: string): void {
+  const arr = getActiveQrs().filter(q => q !== qr);
+  localStorage.setItem('activeSessionQrs', JSON.stringify(arr));
+}
+
+/** Check if user has any active sessions */
+export function hasActiveSessions(): boolean {
+  return getActiveQrs().length > 0;
+}

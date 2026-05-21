@@ -13,6 +13,11 @@ public interface IEmailService
     /// include it in the dev-mode API response (null in production).
     /// </summary>
     Task<string?> SendOtpEmailAsync(string toEmail, string otp, EmailOtpPurpose purpose);
+
+    /// <summary>
+    /// Sends a contact message email directly to pmsystem.system@gmail.com.
+    /// </summary>
+    Task SendContactEmailAsync(string fromName, string fromEmail, string? phone, string subject, string message);
 }
 
 public enum EmailOtpPurpose
