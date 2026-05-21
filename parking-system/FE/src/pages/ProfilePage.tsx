@@ -155,6 +155,22 @@ const ProfilePage = () => {
 
   return (
     <div className="min-h-screen bg-mesh-gradient text-[#191c1e] selection:bg-blue-500/10" style={{ fontFamily: "'Manrope', sans-serif" }}>
+      {/* Viewport-fixed premium emerald success toast */}
+      <AnimatePresence>
+        {success && (
+          <motion.div
+            initial={{ opacity: 0, y: -80, x: "-50%" }}
+            animate={{ opacity: 1, y: 24, x: "-50%" }}
+            exit={{ opacity: 0, y: -80, x: "-50%" }}
+            transition={{ type: "spring", stiffness: 120, damping: 14 }}
+            className="fixed top-0 left-1/2 z-[99999] flex items-center gap-2 px-5 py-2.5 bg-emerald-500 text-white rounded-full shadow-xl shadow-emerald-500/25 border border-emerald-400/20 whitespace-nowrap"
+          >
+            <CheckCircle2 className="text-white shrink-0" size={15} />
+            <span className="text-[10px] font-black tracking-widest uppercase">Cập nhật thành công!</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Hide standard navbar to prevent navigation if force update is active */}
       {!isForceUpdate ? (
         <Navbar />
@@ -394,17 +410,6 @@ const ProfilePage = () => {
                 </motion.div>
               )}
 
-              {success && (
-                <motion.div
-                  initial={{ opacity: 0, y: -50, scale: 0.9 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -20, scale: 0.9 }}
-                  className="fixed top-6 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 px-6 py-3.5 bg-emerald-500 text-white rounded-full shadow-lg shadow-emerald-500/25 border border-emerald-400/20"
-                >
-                  <CheckCircle2 className="text-white shrink-0 animate-bounce" size={18} />
-                  <span className="text-xs font-black tracking-wider uppercase">Cập nhật thông tin thành công!</span>
-                </motion.div>
-              )}
             </AnimatePresence>
 
             {/* Save Button */}
