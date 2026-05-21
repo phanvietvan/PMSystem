@@ -481,6 +481,25 @@ public class AuthService : IAuthService
         return ApiResponse<UserResponse>.Ok(MapToResponse(user), "User updated successfully.");
     }
 
+    public async Task<ApiResponse<bool>> DeleteUserAsync(Guid actorId, string actorRole, Guid targetUserId)
+    {
+        if (actorId == targetUserId)
+            return ApiResponse<bool>.Fail("Bạn không thể tự xóa chính mình.");
+
+        var user = await _userRepo.GetByIdAsync(targetUserId);
+        if (user is null)
+            return ApiResponse<bool>.Fail("Không tìm thấy người dùng.");
+
+        if (user.Role == UserRole.Admin && !actorRole.Equals(nameof(UserRole.Admin), StringComparison.OrdinalIgnoreCase))
+            return ApiResponse<bool>.Fail("Chỉ Quản trị viên mới được xóa tài khoản Quản trị viên khác.");
+
+        _userRepo.SoftDelete(user);
+        await _userRepo.SaveChangesAsync();
+
+        _logger.LogInformation("User {TargetId} soft-deleted by {ActorId} ({ActorRole})", targetUserId, actorId, actorRole);
+        return ApiResponse<bool>.Ok(true, "Xóa người dùng thành công.");
+    }
+
     // ── Private Helpers ───────────────────────────────────────────────────────
 
     private async Task<User> CreateGoogleUserAsync(string email, string firstName, string lastName, string? avatarUrl)

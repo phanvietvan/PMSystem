@@ -24,6 +24,7 @@ interface AppUser {
   licensePlate?: string;
   vehicleType?: string;
   address?: string;
+  avatarUrl?: string;
   role: string;
   status: string;
   lastLoginAt?: string;
@@ -60,6 +61,9 @@ const AdminUsers = () => {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState<AppUser | null>(null);
+  const [viewingUser, setViewingUser] = useState<AppUser | null>(null);
+  const [deletingUser, setDeletingUser] = useState<AppUser | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -164,6 +168,28 @@ const AdminUsers = () => {
     }
   };
 
+  const handleDelete = async () => {
+    if (!deletingUser) return;
+    setIsDeleting(true);
+    setError('');
+    try {
+      const response = await api.delete(`/users/${deletingUser.id}`);
+      if (response.data.success) {
+        setUsers((prev) => prev.filter((u) => u.id !== deletingUser.id));
+        setDeletingUser(null);
+      } else {
+        setError(response.data.message || 'Xóa thất bại.');
+      }
+    } catch (err: unknown) {
+      setError(
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+          'Xóa thất bại.'
+      );
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
 
   return (
     <AdminLayout
@@ -252,8 +278,12 @@ const AdminUsers = () => {
                          <tr key={user.id} className="hover:bg-slate-50/50 transition-colors group">
                             <td className="px-8 py-6">
                                <div className="flex items-center gap-4">
-                                  <div className="w-11 h-11 rounded-2xl bg-blue-100 flex items-center justify-center font-black text-blue-600 text-xs uppercase">
-                                     {user.firstName ? user.firstName[0] : (user.username ? user.username[0] : 'U')}
+                                  <div className="w-11 h-11 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center font-black text-blue-600 text-xs uppercase overflow-hidden shrink-0">
+                                     {user.avatarUrl ? (
+                                       <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" />
+                                     ) : (
+                                       <span>{user.firstName ? user.firstName[0] : (user.username ? user.username[0] : 'U')}</span>
+                                     )}
                                   </div>
                                   <div>
                                      <p className="text-sm font-black text-slate-900">{user.firstName} {user.lastName}</p>
@@ -286,16 +316,34 @@ const AdminUsers = () => {
                             </td>
                             <td className="px-8 py-6 text-right">
                                <div className="flex items-center justify-end gap-2">
-                                  {canEdit && (
-                                    <button
-                                      type="button"
-                                      onClick={() => openEdit(user)}
-                                      className="p-2 hover:bg-blue-50 rounded-xl transition-colors text-blue-600"
-                                      title="Chỉnh sửa"
-                                    >
-                                      <Edit className="w-4 h-4" />
-                                    </button>
-                                  )}
+                                 <button
+                                   type="button"
+                                   onClick={() => setViewingUser(user)}
+                                   className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-600 cursor-pointer flex items-center justify-center"
+                                   title="Xem chi tiết"
+                                 >
+                                   <span className="material-symbols-outlined text-[18px]">visibility</span>
+                                 </button>
+                                 {canEdit && (
+                                   <button
+                                     type="button"
+                                     onClick={() => openEdit(user)}
+                                     className="p-2 hover:bg-blue-50 rounded-xl transition-colors text-blue-600 cursor-pointer flex items-center justify-center"
+                                     title="Chỉnh sửa"
+                                   >
+                                     <Edit className="w-4 h-4" />
+                                   </button>
+                                 )}
+                                 {canEdit && (
+                                   <button
+                                     type="button"
+                                     onClick={() => setDeletingUser(user)}
+                                     className="p-2 hover:bg-red-50 rounded-xl transition-colors text-red-600 cursor-pointer flex items-center justify-center"
+                                     title="Xóa thành viên"
+                                   >
+                                     <span className="material-symbols-outlined text-[18px]">delete</span>
+                                   </button>
+                                 )}
                                </div>
                             </td>
                          </tr>
@@ -382,6 +430,151 @@ const AdminUsers = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {viewingUser && (() => {
+        let parsedVehicles: { plate: string; type: string }[] = [];
+        const lp = viewingUser.licensePlate || '';
+        if (lp.startsWith('[')) {
+          try {
+            const raw = JSON.parse(lp);
+            if (Array.isArray(raw)) {
+              parsedVehicles = raw.map((v: any) => ({
+                plate: String(v.plate || v.PLATE || '').toUpperCase(),
+                type: String(v.type || v.TYPE || 'CAR')
+              })).filter(v => v.plate);
+            }
+          } catch {}
+        } else if (lp) {
+          parsedVehicles = [{ plate: lp.toUpperCase(), type: viewingUser.vehicleType || 'CAR' }];
+        }
+
+        return (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg border border-slate-200 overflow-hidden animate-scale-up">
+              <div className="flex items-center justify-between px-8 py-6 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-blue-600 text-[22px]">account_circle</span>
+                  <h3 className="text-lg font-black text-slate-900">Chi tiết nhân sự</h3>
+                </div>
+                <button type="button" onClick={() => setViewingUser(null)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-500">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
+                <div className="flex items-center gap-4.5 p-4.5 bg-slate-50 border border-slate-100 rounded-2xl">
+                  <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center font-black text-blue-600 text-lg uppercase overflow-hidden shrink-0">
+                    {viewingUser.avatarUrl ? (
+                      <img src={viewingUser.avatarUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <span>{viewingUser.firstName ? viewingUser.firstName[0] : (viewingUser.username ? viewingUser.username[0] : 'U')}</span>
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="font-black text-slate-900 text-base">{viewingUser.firstName} {viewingUser.lastName}</h4>
+                    <p className="text-xs font-bold text-slate-400">@{viewingUser.username}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Vai trò</span>
+                    <span className="text-sm font-bold text-slate-800 flex items-center gap-1.5 mt-1">
+                      <Shield size={14} className="text-blue-500" /> {viewingUser.role}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Trạng thái</span>
+                    <span className={`inline-block px-3 py-1 rounded-full text-[9px] font-black uppercase mt-1 border ${
+                      statusClass[viewingUser.status] || statusClass.Active
+                    }`}>
+                      {statusLabel[viewingUser.status] || viewingUser.status || 'ACTIVE'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Vehicles list section */}
+                <div className="bg-slate-50 border border-slate-100 p-4.5 rounded-2xl space-y-3">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Danh sách phương tiện ({parsedVehicles.length})</span>
+                  {parsedVehicles.length === 0 ? (
+                    <p className="text-xs font-bold text-slate-400 italic">Chưa đăng ký phương tiện</p>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-2">
+                      {parsedVehicles.map((v, i) => (
+                        <div key={i} className="flex justify-between items-center bg-white px-3 py-2 rounded-xl border border-slate-100">
+                          <span className="text-xs font-black text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100/50 uppercase tracking-wide">
+                            {v.plate}
+                          </span>
+                          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider bg-slate-50 border border-slate-100/50 px-2 py-0.5 rounded-md">
+                            {v.type === 'car' || v.type === 'CAR' ? 'Ô tô' : 
+                             v.type === 'suv' || v.type === 'SUV' ? 'Xe SUV' : 
+                             v.type === 'moto' || v.type === 'MOTO' ? 'Xe máy' : v.type}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3.5 pt-2">
+                  <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                    <span className="text-xs font-bold text-slate-400">Địa chỉ Email</span>
+                    <span className="text-xs font-extrabold text-slate-700">{viewingUser.email}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                    <span className="text-xs font-bold text-slate-400">Số điện thoại</span>
+                    <span className="text-xs font-extrabold text-slate-700">{viewingUser.phoneNumber || 'Chưa cung cấp'}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                    <span className="text-xs font-bold text-slate-400">Địa chỉ</span>
+                    <span className="text-xs font-extrabold text-slate-700">{viewingUser.address || 'Chưa cung cấp'}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                    <span className="text-xs font-bold text-slate-400">Ngày đăng ký</span>
+                    <span className="text-xs font-extrabold text-slate-700">
+                      {viewingUser.createdAt ? new Date(viewingUser.createdAt).toLocaleDateString('vi-VN') : 'N/A'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button type="button" onClick={() => setViewingUser(null)} className="w-full py-3 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-wider hover:bg-slate-800 transition-colors">Đóng chi tiết</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {deletingUser && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-slate-200 overflow-hidden animate-scale-up">
+            <div className="p-8 text-center space-y-4">
+              <div className="w-14 h-14 rounded-full bg-red-50 text-red-500 flex items-center justify-center mx-auto">
+                <span className="material-symbols-outlined text-[30px]">warning</span>
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-slate-900">Xác nhận xóa tài khoản</h3>
+                <p className="text-xs text-slate-400 font-bold uppercase mt-1 tracking-wider">Hành động này không thể hoàn tác</p>
+              </div>
+              <p className="text-sm text-slate-500">
+                Bạn có chắc chắn muốn xóa thành viên <strong className="text-slate-800">{deletingUser.firstName} {deletingUser.lastName}</strong> khỏi hệ thống không?
+              </p>
+              {error && <p className="text-xs font-bold text-red-500 bg-red-50 border border-red-100 rounded-xl py-2 px-3">{error}</p>}
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setDeletingUser(null)} className="flex-1 py-3 border border-slate-200 text-xs font-black uppercase tracking-wider text-slate-600 rounded-xl hover:bg-slate-50 transition-colors">Hủy</button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="flex-1 py-3 bg-red-600 text-white text-xs font-black uppercase tracking-wider rounded-xl hover:bg-red-700 disabled:opacity-60 transition-colors shadow-lg shadow-red-600/10"
+                >
+                  {isDeleting ? 'Đang xóa...' : 'Xác nhận xóa'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -42,4 +42,16 @@ public class UsersController : ControllerBase
         var result = await _authService.UpdateUserAsAdminAsync(actorId, actorRole, id, request);
         return result.Success ? Ok(result) : BadRequest(result);
     }
+
+    /// <summary>Delete a user (Admin, Staff). Soft-delete.</summary>
+    [HttpDelete("{id:guid}")]
+    [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        var actorId = User.GetUserId();
+        var actorRole = User.GetUserRole();
+        var result = await _authService.DeleteUserAsync(actorId, actorRole, id);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
 }
