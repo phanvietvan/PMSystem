@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, Download, Share2, ArrowRight, Loader2, ShieldCheck } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
+import { parseLicensePlate } from '../utils/auth';
 
 const SuccessPage = () => {
   const navigate = useNavigate();
@@ -21,7 +22,7 @@ const SuccessPage = () => {
       try {
         const user = JSON.parse(storedUser);
         if (user.licensePlate) {
-          setLicensePlate(user.licensePlate);
+          setLicensePlate(parseLicensePlate(user.licensePlate));
         }
       } catch (e) {
         console.error(e);
