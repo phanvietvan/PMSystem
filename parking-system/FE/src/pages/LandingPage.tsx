@@ -65,13 +65,6 @@ const LandingPage = () => {
               variants={containerVariants}
               className="space-y-10"
             >
-              <motion.div variants={itemVariants} className="inline-flex items-center gap-3 px-4 py-1.5 bg-white/50 backdrop-blur-md text-blue-600 rounded-full text-[11px] font-extrabold uppercase tracking-[0.2em] border border-blue-100/50 shadow-sm">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
-                </span>
-                Hạ tầng Tự vận hành thông minh
-              </motion.div>
 
               <motion.h1 variants={itemVariants} className="text-6xl lg:text-[84px] font-['Plus_Jakarta_Sans'] font-extrabold text-slate-900 leading-[1.05] tracking-[-0.04em]">
                 Hệ thống <br />
