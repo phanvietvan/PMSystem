@@ -72,7 +72,7 @@ function App() {
           <Route path="/gate-scan" element={<ProtectedRoute><GateScanPage /></ProtectedRoute>} />
           <Route path="/navigation" element={<ProtectedRoute><NavigationPage /></ProtectedRoute>} />
           <Route path="/active-session" element={<ProtectedRoute><ActiveSessionPage /></ProtectedRoute>} />
-          <Route path="/contact" element={<ProtectedRoute><ContactPage /></ProtectedRoute>} />
+          <Route path="/contact" element={<ContactPage />} />
 
           {/* Premium Auth Routes */}
           <Route path="/login" element={<LoginPage />} />
