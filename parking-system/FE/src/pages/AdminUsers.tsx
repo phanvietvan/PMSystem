@@ -279,7 +279,7 @@ const AdminUsers = () => {
                             <td className="px-8 py-6">
                                <div className="flex items-center gap-4">
                                   <div className="w-11 h-11 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center font-black text-blue-600 text-xs uppercase overflow-hidden shrink-0">
-                                     {user.avatarUrl ? (
+                                     {user.avatarUrl && user.avatarUrl !== 'null' && user.avatarUrl !== 'undefined' ? (
                                        <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" />
                                      ) : (
                                        <span>{user.firstName ? user.firstName[0] : (user.username ? user.username[0] : 'U')}</span>
@@ -466,7 +466,7 @@ const AdminUsers = () => {
               <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
                 <div className="flex items-center gap-4.5 p-4.5 bg-slate-50 border border-slate-100 rounded-2xl">
                   <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center font-black text-blue-600 text-lg uppercase overflow-hidden shrink-0">
-                    {viewingUser.avatarUrl ? (
+                    {viewingUser.avatarUrl && viewingUser.avatarUrl !== 'null' && viewingUser.avatarUrl !== 'undefined' ? (
                       <img src={viewingUser.avatarUrl} alt="" className="w-full h-full object-cover" />
                     ) : (
                       <span>{viewingUser.firstName ? viewingUser.firstName[0] : (viewingUser.username ? viewingUser.username[0] : 'U')}</span>
