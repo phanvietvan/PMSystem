@@ -1,7 +1,9 @@
 using System;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using PBMSystem.API.Extensions;
 using Repositories;
 using Repositories.Entities;
 using Repositories.DTOs;
@@ -19,19 +21,31 @@ public class ParkingSessionsController : ControllerBase
         _context = context;
     }
 
+    /// <summary>
+    /// Creates a new parking session. Requires a logged-in user.
+    /// The session is bound to the authenticated user's ID so only they can see it.
+    /// </summary>
+    [Authorize]
     [HttpPost("checkin")]
     public async Task<IActionResult> CheckIn([FromBody] CheckInRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.LicensePlate))
-        {
             return BadRequest(new { message = "Biển số xe không được trống." });
-        }
+
+        var userId = User.GetUserId();
+
+        // Prevent duplicate active sessions for the same user
+        var existingActive = await _context.ParkingSessions
+            .FirstOrDefaultAsync(ps => ps.UserId == userId && ps.Status == "Active");
+        if (existingActive != null)
+            return BadRequest(new { message = "Bạn đang có phiên đỗ xe đang hoạt động. Vui lòng thanh toán phiên hiện tại trước khi đặt chỗ mới." });
 
         var qrCode = $"QR_{Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper()}";
 
         var session = new ParkingSession
         {
             Id = Guid.NewGuid(),
+            UserId = userId,
             LicensePlate = request.LicensePlate.Trim().ToUpper(),
             QrCode = qrCode,
             EntryPhoto = request.EntryPhoto,
@@ -55,17 +69,34 @@ public class ParkingSessionsController : ControllerBase
     {
         var elapsed = exitTime - entryTime;
         var elapsedMinutes = (int)Math.Ceiling(elapsed.TotalMinutes);
-        
-        // Base fee: 10,000 VNĐ for the first hour (60 minutes)
         decimal fee = 10000;
-        
         if (elapsedMinutes > 60)
-        {
-            // Extra fee: 500 VNĐ per additional minute
             fee += (elapsedMinutes - 60) * 500;
-        }
-        
         return fee;
+    }
+
+    /// <summary>
+    /// Returns the currently active parking session for the logged-in user, if any.
+    /// </summary>
+    [Authorize]
+    [HttpGet("my-session")]
+    public async Task<IActionResult> GetMySession()
+    {
+        var userId = User.GetUserId();
+
+        var session = await _context.ParkingSessions
+            .Where(ps => ps.UserId == userId && ps.Status == "Active")
+            .OrderByDescending(ps => ps.EntryTime)
+            .FirstOrDefaultAsync();
+
+        if (session == null)
+            return Ok(new { hasActiveSession = false, session = (object?)null });
+
+        var now = DateTime.UtcNow;
+        var fee = CalculateFee(session.EntryTime, now);
+        var durationMinutes = (int)Math.Ceiling((now - session.EntryTime).TotalMinutes);
+
+        return Ok(new { hasActiveSession = true, session, fee, durationMinutes });
     }
 
     [HttpGet("verify/{qrCode}")]
@@ -75,37 +106,26 @@ public class ParkingSessionsController : ControllerBase
             .FirstOrDefaultAsync(ps => ps.QrCode == qrCode && ps.Status == "Active");
 
         if (session == null)
-        {
             return NotFound(new { message = "Không tìm thấy phiên gửi xe hoặc mã QR không hợp lệ/đã thanh toán." });
-        }
 
         var exitTime = DateTime.UtcNow;
         var fee = CalculateFee(session.EntryTime, exitTime);
         var durationMinutes = (int)Math.Ceiling((exitTime - session.EntryTime).TotalMinutes);
 
-        return Ok(new
-        {
-            session,
-            fee,
-            durationMinutes
-        });
+        return Ok(new { session, fee, durationMinutes });
     }
 
     [HttpPost("checkout")]
     public async Task<IActionResult> CheckOut([FromBody] CheckOutRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.QrCode))
-        {
             return BadRequest(new { message = "Mã QR không được trống." });
-        }
 
         var session = await _context.ParkingSessions
             .FirstOrDefaultAsync(ps => ps.QrCode == request.QrCode && ps.Status == "Active");
 
         if (session == null)
-        {
             return NotFound(new { message = "Phiên gửi xe không hoạt động hoặc không tìm thấy mã QR." });
-        }
 
         string entryPlateNormalized = session.LicensePlate.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper();
         string exitPlateNormalized = request.ExitLicensePlate.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper();
@@ -126,13 +146,14 @@ public class ParkingSessionsController : ControllerBase
             session,
             fee,
             isPlateMatched = session.IsPlateMatched,
-            message = session.IsPlateMatched == true ? "Xác thực thành công. Cho phép xe ra." : "Cảnh báo: Biển số xe ra không trùng khớp với biển số xe vào!"
+            message = session.IsPlateMatched == true
+                ? "Xác thực thành công. Cho phép xe ra."
+                : "Cảnh báo: Biển số xe ra không trùng khớp với biển số xe vào!"
         });
     }
 
     /// <summary>
     /// Returns all license plates that currently have an active (not yet checked-out) session.
-    /// Used by the FE to lock vehicles that are still parked.
     /// </summary>
     [HttpGet("active-plates")]
     public async Task<IActionResult> GetActivePlates()
@@ -147,7 +168,6 @@ public class ParkingSessionsController : ControllerBase
 
     /// <summary>
     /// Returns all parking slots that currently have an active session.
-    /// Used by the FE to lock slots on the map.
     /// </summary>
     [HttpGet("active-slots")]
     public async Task<IActionResult> GetActiveSlots()
@@ -162,7 +182,6 @@ public class ParkingSessionsController : ControllerBase
 
     /// <summary>
     /// Returns all active sessions whose license plate matches any in the given list.
-    /// Plates are compared after stripping dashes, dots and spaces.
     /// </summary>
     [HttpPost("active-by-plates")]
     public async Task<IActionResult> GetActiveByPlates([FromBody] List<string> plates)
@@ -199,3 +218,4 @@ public class ParkingSessionsController : ControllerBase
         return Ok(sessions);
     }
 }
+
