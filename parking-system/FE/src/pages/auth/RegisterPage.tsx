@@ -36,7 +36,7 @@ const RegisterPage = () => {
   const [otp, setOtp] = useState('');
   const [devOtpCode, setDevOtpCode] = useState('');
   const [error, setError] = useState('');
-  
+
   const navigate = useNavigate();
 
   const loginGoogle = useGoogleLogin({
@@ -47,16 +47,16 @@ const RegisterPage = () => {
         const response = await api.post('/auth/google', {
           idToken: tokenResponse.access_token
         });
-        
+
         const apiResponse = response.data;
         const { user, accessToken } = apiResponse.data;
 
         localStorage.setItem('token', accessToken);
         localStorage.setItem('user', JSON.stringify(user));
-        
+
         window.dispatchEvent(new Event('user-login'));
         setLoading(false);
-        
+
         const isForceUpdate = !user.firstName || !user.lastName || user.firstName === 'Google' || user.lastName === 'User';
         if (isForceUpdate) {
           navigate('/profile');
@@ -155,23 +155,23 @@ const RegisterPage = () => {
 
         localStorage.setItem('token', accessToken);
         localStorage.setItem('user', JSON.stringify(user));
-        
+
         window.dispatchEvent(new Event('user-login'));
         setLoading(false);
         navigate('/');
       } catch (err: any) {
         setLoading(false);
         console.error('Verify OTP Error Details:', err.response?.data);
-        
+
         const beErrors = err.response?.data?.errors;
         let errorMessage = 'Xác minh OTP và đăng ký thất bại.';
-        
+
         if (beErrors) {
           errorMessage = Object.values(beErrors).flat().join(' | ');
         } else {
           errorMessage = err.response?.data?.message || 'Mã OTP không chính xác hoặc đã hết hạn.';
         }
-        
+
         setError(errorMessage);
       }
     }
@@ -189,7 +189,7 @@ const RegisterPage = () => {
 
         <div className="max-w-2xl opacity-0 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
           <h2 className="text-[72px] font-display font-extrabold leading-[1.05] tracking-tight mb-8 text-on-surface">
-            Bắt đầu hành trình<br/>
+            Bắt đầu hành trình<br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-500 to-blue-500">với PM System.</span>
           </h2>
           <p className="text-on-surface-variant text-xl leading-relaxed max-w-lg font-medium">
@@ -277,8 +277,8 @@ const RegisterPage = () => {
                       <input className="premium-input block w-full pl-12 pr-4 py-3 rounded-full border border-outline-variant focus:outline-none transition-all text-sm font-medium" type="email" placeholder="email@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
                     </div>
                   </div>
-                  <button 
-                    className={`group relative overflow-hidden w-full py-3 bg-primary hover:bg-primary-container text-white font-semibold rounded-full transition-all duration-300 shadow-md shadow-primary/10 hover:shadow-lg hover:shadow-primary/20 transform hover:-translate-y-0.5 active:scale-[0.98] text-sm ${loading ? 'opacity-80 cursor-wait' : ''}`} 
+                  <button
+                    className={`group relative overflow-hidden w-full py-3 bg-primary hover:bg-primary-container text-white font-semibold rounded-full transition-all duration-300 shadow-md shadow-primary/10 hover:shadow-lg hover:shadow-primary/20 transform hover:-translate-y-0.5 active:scale-[0.98] text-sm ${loading ? 'opacity-80 cursor-wait' : ''}`}
                     type="submit"
                     disabled={loading}
                   >
@@ -294,7 +294,7 @@ const RegisterPage = () => {
                   </div>
 
                   {/* Google Sign In Button */}
-                  <button 
+                  <button
                     type="button"
                     onClick={() => loginGoogle()}
                     className="group relative overflow-hidden w-full py-3 bg-white hover:bg-slate-50 text-slate-700 font-semibold rounded-full border border-slate-200/80 shadow-sm transition-all duration-300 flex items-center justify-center gap-2.5 transform hover:-translate-y-0.5 active:scale-[0.98] text-sm"
@@ -337,9 +337,8 @@ const RegisterPage = () => {
                           return (
                             <div
                               key={i}
-                              className={`h-full flex-1 transition-all duration-300 ${
-                                isActive ? strength.color : 'bg-slate-200 dark:bg-slate-700/50'
-                              }`}
+                              className={`h-full flex-1 transition-all duration-300 ${isActive ? strength.color : 'bg-slate-200 dark:bg-slate-700/50'
+                                }`}
                             />
                           );
                         })}
@@ -364,8 +363,8 @@ const RegisterPage = () => {
                       Tôi đồng ý với <Link to="/terms" className="text-primary font-bold">Điều khoản sử dụng</Link> và <Link to="/privacy" className="text-primary font-bold">Chính sách bảo mật</Link>.
                     </label>
                   </div>
-                  <button 
-                    className={`group relative overflow-hidden w-full py-3 bg-primary hover:bg-primary-container text-white font-semibold rounded-full transition-all duration-300 shadow-md shadow-primary/10 hover:shadow-lg hover:shadow-primary/20 transform hover:-translate-y-0.5 active:scale-[0.98] text-sm ${loading ? 'opacity-80 cursor-wait' : ''}`} 
+                  <button
+                    className={`group relative overflow-hidden w-full py-3 bg-primary hover:bg-primary-container text-white font-semibold rounded-full transition-all duration-300 shadow-md shadow-primary/10 hover:shadow-lg hover:shadow-primary/20 transform hover:-translate-y-0.5 active:scale-[0.98] text-sm ${loading ? 'opacity-80 cursor-wait' : ''}`}
                     type="submit"
                     disabled={loading}
                   >
@@ -391,18 +390,18 @@ const RegisterPage = () => {
                       <div className="absolute inset-y-0 left-0 pl-4.5 flex items-center pointer-events-none text-outline group-focus-within:text-primary transition-colors">
                         <span className="material-symbols-outlined text-[20px]">verified</span>
                       </div>
-                      <input 
-                        className="premium-input block w-full pl-12 pr-4 py-3 rounded-full border border-outline-variant focus:outline-none transition-all text-center text-lg font-bold tracking-[0.25em]" 
-                        maxLength={6} 
-                        required 
-                        value={otp} 
-                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))} 
-                        placeholder="000000" 
+                      <input
+                        className="premium-input block w-full pl-12 pr-4 py-3 rounded-full border border-outline-variant focus:outline-none transition-all text-center text-lg font-bold tracking-[0.25em]"
+                        maxLength={6}
+                        required
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                        placeholder="000000"
                       />
                     </div>
                   </div>
-                  <button 
-                    className={`group relative overflow-hidden w-full py-3 bg-primary hover:bg-primary-container text-white font-semibold rounded-full transition-all duration-300 shadow-md shadow-primary/10 hover:shadow-lg hover:shadow-primary/20 transform hover:-translate-y-0.5 active:scale-[0.98] text-sm ${loading ? 'opacity-80 cursor-wait' : ''}`} 
+                  <button
+                    className={`group relative overflow-hidden w-full py-3 bg-primary hover:bg-primary-container text-white font-semibold rounded-full transition-all duration-300 shadow-md shadow-primary/10 hover:shadow-lg hover:shadow-primary/20 transform hover:-translate-y-0.5 active:scale-[0.98] text-sm ${loading ? 'opacity-80 cursor-wait' : ''}`}
                     type="submit"
                     disabled={loading}
                   >

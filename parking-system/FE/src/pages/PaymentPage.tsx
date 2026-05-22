@@ -59,10 +59,12 @@ const PaymentPage = () => {
 
   const handleConfirmPayment = async () => {
     setLoading(true);
+    let qrCode = '';
     if (mode === 'checkout') {
       const sessionQrs = getActiveQrs();
       const sessionQr = sessionQrs.length > 0 ? sessionQrs[sessionQrs.length - 1] : null;
       if (sessionQr) {
+        qrCode = sessionQr;
         try {
           // Perform backend checkout
           await api.post('/ParkingSessions/checkout', {
@@ -92,6 +94,14 @@ const PaymentPage = () => {
         const reservationLicensePlate = parseLicensePlate(localStorage.getItem('reservationLicensePlate') || licensePlate);
         const selectedSlot = localStorage.getItem('selectedSlot') || 'A3';
 
+        const storedUser = localStorage.getItem('user');
+        let loggedInUserId = null;
+        if (storedUser) {
+          try {
+            loggedInUserId = JSON.parse(storedUser).id;
+          } catch (e) {}
+        }
+
         const response = await api.post('/ParkingSessions/checkin', {
           licensePlate: reservationLicensePlate,
           entryPhoto: '',
@@ -99,9 +109,11 @@ const PaymentPage = () => {
           vehicleType: reservationVehicleType,
           reservationDate: reservationDate,
           reservationStartTime: reservationStartTime,
-          parkingSlot: selectedSlot
+          parkingSlot: selectedSlot,
+          userId: loggedInUserId
         });
         if (response.data && response.data.qrCode) {
+          qrCode = response.data.qrCode;
           addActiveQr(response.data.qrCode);
         }
         localStorage.removeItem('reservationDate');
@@ -113,7 +125,7 @@ const PaymentPage = () => {
       }
     }
     setLoading(false);
-    navigate('/success', { state: { mode } });
+    navigate('/success', { state: { mode, qrCode } });
   };
 
   const orderSummary = {
