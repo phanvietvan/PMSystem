@@ -144,8 +144,15 @@ const ProfilePage = () => {
         setError(response.data.message || 'Cập nhật thông tin thất bại.');
       }
     } catch (err: any) {
-      console.error(err);
-      setError(err.response?.data?.message || 'Có lỗi xảy ra trong quá trình cập nhật.');
+      console.error('Update Profile Error Details:', err.response?.data);
+      const beErrors = err.response?.data?.errors;
+      let errorMessage = 'Có lỗi xảy ra trong quá trình cập nhật.';
+      if (beErrors) {
+        errorMessage = Object.values(beErrors).flat().join(' | ');
+      } else {
+        errorMessage = err.response?.data?.message || 'Có lỗi xảy ra trong quá trình cập nhật.';
+      }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
