@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Phone, Mail, MapPin, Clock, Send, CheckCircle2, AlertCircle, Cpu, Shield, Globe } from 'lucide-react';
+import { Phone, Mail, MapPin, Clock, Send, CheckCircle2, AlertCircle, Shield } from 'lucide-react';
 import Navbar from '../components/layout/Navbar';
 import api from '../services/api';
 
@@ -91,125 +91,95 @@ const ContactPage = () => {
   ];
 
   return (
-    <div className="h-screen overflow-hidden bg-mesh-gradient text-on-surface font-sans selection:bg-primary/10 relative flex flex-col">
+    <div className="min-h-screen bg-slate-50/60 text-slate-800 font-sans relative flex flex-col">
       <Navbar />
 
-      {/* Floating Glowing Orbs */}
-      <div className="absolute top-[-5%] left-[-10%] w-[600px] h-[600px] bg-primary/10 blur-[180px] rounded-full pointer-events-none animate-pulse" style={{ animationDuration: '8s' }}></div>
-      <div className="absolute bottom-[-10%] right-[-15%] w-[700px] h-[700px] bg-indigo-500/10 blur-[200px] rounded-full pointer-events-none animate-pulse" style={{ animationDuration: '10s' }}></div>
+      {/* Floating Glowing Orbs for a premium ambient effect */}
+      <div className="absolute top-0 left-[-10%] w-[500px] h-[500px] bg-blue-400/10 blur-[150px] rounded-full pointer-events-none"></div>
+      <div className="absolute bottom-0 right-[-10%] w-[600px] h-[600px] bg-indigo-400/10 blur-[180px] rounded-full pointer-events-none"></div>
 
-      <main className="flex-1 min-h-0 relative pt-24 px-4 sm:px-6 lg:px-8 pb-6 flex flex-col justify-center overflow-hidden">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch w-full max-w-7xl mx-auto h-full min-h-0 pb-2">
+      <main className="flex-grow pt-28 pb-16 px-4 sm:px-6 lg:px-8 relative z-10 flex items-center justify-center">
+        <div className="w-full max-w-6xl mx-auto">
+          
+          {/* Header Section */}
+          <div className="text-center mb-12">
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mb-3">
+              Chúng tôi luôn sẵn sàng hỗ trợ bạn
+            </h1>
+            <p className="text-slate-500 max-w-xl mx-auto text-sm sm:text-base font-medium">
+              Gặp sự cố, có câu hỏi hay muốn hợp tác? Hãy gửi thông tin cho đội ngũ PM System, chúng tôi sẽ phản hồi trong thời gian sớm nhất.
+            </p>
+          </div>
 
-          {/* Left Column: Contact Cards */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ type: 'spring', stiffness: 80, delay: 0.05 }}
-            className="lg:col-span-5 flex flex-col h-full min-h-0 gap-6"
-          >
-            {/* Contact info list wrapper */}
-            <div className="glass-panel p-6 rounded-[2rem] glow-border relative overflow-hidden bg-white/85 shadow-[0_20px_50px_rgba(0,80,203,0.06)] flex flex-col gap-5 flex-1 min-h-0">
-              <div>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 border border-blue-100 text-[8px] font-black text-blue-600 uppercase tracking-[0.2em] mb-2 shadow-sm">
-                  <span className="w-1.2 h-1.2 rounded-full bg-blue-600 animate-ping"></span>
-                  Thông tin kết nối
-                </span>
-                <h2 className="text-2xl font-display font-black text-slate-900 tracking-tight leading-none">
-                  Liên hệ với chúng tôi
-                </h2>
-                <p className="text-slate-500/90 text-[10px] font-medium leading-relaxed mt-1.5">
-                  Đội ngũ PM System luôn sẵn sàng đồng hành cùng bạn 24/7.
-                </p>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            
+            {/* Left Column: Contact Cards */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="lg:col-span-5 space-y-6"
+            >
+              {/* Contact Info List */}
+              <div className="bg-white/80 backdrop-blur-md p-6 sm:p-8 rounded-3xl border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)] space-y-6">
+                <h2 className="text-xl font-bold text-slate-900">Thông tin liên hệ</h2>
+                <div className="space-y-4">
+                  {contactInfos.map((info, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-slate-50/50 hover:bg-white border border-slate-100/80 rounded-2xl p-4 transition-all duration-300 flex items-start gap-4 group hover:shadow-md hover:shadow-slate-100 hover:-translate-y-0.5"
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100/60 flex items-center justify-center shrink-0 group-hover:scale-105 transition-all">
+                        {info.icon}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">{info.title}</span>
+                        {info.action ? (
+                          <a
+                            href={info.action}
+                            target={info.action.startsWith('http') ? '_blank' : undefined}
+                            rel="noopener noreferrer"
+                            className="text-sm font-bold text-blue-600 hover:text-blue-700 block mt-0.5 transition-colors truncate"
+                          >
+                            {info.value}
+                          </a>
+                        ) : (
+                          <span className="text-sm font-bold text-slate-800 block mt-0.5 truncate">{info.value}</span>
+                        )}
+                        <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{info.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              {/* Scrollable list of cards */}
-              <div className="flex-1 min-h-0 overflow-y-auto space-y-3.5 pr-1.5 pb-2 scrollbar-thin">
-                {contactInfos.map((info, idx) => (
-                  <div
-                    key={idx}
-                    className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all duration-300 flex items-start gap-4 group hover:-translate-y-0.5"
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100/60 flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-all">
-                      {info.icon}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">{info.title}</h3>
-                      {info.action ? (
-                        <a
-                          href={info.action}
-                          target={info.action.startsWith('http') ? '_blank' : undefined}
-                          rel="noopener noreferrer"
-                          className="text-sm font-black text-blue-600 hover:text-blue-700 block mt-0.5 truncate"
-                        >
-                          {info.value}
-                        </a>
-                      ) : (
-                        <span className="text-sm font-black text-blue-600 block mt-0.5 truncate">{info.value}</span>
-                      )}
-                      <p className="text-[10px] text-slate-500 mt-1 leading-normal">{info.desc}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Quick Digital Twin Badge */}
-            <div className="shrink-0 glass-panel p-5 rounded-[2rem] glow-border relative overflow-hidden bg-white/70 shadow-sm flex flex-col gap-4">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-emerald-50 border border-emerald-100/60 text-emerald-600 rounded-2xl flex items-center justify-center shadow-inner">
-                  <Shield className="w-5 h-5 text-emerald-500" />
+              {/* Trust Badge */}
+              <div className="bg-white/85 backdrop-blur-md p-6 rounded-3xl border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)] flex items-center gap-4">
+                <div className="w-12 h-12 bg-emerald-50 border border-emerald-100/60 text-emerald-600 rounded-2xl flex items-center justify-center shrink-0">
+                  <Shield className="w-6 h-6 text-emerald-500" />
                 </div>
                 <div>
-                  <h3 className="font-display font-extrabold text-slate-800 text-base leading-none">Bảo mật & Tin cậy</h3>
-                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-wider mt-1.5">Giám sát mã hóa đầu cuối</p>
+                  <h3 className="font-bold text-slate-800 text-sm leading-snug">Hệ thống Giám sát Bảo mật</h3>
+                  <p className="text-slate-400 text-xs mt-0.5">Dữ liệu bãi đỗ và thông tin tài khoản được mã hóa bảo mật toàn vẹn.</p>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3.5 mt-1">
-                <div className="flex flex-col p-3.5 bg-slate-50/50 rounded-xl border border-slate-100">
-                  <span className="text-[9px] uppercase tracking-wider text-slate-400 font-extrabold flex items-center gap-1.5">
-                    <Cpu size={10} className="text-emerald-500" /> Uptime
-                  </span>
-                  <span className="text-sm font-extrabold text-slate-800 mt-1">99.99% SLA</span>
-                </div>
-                <div className="flex flex-col p-3.5 bg-slate-50/50 rounded-xl border border-slate-100">
-                  <span className="text-[9px] uppercase tracking-wider text-slate-400 font-extrabold flex items-center gap-1.5">
-                    <Globe size={10} className="text-emerald-500" /> Định vị
-                  </span>
-                  <span className="text-sm font-extrabold text-slate-800 mt-1">Landmark 81</span>
-                </div>
-              </div>
-            </div>
+            </motion.div>
 
-          </motion.div>
-
-          {/* Right Column: Contact Form */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ type: 'spring', stiffness: 80, delay: 0.15 }}
-            className="lg:col-span-7 flex flex-col h-full min-h-0"
-          >
-            <div className="glass-panel p-6 md:p-8 rounded-[2rem] glow-border relative overflow-hidden bg-white/85 shadow-[0_20px_50px_rgba(0,80,203,0.06)] flex flex-col h-full min-h-0">
-              <div className="mb-5 shrink-0">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 border border-blue-100 text-[8px] font-black text-blue-600 uppercase tracking-[0.2em] mb-2 shadow-sm">
-                  <span className="w-1.2 h-1.2 rounded-full bg-blue-600 animate-ping"></span>
-                  Gửi Phản Hồi
-                </span>
-                <h2 className="text-2xl font-display font-black text-slate-900 tracking-tight leading-none">
-                  Để lại lời nhắn
-                </h2>
-                <p className="text-slate-500/90 text-[10px] font-medium leading-relaxed mt-1.5">
-                  Chúng tôi thường trả lời các yêu cầu trong vòng vài tiếng làm việc.
-                </p>
-              </div>
-
-              <form onSubmit={handleSubmit} className="flex-1 min-h-0 flex flex-col justify-between">
-                <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pr-1.5 pb-2 scrollbar-thin">
+            {/* Right Column: Contact Form */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="lg:col-span-7"
+            >
+              <div className="bg-white/80 backdrop-blur-md p-6 sm:p-8 rounded-3xl border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
+                <h2 className="text-xl font-bold text-slate-900 mb-6">Gửi tin nhắn phản hồi</h2>
+                
+                <form onSubmit={handleSubmit} className="space-y-5">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Name */}
                     <div className="space-y-1.5">
-                      <label htmlFor="name" className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 ml-1">
+                      <label htmlFor="name" className="text-xs font-bold text-slate-500 ml-1">
                         Họ và tên <span className="text-red-500">*</span>
                       </label>
                       <input
@@ -220,13 +190,13 @@ const ContactPage = () => {
                         onChange={handleChange}
                         placeholder="Nguyễn Văn A"
                         required
-                        className="w-full bg-white border border-outline-variant rounded-full py-2.5 px-4 text-xs font-semibold text-slate-800 placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/60 transition-all shadow-sm"
+                        className="w-full bg-slate-50/50 focus:bg-white border border-slate-200 focus:border-blue-500 rounded-2xl py-3 px-4 text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
                       />
                     </div>
 
                     {/* Email */}
                     <div className="space-y-1.5">
-                      <label htmlFor="email" className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 ml-1">
+                      <label htmlFor="email" className="text-xs font-bold text-slate-500 ml-1">
                         Địa chỉ Email <span className="text-red-500">*</span>
                       </label>
                       <input
@@ -237,7 +207,7 @@ const ContactPage = () => {
                         onChange={handleChange}
                         placeholder="nguyenvana@gmail.com"
                         required
-                        className="w-full bg-white border border-outline-variant rounded-full py-2.5 px-4 text-xs font-semibold text-slate-800 placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/60 transition-all shadow-sm"
+                        className="w-full bg-slate-50/50 focus:bg-white border border-slate-200 focus:border-blue-500 rounded-2xl py-3 px-4 text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
                       />
                     </div>
                   </div>
@@ -245,7 +215,7 @@ const ContactPage = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Phone */}
                     <div className="space-y-1.5">
-                      <label htmlFor="phone" className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 ml-1">
+                      <label htmlFor="phone" className="text-xs font-bold text-slate-500 ml-1">
                         Số điện thoại
                       </label>
                       <input
@@ -255,13 +225,13 @@ const ContactPage = () => {
                         value={formData.phone}
                         onChange={handleChange}
                         placeholder="0901234567"
-                        className="w-full bg-white border border-outline-variant rounded-full py-2.5 px-4 text-xs font-semibold text-slate-800 placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/60 transition-all shadow-sm"
+                        className="w-full bg-slate-50/50 focus:bg-white border border-slate-200 focus:border-blue-500 rounded-2xl py-3 px-4 text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
                       />
                     </div>
 
                     {/* Subject */}
                     <div className="space-y-1.5">
-                      <label htmlFor="subject" className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 ml-1">
+                      <label htmlFor="subject" className="text-xs font-bold text-slate-500 ml-1">
                         Chủ đề liên hệ
                       </label>
                       <div className="relative">
@@ -270,7 +240,7 @@ const ContactPage = () => {
                           name="subject"
                           value={formData.subject}
                           onChange={handleChange}
-                          className="w-full bg-white border border-outline-variant rounded-full py-2.5 pl-4 pr-10 text-xs font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/60 transition-all shadow-sm appearance-none cursor-pointer"
+                          className="w-full bg-slate-50/50 focus:bg-white border border-slate-200 focus:border-blue-500 rounded-2xl py-3 pl-4 pr-10 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition-all appearance-none cursor-pointer"
                         >
                           <option value="general">Hỏi đáp chung / Tư vấn</option>
                           <option value="support">Báo lỗi kỹ thuật / Sự cố</option>
@@ -286,7 +256,7 @@ const ContactPage = () => {
 
                   {/* Message */}
                   <div className="space-y-1.5">
-                    <label htmlFor="message" className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 ml-1">
+                    <label htmlFor="message" className="text-xs font-bold text-slate-500 ml-1">
                       Nội dung tin nhắn <span className="text-red-500">*</span>
                     </label>
                     <textarea
@@ -296,8 +266,8 @@ const ContactPage = () => {
                       onChange={handleChange}
                       placeholder="Nhập nội dung bạn muốn gửi tới chúng tôi..."
                       required
-                      rows={4}
-                      className="w-full bg-white border border-outline-variant rounded-2xl py-3 px-4 text-xs font-semibold text-slate-800 placeholder-slate-300 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/60 transition-all resize-none shadow-sm"
+                      rows={5}
+                      className="w-full bg-slate-50/50 focus:bg-white border border-slate-200 focus:border-blue-500 rounded-2xl py-3 px-4 text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition-all resize-none"
                     />
                   </div>
 
@@ -308,10 +278,10 @@ const ContactPage = () => {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
-                        className="bg-emerald-50 border border-emerald-200/60 text-emerald-800 p-3 rounded-2xl flex items-center gap-3"
+                        className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-2xl flex items-center gap-3"
                       >
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                        <span className="text-[10px] font-extrabold">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                        <span className="text-xs font-semibold">
                           Gửi tin nhắn thành công! Chúng tôi sẽ phản hồi bạn trong thời gian sớm nhất.
                         </span>
                       </motion.div>
@@ -322,45 +292,44 @@ const ContactPage = () => {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
-                        className="bg-rose-50 border border-rose-200/60 text-rose-800 p-3 rounded-2xl flex items-center gap-3"
+                        className="bg-rose-50 border border-rose-200 text-rose-800 p-4 rounded-2xl flex items-center gap-3"
                       >
-                        <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                        <span className="text-[10px] font-extrabold">
+                        <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                        <span className="text-xs font-semibold">
                           Vui lòng điền đầy đủ các thông tin bắt buộc (họ tên, email, nội dung).
                         </span>
                       </motion.div>
                     )}
                   </AnimatePresence>
-                </div>
 
-                {/* Submit Button */}
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="group relative overflow-hidden w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold rounded-full transition-all duration-300 shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 active:scale-[0.98] text-xs flex items-center justify-center gap-2 mt-4 shrink-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                      <span className="uppercase tracking-widest font-black text-[10px]">Đang gửi thông tin...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-3.5 h-3.5 relative z-10 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                      <span className="relative z-10 uppercase tracking-widest font-black text-[10px]">Gửi thông tin liên hệ</span>
-                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shine_1.5s_infinite] pointer-events-none"></div>
-                    </>
-                  )}
-                </button>
-              </form>
-            </div>
-          </motion.div>
+                  {/* Submit Button */}
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold rounded-2xl transition-all duration-150 shadow-md hover:shadow-lg active:scale-[0.99] text-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        <span>Đang gửi thông tin...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        <span>Gửi thông tin liên hệ</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+              </div>
+            </motion.div>
 
+          </div>
         </div>
       </main>
 
-      <footer className="shrink-0 py-3 text-center border-t border-slate-100/60 relative z-10 bg-white/20 backdrop-blur-xs">
-        <p className="text-slate-400/80 text-[10px] font-bold tracking-wide">© 2026 PM System Smart Parking Solutions. All rights reserved.</p>
+      <footer className="py-6 text-center border-t border-slate-200/60 bg-white/40 backdrop-blur-xs relative z-10">
+        <p className="text-slate-400 text-xs font-medium">© 2026 PM System Smart Parking Solutions. All rights reserved.</p>
       </footer>
     </div>
   );
