@@ -32,13 +32,16 @@ public class ParkingSessionsController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.LicensePlate))
             return BadRequest(new { message = "Biển số xe không được trống." });
 
-        Guid? userId = null;
+        Guid? userId = request.UserId;
         try
         {
-            if (User.Identity?.IsAuthenticated == true)
+            if (!userId.HasValue && User.Identity?.IsAuthenticated == true)
             {
                 userId = User.GetUserId();
+            }
 
+            if (userId.HasValue)
+            {
                 // Prevent duplicate active sessions for the same registered user
                 var existingActive = await _context.ParkingSessions
                     .FirstOrDefaultAsync(ps => ps.UserId == userId && ps.Status == "Active");
@@ -64,7 +67,8 @@ public class ParkingSessionsController : ControllerBase
             VehicleType = request.VehicleType,
             ReservationDate = request.ReservationDate,
             ReservationStartTime = request.ReservationStartTime,
-            ParkingSlot = request.ParkingSlot
+            ParkingSlot = request.ParkingSlot,
+            IsCheckedIn = string.IsNullOrEmpty(request.ReservationDate)
         };
 
         _context.ParkingSessions.Add(session);
@@ -116,11 +120,43 @@ public class ParkingSessionsController : ControllerBase
         if (session == null)
             return NotFound(new { message = "Không tìm thấy phiên gửi xe hoặc mã QR không hợp lệ/đã thanh toán." });
 
+        User? user = null;
+        if (session.UserId.HasValue)
+        {
+            user = await _context.Users.FirstOrDefaultAsync(u => u.Id == session.UserId.Value);
+        }
+
+        // Fallback: If UserId is missing in session, try to match by License Plate robustly!
+        if (user == null && !string.IsNullOrEmpty(session.LicensePlate))
+        {
+            var cleanPlate = session.LicensePlate.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper();
+            var allUsers = await _context.Users.ToListAsync();
+            user = allUsers.FirstOrDefault(u => 
+                !string.IsNullOrEmpty(u.LicensePlate) && 
+                u.LicensePlate.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper() == cleanPlate);
+        }
+
         var exitTime = DateTime.UtcNow;
         var fee = CalculateFee(session.EntryTime, exitTime);
         var durationMinutes = (int)Math.Ceiling((exitTime - session.EntryTime).TotalMinutes);
 
-        return Ok(new { session, fee, durationMinutes });
+        return Ok(new 
+        { 
+            session, 
+            fee, 
+            durationMinutes,
+            user = user != null ? new 
+            {
+                user.Id,
+                user.Email,
+                user.FirstName,
+                user.LastName,
+                user.PhoneNumber,
+                user.Address,
+                user.LicensePlate,
+                user.VehicleType
+            } : null
+        });
     }
 
     [HttpPost("checkout")]
@@ -214,6 +250,55 @@ public class ParkingSessionsController : ControllerBase
             .ToList();
 
         return Ok(matched);
+    }
+
+    [HttpGet("slots-status")]
+    public async Task<IActionResult> GetSlotsStatus([FromQuery] string parkingLotName)
+    {
+        if (string.IsNullOrEmpty(parkingLotName))
+            return BadRequest(new { message = "Tên bãi đỗ không được để trống." });
+
+        // Get all active sessions for this parking lot
+        var activeSessions = await _context.ParkingSessions
+            .Where(ps => ps.Status == "Active" && ps.ParkingLotName == parkingLotName && !string.IsNullOrEmpty(ps.ParkingSlot))
+            .ToListAsync();
+
+        // Map active slot status: Key is Slot ID, Value is "occupied" or "reserved"
+        var slotStatusMap = activeSessions
+            .GroupBy(ps => ps.ParkingSlot!)
+            .ToDictionary(
+                g => g.Key,
+                g => g.First().IsCheckedIn == true ? "occupied" : "reserved"
+            );
+
+        return Ok(slotStatusMap);
+    }
+
+    [HttpPost("gate-scan")]
+    public async Task<IActionResult> GateScan([FromBody] GateScanRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.QrCode))
+            return BadRequest(new { message = "Mã QR không được trống." });
+
+        var session = await _context.ParkingSessions
+            .FirstOrDefaultAsync(ps => ps.QrCode == request.QrCode && ps.Status == "Active");
+
+        if (session == null)
+            return NotFound(new { message = "Không tìm thấy phiên gửi xe hoặc mã QR không hợp lệ/đã thanh toán." });
+
+        // Physically enter the slot
+        session.IsCheckedIn = true;
+        session.EntryTime = DateTime.UtcNow;
+        session.UpdatedAt = DateTime.UtcNow;
+
+        if (!string.IsNullOrEmpty(request.EntryPhoto))
+        {
+            session.EntryPhoto = request.EntryPhoto;
+        }
+
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = "Xác thực thành công. Cổng chắn đã mở và vị trí đỗ đã bị khóa.", session });
     }
 
     [HttpGet]
