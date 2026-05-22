@@ -16,6 +16,7 @@ public class ParkingSession : BaseEntity
     public string Status { get; set; } = "Active"; // "Active" or "Completed"
     public string? ExitLicensePlate { get; set; }
     public bool? IsPlateMatched { get; set; }
+    public bool? IsCheckedIn { get; set; } = false;
 
     // Reservation fields
     public string? ParkingLotName { get; set; }
