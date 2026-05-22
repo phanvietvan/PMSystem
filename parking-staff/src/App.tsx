@@ -61,19 +61,10 @@ const App = () => {
 
   const formatPlateNumber = (plate: string): string => {
     if (!plate) return '';
-    const clean = plate.replace(/[^A-Z0-9]/g, '').toUpperCase();
-    if (clean.length === 8) {
-      return `${clean.slice(0, 3)}-${clean.slice(3, 6)}.${clean.slice(6)}`;
-    }
-    if (clean.length === 9) {
-      return `${clean.slice(0, 4)}-${clean.slice(4, 7)}.${clean.slice(7)}`;
-    }
-    if (clean.length === 7) {
-      return `${clean.slice(0, 3)}-${clean.slice(3)}`;
-    }
-    return plate;
+    // Just trim and uppercase to keep plate raw without strict dash or dot formatting
+    return plate.trim().toUpperCase();
   };
-  const [autoApprove, setAutoApprove] = useState(true);
+  const [autoApprove, setAutoApprove] = useState(false);
   const [scannedResult, setScannedResult] = useState<any>(null);
   
   // Auto-pass countdown details
@@ -533,8 +524,8 @@ const App = () => {
     // Otherwise, execute AI License Plate Recognition
     const plate = await runLprOcr();
     if (!plate) {
-      playWarningSound();
-      alert("⚠️ Hệ thống AI không nhận dạng được biển số! Vui lòng căn chỉnh lại góc camera hoặc tự tay nhập biển số vào ô nhập liệu bên dưới.");
+      // Graceful fallback: trigger check-in panel without blocking alert so staff can manually type the plate!
+      await triggerScan('');
       return;
     }
     // Do not pollute the bottom text input field; trigger the scan directly!
@@ -977,7 +968,7 @@ const App = () => {
                       className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-md"
                     >
                       <Zap size={13} />
-                      CẤP VÉ TỰ ĐỘNG
+                      {gateMode === 'ENTRY' ? 'CHỤP ẢNH XE & TẠO QR VÉ' : 'CHỤP ẢNH XE & KIỂM TRA RA'}
                     </button>
                   </div>
                 </div>
