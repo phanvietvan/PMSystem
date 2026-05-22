@@ -22,8 +22,42 @@ const ActiveSessionPage = () => {
 
   useEffect(() => {
     const fetchAllActiveSessions = async () => {
+      try {
+        // Primary: fetch the current user's active session from the server
+        const token = localStorage.getItem('token');
+        if (token) {
+          const resp = await api.get('/ParkingSessions/my-session');
+          if (resp.data?.hasActiveSession && resp.data?.session) {
+            const s = resp.data.session;
+            // Sync the QR to localStorage so checkout flow still works
+            if (s.qrCode) {
+              const { addActiveQr } = await import('../utils/auth');
+              addActiveQr(s.qrCode);
+            }
+            setSessions([{
+              qr: s.qrCode,
+              licensePlate: parseLicensePlate(s.licensePlate),
+              slot: s.parkingSlot || 'A3',
+              level: localStorage.getItem('selectedLevel') || '1',
+              seconds: 0,
+              entryTime: s.entryTime || s.createdAt || null,
+            }]);
+            setLoading(false);
+            return;
+          } else {
+            // No active session on server — clear stale localStorage QRs
+            localStorage.removeItem('activeSessionQrs');
+            setLoading(false);
+            navigate('/reserve');
+            return;
+          }
+        }
+      } catch (e) {
+        // Fall through to localStorage fallback if not logged in or network error
+      }
+
+      // Fallback: use QR codes stored in localStorage (anonymous / legacy)
       const qrs = getActiveQrs();
-      
       if (qrs.length === 0) {
         setLoading(false);
         navigate('/reserve');
@@ -31,7 +65,6 @@ const ActiveSessionPage = () => {
       }
 
       const results: SessionData[] = [];
-      
       for (const qr of qrs) {
         try {
           const resp = await api.get(`/ParkingSessions/verify/${qr}`);
