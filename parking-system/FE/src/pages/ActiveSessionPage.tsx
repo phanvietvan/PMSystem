@@ -1,10 +1,43 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ShieldCheck, Info, Zap, QrCode } from 'lucide-react';
+import { ShieldCheck, Info, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 import { parseLicensePlate, getActiveQrs, removeActiveQr } from '../utils/auth';
 import api from '../services/api';
+import QRCode from 'qrcode';
+
+interface SessionQrProps {
+  qr: string;
+}
+
+const SessionQr = ({ qr }: SessionQrProps) => {
+  const [qrUrl, setQrUrl] = useState<string>('');
+
+  useEffect(() => {
+    QRCode.toDataURL(qr, { width: 250, margin: 1 }, (err, url) => {
+      if (!err && url) {
+        setQrUrl(url);
+      }
+    });
+  }, [qr]);
+
+  if (!qrUrl) {
+    return (
+      <div className="w-36 h-36 flex items-center justify-center text-[10px] text-slate-400 font-bold animate-pulse">
+        Đang tạo mã QR...
+      </div>
+    );
+  }
+
+  return (
+    <img 
+      src={qrUrl} 
+      alt="Session QR Code" 
+      className="w-36 h-36 object-contain animate-fade-in"
+    />
+  );
+};
 
 interface SessionData {
   qr: string;
@@ -116,6 +149,55 @@ const ActiveSessionPage = () => {
     return () => clearInterval(id);
   }, [sessions.length]);
 
+  // Real-time Status Polling: Automatically end session and redirect when scanned out at exit gate
+  useEffect(() => {
+    if (sessions.length === 0) return;
+
+    const checkSessionStatus = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (token) {
+          const resp = await api.get('/ParkingSessions/my-session');
+          if (!resp.data?.hasActiveSession || !resp.data?.session) {
+            // The session has been successfully completed in the backend!
+            localStorage.removeItem('activeSessionQrs');
+            alert("Cảm ơn bạn! Phiên đỗ xe của bạn đã hoàn tất và cổng lối ra đã được mở thành công.");
+            navigate('/reserve');
+          }
+        } else {
+          // Check verification for each localStorage QR code
+          const qrs = getActiveQrs();
+          if (qrs.length === 0) {
+            navigate('/reserve');
+            return;
+          }
+          let stillActive = false;
+          for (const qr of qrs) {
+            try {
+              const resp = await api.get(`/ParkingSessions/verify/${qr}`);
+              if (resp.data && resp.data.session) {
+                stillActive = true;
+              } else {
+                removeActiveQr(qr);
+              }
+            } catch {
+              removeActiveQr(qr);
+            }
+          }
+          if (!stillActive) {
+            alert("Cảm ơn bạn! Phiên đỗ xe của bạn đã hoàn tất và cổng lối ra đã được mở thành công.");
+            navigate('/reserve');
+          }
+        }
+      } catch (e) {
+        console.warn("Polling error:", e);
+      }
+    };
+
+    const intervalId = setInterval(checkSessionStatus, 2000);
+    return () => clearInterval(intervalId);
+  }, [sessions.length, navigate]);
+
   const formatTime = (totalSeconds: number) => {
     const hrs = Math.floor(totalSeconds / 3600);
     const mins = Math.floor((totalSeconds % 3600) / 60);
@@ -199,11 +281,11 @@ const ActiveSessionPage = () => {
                   <p className="text-[10px] text-on-surface-variant font-medium mt-1">Trình mã này trước máy quét tại cổng ra để đối chiếu & thanh toán</p>
                 </div>
 
-                <div 
+                 <div 
                   onClick={() => navigate('/payment', { state: { mode: 'checkout', checkoutQr: session.qr } })}
                   className="relative w-48 h-48 bg-white border border-outline-variant/30 rounded-2xl mx-auto flex flex-col items-center justify-center p-4 cursor-pointer group hover:border-primary hover:shadow-lg transition-all"
                 >
-                  <QrCode className="w-36 h-36 text-on-surface/80 group-hover:text-primary transition-colors" />
+                  <SessionQr qr={session.qr} />
                   
                   <div className="absolute inset-0 bg-primary/5 flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl">
                     <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center shadow-md">
