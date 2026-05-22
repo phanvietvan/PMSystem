@@ -22,23 +22,31 @@ public class ParkingSessionsController : ControllerBase
     }
 
     /// <summary>
-    /// Creates a new parking session. Requires a logged-in user.
-    /// The session is bound to the authenticated user's ID so only they can see it.
+    /// Creates a new parking session.
+    /// If a logged-in user is authenticated, the session is bound to their UserId.
+    /// Otherwise (e.g. walk-in visitor from gate), UserId is left null.
     /// </summary>
-    [Authorize]
     [HttpPost("checkin")]
     public async Task<IActionResult> CheckIn([FromBody] CheckInRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.LicensePlate))
             return BadRequest(new { message = "Biển số xe không được trống." });
 
-        var userId = User.GetUserId();
+        Guid? userId = null;
+        try
+        {
+            if (User.Identity?.IsAuthenticated == true)
+            {
+                userId = User.GetUserId();
 
-        // Prevent duplicate active sessions for the same user
-        var existingActive = await _context.ParkingSessions
-            .FirstOrDefaultAsync(ps => ps.UserId == userId && ps.Status == "Active");
-        if (existingActive != null)
-            return BadRequest(new { message = "Bạn đang có phiên đỗ xe đang hoạt động. Vui lòng thanh toán phiên hiện tại trước khi đặt chỗ mới." });
+                // Prevent duplicate active sessions for the same registered user
+                var existingActive = await _context.ParkingSessions
+                    .FirstOrDefaultAsync(ps => ps.UserId == userId && ps.Status == "Active");
+                if (existingActive != null)
+                    return BadRequest(new { message = "Bạn đang có phiên đỗ xe đang hoạt động. Vui lòng thanh toán phiên hiện tại trước khi đặt chỗ mới." });
+            }
+        }
+        catch { }
 
         var qrCode = $"QR_{Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper()}";
 
