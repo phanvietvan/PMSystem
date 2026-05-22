@@ -16,26 +16,20 @@ interface ParkingSlot {
 }
 
 /* ─── Helpers ─── */
-const generateSlots = (prefix: string, count: number, level: number, activeSlots: string[] = []): ParkingSlot[] => {
-  return Array.from({ length: count }, (_, i) => {
-    const seed = level * 100 + prefix.charCodeAt(0) * 10 + i;
-    const val = (Math.sin(seed) + 1) / 2;
-    let status: SlotStatus = 'available';
-    
-    if (level === 1) {
-      status = val > 0.8 ? 'occupied' : val > 0.65 ? 'reserved' : 'available';
-    } else if (level === 2) {
-      status = val > 0.7 ? 'occupied' : val > 0.55 ? 'reserved' : 'available';
-    } else {
-      status = val > 0.6 ? 'occupied' : val > 0.45 ? 'reserved' : 'available';
-    }
+const generateSlots = (prefix: string, count: number, level: number, slotStatusMap: Record<string, SlotStatus> = {}): ParkingSlot[] => {
+  const actualPrefix = level === 1
+    ? prefix
+    : level === 2
+      ? (prefix === 'A' ? 'C' : 'D')
+      : (prefix === 'A' ? 'E' : 'F');
 
-    if (activeSlots.includes(`${prefix}${i + 1}`)) {
-      status = 'occupied';
-    }
+  return Array.from({ length: count }, (_, i) => {
+    const slotId = `${actualPrefix}${i + 1}`;
+    // Real status from database. By default, it's 'available' (clean & empty).
+    const status = slotStatusMap[slotId] || 'available';
 
     return {
-      id: `${prefix}${i + 1}`,
+      id: slotId,
       status,
       isBest: prefix === 'A' && ((level === 1 && i === 2) || (level === 2 && i === 4) || (level === 3 && i === 1)) && status === 'available',
     };
@@ -53,7 +47,7 @@ const ParkingStatus: React.FC = () => {
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [showReservePrompt, setShowReservePrompt] = useState(false);
   const [showActiveSessionWarning, setShowActiveSessionWarning] = useState(false);
-  const [activeSlots, setActiveSlots] = useState<string[]>([]);
+  const [slotStatusMap, setSlotStatusMap] = useState<Record<string, SlotStatus>>({});
   const floors = [1, 2, 3];
 
   const selectedParking = location.state?.selectedParking ||
@@ -65,20 +59,28 @@ const ParkingStatus: React.FC = () => {
       const n = parseInt(selectedParking.floor.replace('Tầng ', ''));
       if (!isNaN(n) && n <= 3) setSelectedLevel(n);
     }
+  }, [selectedParking.floor]);
 
-    // Fetch actual occupied slots from BE
-    api.get('/ParkingSessions/active-slots')
-      .then(res => {
-        if (res.data) setActiveSlots(res.data);
-      })
-      .catch(err => console.error('Error fetching active slots', err));
-  }, []);
+  // Fetch actual occupied/reserved slots from BE
+  useEffect(() => {
+    const fetchStatus = () => {
+      api.get(`/ParkingSessions/slots-status?parkingLotName=${encodeURIComponent(selectedParking.name)}`)
+        .then(res => {
+          if (res.data) setSlotStatusMap(res.data);
+        })
+        .catch(err => console.error('Error fetching slot status map', err));
+    };
+
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 2000);
+    return () => clearInterval(interval);
+  }, [selectedParking.name]);
 
   // Clear selection on floor change
   useEffect(() => { setSelectedSlot(null); }, [selectedLevel]);
 
-  const westSlots = generateSlots('A', 10, selectedLevel, activeSlots);
-  const eastSlots = generateSlots('B', 10, selectedLevel, activeSlots);
+  const westSlots = generateSlots('A', 10, selectedLevel, slotStatusMap);
+  const eastSlots = generateSlots('B', 10, selectedLevel, slotStatusMap);
   const allSlots = [...westSlots, ...eastSlots];
   const availableCount = countByStatus(allSlots, 'available');
   const occupiedCount = countByStatus(allSlots, 'occupied');
@@ -246,7 +248,7 @@ const ParkingStatus: React.FC = () => {
 
                 {/* West Parking Zone Slots */}
                 {westSlots.map((slot) => {
-                  const id = selectedLevel === 1 ? slot.id : selectedLevel === 2 ? slot.id.replace('A', 'C') : slot.id.replace('A', 'E');
+                  const id = slot.id;
                   const coords = getSlotCoords(id);
                   const isSelected = selectedSlot === id;
                   const isOccupied = slot.status === 'occupied';
@@ -332,7 +334,7 @@ const ParkingStatus: React.FC = () => {
 
                 {/* East Parking Zone Slots */}
                 {eastSlots.map((slot) => {
-                  const id = selectedLevel === 1 ? slot.id : selectedLevel === 2 ? slot.id.replace('B', 'D') : slot.id.replace('B', 'F');
+                  const id = slot.id;
                   const coords = getSlotCoords(id);
                   const isSelected = selectedSlot === id;
                   const isOccupied = slot.status === 'occupied';

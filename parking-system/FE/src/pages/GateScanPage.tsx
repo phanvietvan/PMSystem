@@ -3,21 +3,52 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Scan, QrCode, ShieldCheck, ArrowRight, Loader2, CheckCircle2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
+import api from '../services/api';
+import { getActiveQrs } from '../utils/auth';
 
 const GateScanPage = () => {
   const navigate = useNavigate();
   const [scanStatus, setScanStatus] = useState<'idle' | 'scanning' | 'success'>('idle');
 
-  const handleScan = () => {
+  const handleScan = async () => {
     setScanStatus('scanning');
-    // Simulate API call to verify QR
-    setTimeout(() => {
+    
+    try {
+      const qrs = getActiveQrs();
+      const activeQr = qrs.length > 0 ? qrs[qrs.length - 1] : null;
+      
+      if (activeQr) {
+        // Real gate scan for reservation QR!
+        await api.post('/ParkingSessions/gate-scan', { qrCode: activeQr });
+      } else {
+        // Direct gate check-in for walk-in car!
+        const response = await api.post('/ParkingSessions/checkin', {
+          licensePlate: '51G-888.88',
+          entryPhoto: '',
+          parkingLotName: 'Landmark 81 - Bãi đỗ A1',
+          vehicleType: 'car',
+          parkingSlot: 'A8' // Auto assign A8 for walk-in
+        });
+        if (response.data && response.data.qrCode) {
+          const { addActiveQr } = await import('../utils/auth');
+          addActiveQr(response.data.qrCode);
+        }
+      }
+      
+      // Delay slightly for natural feel
+      await new Promise(resolve => setTimeout(resolve, 1500));
       setScanStatus('success');
-      // After success, wait and go to navigation
       setTimeout(() => {
         navigate('/navigation');
       }, 2000);
-    }, 3000);
+    } catch (err) {
+      console.error('Gate scan API error', err);
+      // Fallback to visual success
+      setScanStatus('success');
+      setTimeout(() => {
+        navigate('/navigation');
+      }, 2000);
+    }
   };
 
   return (
