@@ -113,6 +113,9 @@ public class AuthService : IAuthService
         if (await _userRepo.UsernameExistsAsync(request.Username))
             return ApiResponse<AuthResponse>.Fail("Username is already taken.");
 
+        if (!IsStrongPassword(request.Password, out var pwdError))
+            return ApiResponse<AuthResponse>.Fail(pwdError);
+
         // Complete registration — clear all OTP fields after successful use
         pending.Username = request.Username.ToLower().Trim();
         pending.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
@@ -209,6 +212,9 @@ public class AuthService : IAuthService
         if (user.OtpExpiry < DateTime.UtcNow)
             return ApiResponse<bool>.Fail("OTP has expired. Please request a new one.");
 
+        if (!IsStrongPassword(request.NewPassword, out var pwdError))
+            return ApiResponse<bool>.Fail(pwdError);
+
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
         user.OtpCode = null;
         user.OtpExpiry = null;
@@ -298,6 +304,9 @@ public class AuthService : IAuthService
 
         if (!BCrypt.Net.BCrypt.Verify(request.CurrentPassword, user.PasswordHash))
             return ApiResponse<bool>.Fail("Current password is incorrect.");
+
+        if (!IsStrongPassword(request.NewPassword, out var pwdError))
+            return ApiResponse<bool>.Fail(pwdError);
 
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
         _userRepo.Update(user);
@@ -481,6 +490,25 @@ public class AuthService : IAuthService
         return ApiResponse<UserResponse>.Ok(MapToResponse(user), "User updated successfully.");
     }
 
+    public async Task<ApiResponse<bool>> DeleteUserAsync(Guid actorId, string actorRole, Guid targetUserId)
+    {
+        if (actorId == targetUserId)
+            return ApiResponse<bool>.Fail("Bạn không thể tự xóa chính mình.");
+
+        var user = await _userRepo.GetByIdAsync(targetUserId);
+        if (user is null)
+            return ApiResponse<bool>.Fail("Không tìm thấy người dùng.");
+
+        if (user.Role == UserRole.Admin && !actorRole.Equals(nameof(UserRole.Admin), StringComparison.OrdinalIgnoreCase))
+            return ApiResponse<bool>.Fail("Chỉ Quản trị viên mới được xóa tài khoản Quản trị viên khác.");
+
+        _userRepo.SoftDelete(user);
+        await _userRepo.SaveChangesAsync();
+
+        _logger.LogInformation("User {TargetId} soft-deleted by {ActorId} ({ActorRole})", targetUserId, actorId, actorRole);
+        return ApiResponse<bool>.Ok(true, "Xóa người dùng thành công.");
+    }
+
     // ── Private Helpers ───────────────────────────────────────────────────────
 
     private async Task<User> CreateGoogleUserAsync(string email, string firstName, string lastName, string? avatarUrl)
@@ -610,4 +638,69 @@ public class AuthService : IAuthService
         LastLoginAt = user.LastLoginAt,
         CreatedAt = user.CreatedAt
     };
+
+    public async Task<ApiResponse<bool>> CheckEmailRegisteredAsync(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return ApiResponse<bool>.Fail("Email không được để trống.");
+        }
+        var cleanedEmail = email.ToLower().Trim();
+        try
+        {
+            var addr = new System.Net.Mail.MailAddress(cleanedEmail);
+            if (addr.Address != cleanedEmail)
+            {
+                return ApiResponse<bool>.Fail("Email không hợp lệ.");
+            }
+        }
+        catch
+        {
+            return ApiResponse<bool>.Fail("Email không đúng định dạng.");
+        }
+
+        var existingUser = await _userRepo.GetByEmailAsync(cleanedEmail);
+        if (existingUser != null && existingUser.Status != UserStatus.PendingVerification)
+        {
+            return ApiResponse<bool>.Fail("Email này đã được đăng ký.");
+        }
+        return ApiResponse<bool>.Ok(true, "Email khả dụng.");
+    }
+
+    private static bool IsStrongPassword(string password, out string errorMessage)
+    {
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            errorMessage = "Mật khẩu không được để trống.";
+            return false;
+        }
+
+        if (password.Length < 8)
+        {
+            errorMessage = "Mật khẩu phải chứa ít nhất 8 ký tự.";
+            return false;
+        }
+
+        bool hasUpper = false;
+        bool hasLower = false;
+        bool hasDigit = false;
+        bool hasSpecial = false;
+
+        foreach (char c in password)
+        {
+            if (char.IsUpper(c)) hasUpper = true;
+            else if (char.IsLower(c)) hasLower = true;
+            else if (char.IsDigit(c)) hasDigit = true;
+            else if (!char.IsLetterOrDigit(c)) hasSpecial = true;
+        }
+
+        if (!hasUpper || !hasLower || !hasDigit || !hasSpecial)
+        {
+            errorMessage = "Mật khẩu phải bao gồm cả chữ hoa, chữ thường, chữ số và ít nhất một ký tự đặc biệt.";
+            return false;
+        }
+
+        errorMessage = string.Empty;
+        return true;
+    }
 }

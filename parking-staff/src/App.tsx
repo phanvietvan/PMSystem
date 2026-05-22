@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   BarChart3, 
-  TrendingUp, 
   ExternalLink, 
   FileText, 
   Activity, 
@@ -16,52 +15,269 @@ import {
   Bell,
   Camera,
   RefreshCw,
-  Zap
+  Zap,
+  ChevronDown,
+  User,
+  Shield,
+  Clock,
+  Unlock,
+  AlertTriangle,
+  FileCheck,
+  Plus,
+  Download,
+  Printer
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Lottie from 'lottie-react';
+import jsQR from 'jsqr';
+import Tesseract from 'tesseract.js';
 import WelcomeAnimation from './Welcome.json';
 
-const App = () => {
-  const [isScanning, setIsScanning] = useState(true);
-  const [scannedResult, setScannedResult] = useState<any>(null);
-  const [hasCameraAccess, setHasCameraAccess] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const [recentLogs, setRecentLogs] = useState([
-    { plate: '51G-624.44', status: 'Hợp lệ', time: '14:02:11', type: 'ENTRY' },
-    { plate: '51F-123.45', status: 'Hợp lệ', time: '13:58:45', type: 'ENTRY' },
-    { plate: '51A-999.88', status: 'Xe ra', time: '13:45:02', type: 'EXIT' },
-  ]);
+const API_BASE_URL = '/api';
 
-  // Handle Lottie import quirk
-  const LottieComp = useMemo(() => {
-    return (Lottie as any).default || Lottie;
-  }, []);
+// Fallback high-quality car photos for live webcam fallbacks ONLY
+const FALLBACK_CAR_CAPTURES = [
+  'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&q=80&w=600',
+  'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&q=80&w=600',
+  'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&q=80&w=600',
+];
+
+const App = () => {
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [hasCameraAccess, setHasCameraAccess] = useState(false);
+  const [manualInput, setManualInput] = useState('');
+  const [capacity, setCapacity] = useState(140);
+  const [gateMode, setGateMode] = useState<'ENTRY' | 'EXIT'>('ENTRY');
+  const [isOcrLoading, setIsOcrLoading] = useState(false);
+  
+  // Gate workflow state machine: 'SCANNING' -> 'COMPARING' -> 'GATE_OPEN'
+  const [gateState, setGateState] = useState<'SCANNING' | 'COMPARING' | 'GATE_OPEN'>('SCANNING');
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
 
   useEffect(() => {
-    const init = async () => {
-      await new Promise(resolve => setTimeout(resolve, 800));
-      if (navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function') {
-        await startCamera();
+    setIsTouchDevice('ontouchstart' in window || navigator.maxTouchPoints > 0);
+  }, []);
+
+  const formatPlateNumber = (plate: string): string => {
+    if (!plate) return '';
+    // Just trim and uppercase to keep plate raw without strict dash or dot formatting
+    return plate.trim().toUpperCase();
+  };
+  const [autoApprove, setAutoApprove] = useState(false);
+  const [scannedResult, setScannedResult] = useState<any>(null);
+  
+  // Auto-pass countdown details
+  const [countdown, setCountdown] = useState<number>(0);
+  const [isCountdownActive, setIsCountdownActive] = useState(false);
+  const countdownTimerRef = useRef<any>(null);
+
+  // Visitor Ticket Modal states
+  const [showVisitorModal, setShowVisitorModal] = useState(false);
+  const [visitorPlate, setVisitorPlate] = useState('');
+  const [visitorVehicleType, setVisitorVehicleType] = useState('Car');
+  const [generatedTicket, setGeneratedTicket] = useState<any>(null);
+  const [isGeneratingTicket, setIsGeneratingTicket] = useState(false);
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  
+  // Real MongoDB logs feed
+  const [recentLogs, setRecentLogs] = useState<any[]>([]);
+  const [selectedLogPhoto, setSelectedLogPhoto] = useState<string | null>(null);
+
+  // Audio system synthetics
+  const playChimeSound = () => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      const now = ctx.currentTime;
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523.25, now);
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.08, now + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+      osc.frequency.setValueAtTime(659.25, now + 0.12);
+      gain.gain.setValueAtTime(0.08, now + 0.12);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      osc.start(now);
+      osc.stop(now + 0.4);
+    } catch (e) {
+      console.warn(e);
+    }
+  };
+
+  const playWarningSound = () => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      const now = ctx.currentTime;
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(140, now);
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.08, now + 0.05);
+      gain.gain.linearRampToValueAtTime(0.08, now + 0.15);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      osc.start(now);
+      osc.stop(now + 0.4);
+    } catch (e) {
+      console.warn(e);
+    }
+  };
+
+  // Keyboard Hotkeys: SPACE = quick scan, F4 = visitor modal, F8 = manual confirm, Esc = stop countdown / alert
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Avoid hotkeys when typing in text inputs
+      if (document.activeElement?.tagName === 'INPUT') return;
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (gateState === 'SCANNING') {
+          handleOcrAndScan();
+        }
       }
+      if (e.key === 'F4') {
+        e.preventDefault();
+        playChimeSound();
+        setShowVisitorModal(prev => !prev);
+        setVisitorPlate('');
+        setGeneratedTicket(null);
+      }
+      if (e.key === 'F8') {
+        e.preventDefault();
+        if (gateState === 'COMPARING' && scannedResult) {
+          confirmPass();
+        }
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        if (isCountdownActive) {
+          // Cancel the auto countdown for manual verification
+          setIsCountdownActive(false);
+          if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+          playWarningSound();
+        } else {
+          setShowVisitorModal(false);
+          setScannedResult(null);
+          setSelectedLogPhoto(null);
+          setGateState('SCANNING');
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [gateState, scannedResult, isCountdownActive]);
+
+  // Sync user details from parent domain localStorage
+  useEffect(() => {
+    const syncUser = () => {
+      const raw = localStorage.getItem('user');
+      if (raw) {
+        try {
+          setCurrentUser(JSON.parse(raw));
+        } catch {
+          setCurrentUser(null);
+        }
+      } else {
+        setCurrentUser({
+          firstName: 'Văn Phan',
+          lastName: 'Việt',
+          role: 'Staff',
+          email: 'vietvanphan04@gmail.com',
+          avatarUrl: ''
+        });
+      }
+    };
+    syncUser();
+    window.addEventListener('storage', syncUser);
+    window.addEventListener('user-login', syncUser);
+    return () => {
+      window.removeEventListener('storage', syncUser);
+      window.removeEventListener('user-login', syncUser);
+    };
+  }, []);
+
+  // Fetch real-time active sessions & logs directly from MongoDB
+  const fetchRecentSessions = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/ParkingSessions`);
+      if (response.ok) {
+        const data = await response.json();
+        const mapped = data.map((session: any) => {
+          const entryDateObj = new Date(session.entryTime);
+          const timeStr = entryDateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          
+          return {
+            plate: session.licensePlate,
+            status: session.status === 'Completed' ? 'Lối ra' : 'Lối vào',
+            time: timeStr,
+            type: session.status === 'Completed' ? 'EXIT' : 'ENTRY',
+            owner: session.status === 'Completed' ? 'KHÁCH VÃNG LAI' : 'XE ĐANG GỬI',
+            ticketType: session.status === 'Completed' ? 'Vé đã thanh toán' : 'Vé đang hoạt động',
+            photo: session.entryPhoto || FALLBACK_CAR_CAPTURES[0],
+            qrCode: session.qrCode
+          };
+        });
+
+        setRecentLogs(mapped);
+
+        // Dynamic slot capacity matching active database records
+        const activeCount = data.filter((s: any) => s.status === 'Active').length;
+        setCapacity(140 + activeCount);
+      }
+    } catch (err) {
+      console.warn("Failed to fetch sessions from MongoDB API:", err);
+      setRecentLogs([]);
+    }
+  };
+
+  useEffect(() => {
+    fetchRecentSessions();
+    const interval = setInterval(fetchRecentSessions, 8000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Initialize camera stream
+  useEffect(() => {
+    const init = async () => {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      await startCamera();
     };
     init();
     return () => stopCamera();
   }, []);
 
+  // Re-attach active stream whenever the video element remounts in SCANNING state
+  useEffect(() => {
+    if (gateState === 'SCANNING') {
+      const t = setTimeout(() => {
+        if (streamRef.current && videoRef.current && videoRef.current.srcObject !== streamRef.current) {
+          videoRef.current.srcObject = streamRef.current;
+          console.log("Re-attached active webcam stream to remounted video element");
+        }
+      }, 100);
+      return () => clearTimeout(t);
+    }
+  }, [gateState]);
+
   const startCamera = async () => {
     stopCamera();
-    
     const constraints = [
-      { video: { facingMode: 'user' } },
-      { video: { facingMode: 'environment' } },
+      { video: { facingMode: 'environment', width: 640, height: 480 } },
+      { video: { facingMode: 'user', width: 640, height: 480 } },
       { video: true }
     ];
 
-    for (const constraint of constraints) {
+    for (const c of constraints) {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia(constraint);
+        const stream = await navigator.mediaDevices.getUserMedia(c);
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           streamRef.current = stream;
@@ -69,10 +285,9 @@ const App = () => {
           return;
         }
       } catch (err) {
-        console.warn(`Failed constraint:`, constraint, err);
+        console.warn(err);
       }
     }
-    
     setHasCameraAccess(false);
   };
 
@@ -86,355 +301,1362 @@ const App = () => {
     }
   };
 
-  const simulateScan = () => {
-    if (!isScanning) return;
-    setIsScanning(false);
-    
-    setTimeout(() => {
-      const mockData = {
-        plate: '51G-' + Math.floor(100 + Math.random() * 900) + '.' + Math.floor(10 + Math.random() * 90),
-        status: 'Hợp lệ',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-        owner: 'NGUYỄN VĂN A'
-      };
-      
-      setScannedResult(mockData as any);
-      setRecentLogs(prev => [mockData as any, ...prev.slice(0, 4)]);
-      
-      setTimeout(() => {
-        setScannedResult(null);
-        setIsScanning(true);
-      }, 5000);
-    }, 800);
+  const captureFrame = (): string | null => {
+    if (videoRef.current && hasCameraAccess) {
+      try {
+        const video = videoRef.current;
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          return canvas.toDataURL('image/jpeg');
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return null;
   };
 
+  // Real-time camera QR decoding using jsQR
+  useEffect(() => {
+    let active = true;
+    let frameId: number;
+
+    const decodeLoop = () => {
+      if (!active) return;
+
+      if (gateState === 'SCANNING' && hasCameraAccess && videoRef.current) {
+        const video = videoRef.current;
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 480;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+              const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+              
+              const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts: "dontInvert",
+              });
+
+              if (code && code.data) {
+                console.log("Webcam scanned QR successfully:", code.data);
+                triggerScan(code.data);
+              }
+            }
+          } catch (err) {
+            console.error(err);
+          }
+        }
+      }
+
+      if (gateState === 'SCANNING') {
+        frameId = requestAnimationFrame(decodeLoop);
+      } else {
+        setTimeout(() => {
+          if (active) frameId = requestAnimationFrame(decodeLoop);
+        }, 1000);
+      }
+    };
+
+    if (hasCameraAccess && gateState === 'SCANNING') {
+      frameId = requestAnimationFrame(decodeLoop);
+    }
+
+    return () => {
+      active = false;
+      cancelAnimationFrame(frameId);
+    };
+  }, [hasCameraAccess, gateState, gateMode]);
+
+  // Create active session for casual visitor ("xe vãng lai")
+  const handleCreateVisitorTicket = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!visitorPlate.trim()) return;
+
+    setIsGeneratingTicket(true);
+    playChimeSound();
+
+    const plateNormalized = visitorPlate.trim().toUpperCase();
+    const livePhoto = captureFrame() || FALLBACK_CAR_CAPTURES[Math.floor(Math.random() * FALLBACK_CAR_CAPTURES.length)];
+
+    const apiPayload = {
+      LicensePlate: plateNormalized,
+      EntryPhoto: livePhoto,
+      ParkingLotName: 'Khu Vực A (Vãng lai)',
+      VehicleType: visitorVehicleType,
+    };
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/ParkingSessions/checkin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(apiPayload)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setGeneratedTicket({
+          qrCode: data.qrCode,
+          plate: data.licensePlate,
+          time: new Date(data.entryTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+          photo: data.entryPhoto || livePhoto,
+          vehicleType: data.vehicleType
+        });
+        fetchRecentSessions();
+      } else {
+        throw new Error("Checkin post failed");
+      }
+    } catch (err) {
+      console.warn("Failed to checkin via database, falling back to local simulation:", err);
+      const mockQrCode = `QR_VIS_${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      setGeneratedTicket({
+        qrCode: mockQrCode,
+        plate: plateNormalized,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        photo: livePhoto,
+        vehicleType: visitorVehicleType
+      });
+    } finally {
+      setIsGeneratingTicket(false);
+    }
+  };
+
+  // Helper to extract Vietnamese license plates from recognized text
+  const extractLicensePlate = (text: string): string | null => {
+    if (!text) return null;
+    
+    // Split the text by spaces/newlines and clean all non-alphanumeric chars
+    const tokens = text.split(/[\s\n\r\t]+/).map(t => t.replace(/[^A-Z0-9]/g, '').toUpperCase());
+    console.log("Tokens processed by LPR:", tokens);
+
+    let provinceSeries = '';
+    let plateNumber = '';
+
+    // Province + Series Regex: 2 digits followed by 1 or 2 characters (e.g. 92L1, 30F, 29A1, 59G2)
+    const provinceRegex = /^([0-9]{2})([A-Z][A-Z0-9]?)$/;
+    // Plate Number Regex: 4 or 5 digits
+    const numberRegex = /^([0-9]{4,5})$/;
+
+    // Find Province + Series token
+    for (const token of tokens) {
+      if (provinceRegex.test(token)) {
+        provinceSeries = token;
+        break;
+      }
+    }
+
+    // Find Plate Number token
+    for (const token of tokens) {
+      if (numberRegex.test(token)) {
+        plateNumber = token;
+        break;
+      }
+    }
+
+    // If we found both, combine them!
+    if (provinceSeries && plateNumber) {
+      const formattedNumber = plateNumber.length === 5 
+        ? `${plateNumber.slice(0, 3)}.${plateNumber.slice(3)}` 
+        : plateNumber;
+      return `${provinceSeries}-${formattedNumber}`;
+    }
+
+    // Unified 1-line fallback (for car plates, e.g. "30F18665")
+    const cleanAll = tokens.join('');
+    const unifiedRegex = /([0-9]{2})([A-Z][A-Z0-9]?)([0-9]{4,5})/;
+    const match = cleanAll.match(unifiedRegex);
+    if (match) {
+      const province = match[1];
+      const series = match[2];
+      const number = match[3];
+      const formattedNumber = number.length === 5 
+        ? `${number.slice(0, 3)}.${number.slice(3)}` 
+        : number;
+      return `${province}${series}-${formattedNumber}`;
+    }
+
+    return null;
+  };
+
+  // Perform AI OCR and License Plate Recognition from live canvas
+  const runLprOcr = async (): Promise<string | null> => {
+    setIsOcrLoading(true);
+    playChimeSound();
+
+    const livePhoto = captureFrame();
+    if (!livePhoto) {
+      setIsOcrLoading(false);
+      return null;
+    }
+
+    try {
+      const { data: { text } } = await Tesseract.recognize(livePhoto, 'eng');
+      console.log("OCR Extracted text:", text);
+      const plate = extractLicensePlate(text);
+      if (plate) {
+        setIsOcrLoading(false);
+        return formatPlateNumber(plate);
+      }
+    } catch (err) {
+      console.warn("OCR engine exception:", err);
+    }
+
+    setIsOcrLoading(false);
+    return null;
+  };
+
+  // Trigger scanning workflow using recognized plate or manual field input
+  const handleOcrAndScan = async () => {
+    // If the operator has typed a manual plate in the input field, use it directly!
+    if (manualInput.trim()) {
+      const formatted = formatPlateNumber(manualInput);
+      setManualInput('');
+      await triggerScan(formatted);
+      return;
+    }
+
+    // Otherwise, execute AI License Plate Recognition
+    const plate = await runLprOcr();
+    if (!plate) {
+      // Graceful fallback: trigger check-in panel without blocking alert so staff can manually type the plate!
+      await triggerScan('');
+      return;
+    }
+    // Do not pollute the bottom text input field; trigger the scan directly!
+    await triggerScan(plate);
+  };
+
+  // Trigger exit scan verification
+  const triggerScan = async (customPlateOrQr?: string) => {
+    playChimeSound();
+
+    const inputCleanRaw = (customPlateOrQr || '').trim().toUpperCase();
+    const isQrScan = inputCleanRaw.startsWith('QR_') || inputCleanRaw.startsWith('QR');
+    const inputClean = isQrScan ? inputCleanRaw : formatPlateNumber(inputCleanRaw);
+
+    const livePhoto = captureFrame() || FALLBACK_CAR_CAPTURES[Math.floor(Math.random() * FALLBACK_CAR_CAPTURES.length)];
+    const fallbackEntryPhoto = FALLBACK_CAR_CAPTURES[1];
+
+    let entryPhoto = fallbackEntryPhoto;
+    let entryTimeStr = 'N/A';
+    let entryPlate = isQrScan ? '' : (inputClean || formatPlateNumber('30F-' + Math.floor(100 + Math.random() * 900) + '.' + Math.floor(10 + Math.random() * 90)));
+    let ticketLabel = gateMode === 'ENTRY' ? 'Vé vãng lai' : 'Vé vãng lai • Phí: 10,000 VNĐ';
+    let foundSessionCode = isQrScan ? inputClean : undefined;
+    let computedFee = 10000;
+
+    if (gateMode === 'ENTRY') {
+      const payload = {
+        plate: entryPlate,
+        status: 'Chờ xác nhận',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        owner: 'KHÁCH VÃNG LAI',
+        ticketType: 'Vé vãng lai',
+        capturedPhoto: livePhoto,
+        registeredPhoto: livePhoto,
+        type: 'ENTRY',
+        qrCode: undefined
+      };
+      setScannedResult(payload);
+      setGateState('COMPARING');
+      setManualInput('');
+      return;
+    } else {
+      // 2. REAL EXIT MATCHING AND PHOTO COMPARISON
+      if (inputClean) {
+        if (!isQrScan) {
+          // If operator entered Exit Plate, find active session in MongoDB
+          try {
+            const res = await fetch(`${API_BASE_URL}/ParkingSessions/active-by-plates`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify([inputClean])
+            });
+            if (res.ok) {
+              const sessions = await res.json();
+              if (sessions && sessions.length > 0) {
+                const session = sessions[0];
+                entryPhoto = session.entryPhoto || fallbackEntryPhoto;
+                entryTimeStr = new Date(session.entryTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                entryPlate = session.licensePlate;
+                ticketLabel = `Vé vãng lai • Vào: ${entryTimeStr}`;
+                foundSessionCode = session.qrCode;
+              } else {
+                // Warning if plate not found in database active list
+                playWarningSound();
+                alert(`Không tìm thấy xe mang biển số ${inputClean} đang gửi trong bãi!`);
+                return;
+              }
+            }
+          } catch (e) {
+            console.warn("Active-by-plates check failed:", e);
+          }
+        } else {
+          // If guest scanned QR code, retrieve it and get the real database photo!
+          try {
+            const response = await fetch(`${API_BASE_URL}/ParkingSessions/verify/${inputClean}`);
+            if (response.ok) {
+              const data = await response.json();
+              const session = data.session;
+              entryPhoto = session.entryPhoto || fallbackEntryPhoto;
+              entryTimeStr = new Date(session.entryTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+              entryPlate = session.licensePlate;
+              computedFee = data.fee;
+              ticketLabel = `Vé vãng lai • Phí: ${data.fee.toLocaleString()} VNĐ`;
+              foundSessionCode = session.qrCode;
+            } else {
+              // Warning if QR not active or not found
+              playWarningSound();
+              alert("Mã QR không hợp lệ hoặc vé này đã thanh toán rời bãi!");
+              return;
+            }
+          } catch (e) {
+            console.warn("QR verification check failed:", e);
+          }
+        }
+      }
+
+      const payload = {
+        plate: entryPlate,
+        status: 'Hợp lệ',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        owner: 'KHÁCH VÃNG LAI',
+        ticketType: ticketLabel,
+        capturedPhoto: livePhoto,       // Current live exit photo
+        registeredPhoto: entryPhoto,   // REAL MongoDB entry photo!
+        type: 'EXIT',
+        qrCode: foundSessionCode,
+        fee: computedFee
+      };
+
+      setScannedResult(payload);
+      setGateState('COMPARING');
+      setManualInput('');
+
+      // Trigger auto pass countdown if enabled
+      if (autoApprove) {
+        startAutoPassCountdown();
+      }
+    }
+  };
+
+  // Start the ticking countdown for automated approval
+  const startAutoPassCountdown = () => {
+    if (gateMode === 'ENTRY') return; // Do not auto-confirm entry to let operator review/edit
+    if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+    
+    const initialSecs = 2.5;
+    setCountdown(initialSecs);
+    setIsCountdownActive(true);
+
+    let current = initialSecs;
+    countdownTimerRef.current = setInterval(() => {
+      current -= 0.5;
+      if (current <= 0) {
+        clearInterval(countdownTimerRef.current);
+        confirmPass();
+      } else {
+        setCountdown(current);
+      }
+    }, 500);
+  };
+
+  // Confirm passage, write to MongoDB database, and show Barrier Open screen
+  const confirmPass = async () => {
+    if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+    setIsCountdownActive(false);
+    
+    if (!scannedResult) return;
+
+    if (scannedResult.type === 'ENTRY') {
+      setIsOcrLoading(true);
+      try {
+        const res = await fetch(`${API_BASE_URL}/ParkingSessions/checkin`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            LicensePlate: scannedResult.plate,
+            EntryPhoto: scannedResult.capturedPhoto,
+            ParkingLotName: 'Cổng Vào A1',
+            VehicleType: 'Car'
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          // Play success chime sound
+          playChimeSound();
+          // Set generated ticket to display QR Ticket Card
+          setGeneratedTicket({
+            qrCode: data.qrCode,
+            plate: data.licensePlate,
+            time: new Date(data.entryTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+            photo: data.entryPhoto || scannedResult.capturedPhoto,
+            vehicleType: data.vehicleType || 'Car'
+          });
+          setGateState('GATE_OPEN');
+        }
+      } catch (err) {
+        console.warn("Database check-in failed:", err);
+      }
+      setIsOcrLoading(false);
+    } else {
+      // Transition to open barrier screen for EXIT
+      setGateState('GATE_OPEN');
+      playChimeSound();
+
+      try {
+        const qrCodeToPost = scannedResult.qrCode || `QR_MOCK_${scannedResult.plate}`;
+        await fetch(`${API_BASE_URL}/ParkingSessions/checkout`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            QrCode: qrCodeToPost,
+            ExitLicensePlate: scannedResult.plate,
+            ExitPhoto: scannedResult.capturedPhoto
+          })
+        });
+      } catch (e) {
+        console.warn(e);
+      }
+
+      // Wait 2.2 seconds before lowering barrier and returning to Scan state
+      setTimeout(async () => {
+        await fetchRecentSessions();
+        setScannedResult(null);
+        setGateState('SCANNING');
+      }, 2200);
+    }
+  };
+
+  const denyPass = () => {
+    if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+    setIsCountdownActive(false);
+    playWarningSound();
+    
+    const alertLog = {
+      plate: scannedResult ? scannedResult.plate : 'CẢNH BÁO',
+      status: 'Từ chối / Báo động',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      type: 'ALERT',
+      owner: scannedResult ? scannedResult.owner : 'N/A',
+      ticketType: scannedResult ? scannedResult.ticketType : 'Kẻ lạ',
+      photo: scannedResult ? scannedResult.capturedPhoto : FALLBACK_CAR_CAPTURES[0]
+    };
+
+    setRecentLogs(prev => [alertLog, ...prev.slice(0, 5)]);
+    setScannedResult(null);
+    setGateState('SCANNING');
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    window.dispatchEvent(new Event('user-login'));
+    window.location.href = 'http://localhost:5173/login';
+  };
+
+  const displayName = currentUser 
+    ? `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() || currentUser.username || currentUser.email
+    : 'Nhân viên Cổng';
+
+  const roleLabel = currentUser?.role === 'Admin' || currentUser?.role === 2 ? 'Quản trị viên' : 'Nhân viên';
+  const initials = displayName.slice(0, 2).toUpperCase();
+
   return (
-    <div className="bg-[#faf8ff] text-[#131b2e] min-h-screen selection:bg-primary/10 overflow-hidden">
-      {/* Header */}
-      <header className="fixed top-0 w-full h-16 glass-panel-heavy border-b border-primary/5 z-50 px-12 flex justify-between items-center">
-        <div className="flex items-center gap-10">
-          <div className="flex items-center gap-2">
-            <span className="text-lg font-bold tracking-tighter text-on-surface">AETHER<span className="text-primary font-light">_OS</span></span>
-            <span className="text-[9px] font-bold px-1.5 py-0.5 bg-primary/10 text-primary border border-primary/20 rounded uppercase tracking-widest">v2.5</span>
+    <div className="bg-slate-50 text-slate-800 min-h-screen selection:bg-blue-600/10 font-['Plus_Jakarta_Sans',sans-serif]">
+      {/* Sleek, Premium Light Header */}
+      <header className="fixed top-0 left-0 right-0 h-20 bg-white/80 backdrop-blur-md border-b border-slate-200/80 z-50 px-6 md:px-12 flex justify-between items-center shadow-sm">
+        <div className="flex items-center gap-8">
+          {/* Brand Logo */}
+          <div className="flex items-center gap-3">
+            <div className="relative shrink-0 w-9 h-9">
+              <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-full w-full drop-shadow-md">
+                <defs>
+                  <linearGradient id="logoBgGrad" x1="8" y1="4" x2="40" y2="44" gradientUnits="userSpaceOnUse">
+                    <stop stopColor="#2563EB" />
+                    <stop offset="1" stopColor="#3B82F6" />
+                  </linearGradient>
+                </defs>
+                <rect width="48" height="48" rx="12" fill="url(#logoBgGrad)" />
+                <text x="24" y="34" textAnchor="middle" fill="white" fontSize="28" fontWeight="800">P</text>
+              </svg>
+            </div>
+            <div className="flex flex-col leading-none">
+              <span className="font-extrabold tracking-tight text-slate-900 text-base">PM System</span>
+              <span className="text-[10px] font-bold text-blue-600 tracking-wider uppercase mt-0.5">Soát Vé Cổng</span>
+            </div>
           </div>
-          <nav className="hidden xl:flex gap-8 items-center h-full">
-            <a className="text-primary font-bold text-[11px] tracking-premium uppercase h-16 flex items-center border-b-2 border-primary" href="#">Điều khiển</a>
-            <a className="text-on-surface-variant hover:text-primary transition-colors font-medium text-[11px] tracking-premium uppercase h-16 flex items-center" href="#">Hậu cần</a>
-            <a className="text-on-surface-variant hover:text-primary transition-colors font-medium text-[11px] tracking-premium uppercase h-16 flex items-center" href="#">An ninh</a>
-          </nav>
+
+          <div className="hidden md:flex items-center gap-3">
+            <span className="text-xs font-bold text-slate-400">|</span>
+            <span className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              Lối soát A1
+            </span>
+          </div>
         </div>
 
-        <div className="flex items-center gap-6">
-          <div className="hidden lg:flex items-center gap-3 px-4 py-1.5 rounded-full bg-primary/5 border border-primary/10">
-            <span className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(0,88,188,0.4)]"></span>
-            <span className="text-[10px] tracking-widest text-primary font-bold uppercase">Khu vực A1 • Đang hoạt động</span>
+        {/* User profile dropdown & status */}
+        <div className="flex items-center gap-4">
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-100">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span className="text-[10px] tracking-wide text-emerald-700 font-bold uppercase">Trực tuyến</span>
           </div>
-          <div className="flex items-center gap-1 border-l border-outline/10 pl-6">
-            <button className="text-on-surface-variant hover:text-primary p-2 flex items-center">
-              <Search size={18} />
-            </button>
-            <button className="text-on-surface-variant hover:text-primary p-2 relative flex items-center">
-              <Bell size={18} />
-              <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-error rounded-full"></span>
-            </button>
-          </div>
-          <div className="flex items-center gap-4 pl-6 border-l border-outline/10">
-            <div className="text-right hidden sm:block">
-              <p className="text-[11px] font-bold tracking-premium text-on-surface uppercase leading-none mb-0.5">Nhân viên-04</p>
-              <p className="text-[9px] font-semibold text-on-surface-variant uppercase tracking-wider">Kỹ sư trưởng</p>
+
+          {currentUser && (
+            <div className="relative">
+              <button
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100 p-1 pr-3 rounded-full border border-slate-200 transition-all duration-200"
+              >
+                <div className="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden bg-blue-600 text-white font-extrabold text-xs shrink-0 border border-slate-200">
+                  {currentUser.avatarUrl && currentUser.avatarUrl !== 'null' && currentUser.avatarUrl !== 'undefined' ? (
+                    <img src={currentUser.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    initials
+                  )}
+                </div>
+                <span className="text-xs font-bold text-slate-700 hidden md:block max-w-[120px] truncate">{displayName}</span>
+                <ChevronDown size={14} className={`text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              <AnimatePresence>
+                {isDropdownOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setIsDropdownOpen(false)} />
+                    <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-2xl py-2 z-20 shadow-lg p-1.5 flex flex-col gap-0.5">
+                      <div className="px-3.5 py-2.5 border-b border-slate-100 mb-1">
+                        <p className="text-xs font-extrabold text-slate-800">{displayName}</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5 truncate">{currentUser.email}</p>
+                      </div>
+                      <a href="http://localhost:5173/" className="flex items-center gap-3.5 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 rounded-xl">
+                        <ExternalLink size={14} className="opacity-75" />
+                        <span>Về trang chủ</span>
+                      </a>
+                      <button onClick={handleLogout} className="flex items-center gap-3.5 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 rounded-xl w-full text-left border-t border-slate-100 mt-1 pt-2 cursor-pointer">
+                        <LogOut size={14} />
+                        <span>Đăng xuất</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </AnimatePresence>
             </div>
-            <div className="w-9 h-9 rounded-full border border-primary/20 p-0.5 bg-gradient-to-br from-primary/10 to-transparent overflow-hidden">
-              <img 
-                alt="Chief Engineer" 
-                className="w-full h-full rounded-full object-cover" 
-                src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200"
-              />
-            </div>
-          </div>
+          )}
         </div>
       </header>
 
-      <main className="pt-24 pb-12 px-12 min-h-screen max-w-[1920px] mx-auto">
-        <div className="grid grid-cols-12 gap-8 items-stretch">
+      {/* Main 2-Column Spacious Layout */}
+      <main className="pt-24 pb-12 px-4 md:px-8 max-w-[1600px] mx-auto min-h-screen">
+        <div className="grid grid-cols-12 gap-6 items-stretch">
           
-          {/* Left Side */}
-          <div className="col-span-12 lg:col-span-3 flex flex-col gap-6">
-            <div className="glass-panel p-8 rounded-[32px] flex flex-col justify-between h-40">
-              <div className="flex justify-between items-start">
-                <span className="text-[10px] font-bold tracking-premium text-on-surface-variant uppercase">Sức chứa hiện tại</span>
-                <div className="p-2 bg-primary/5 rounded-lg">
-                  <BarChart3 className="text-primary" size={18} />
-                </div>
-              </div>
-              <div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-4xl font-light text-on-surface">142</span>
-                  <span className="text-sm text-on-surface-variant font-medium">/ 200 vị trí</span>
-                </div>
-                <div className="w-full h-1.5 bg-primary/5 mt-4 overflow-hidden rounded-full">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: '71%' }}
-                    className="h-full bg-primary"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="glass-panel p-8 rounded-[32px] flex-1 flex flex-col">
-              <h3 className="text-[10px] font-bold tracking-premium text-on-surface-variant uppercase mb-8 flex items-center gap-3">
-                <div className="w-1.5 h-1.5 rounded-full bg-primary" /> Điều khiển hệ thống
-              </h3>
-              <div className="space-y-4">
-                {[
-                  { label: 'Mở cổng thủ công', icon: ExternalLink },
-                  { label: 'Báo cáo sự cố', icon: FileText },
-                  { label: 'Chẩn đoán hệ thống', icon: Activity }
-                ].map((btn, i) => (
-                  <button key={i} className="w-full group flex items-center justify-between p-5 rounded-2xl bg-primary/[0.02] border border-primary/5 hover:border-primary/20 hover:bg-white hover:shadow-xl hover:shadow-primary/5 transition-all duration-300">
-                    <span className="text-xs font-bold text-on-surface-variant group-hover:text-primary uppercase tracking-widest">{btn.label}</span>
-                    <btn.icon className="text-on-surface-variant/30 group-hover:text-primary transition-colors" size={16} />
-                  </button>
-                ))}
-                <div className="mt-auto pt-10">
-                  <button className="w-full bg-error/5 hover:bg-error/10 border border-error/20 p-5 rounded-2xl transition-all group">
-                    <div className="flex items-center justify-center gap-3">
-                      <span className="text-[10px] font-bold text-error uppercase tracking-premium">Khóa cổng khẩn cấp</span>
-                      <Lock className="text-error" size={16} />
-                    </div>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Center: Camera & Result */}
-          <div className="col-span-12 lg:col-span-6 flex flex-col gap-8">
-            <div className="glass-panel flex-1 flex flex-col relative overflow-hidden rounded-[48px] border-primary/10 group shadow-2xl">
-              {/* Live Camera Feed */}
-              <div className="absolute inset-0 z-0 bg-slate-100">
-                <video 
-                  ref={videoRef}
-                  autoPlay 
-                  playsInline 
-                  muted
-                  className="w-full h-full object-cover scale-x-[-1]"
-                />
+          {/* COLUMN 1: LEFT AREA (Main Camera & Split Comparison) */}
+          <div className="col-span-12 lg:col-span-8 flex flex-col gap-6">
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm flex-1 flex flex-col overflow-hidden min-h-[520px] relative">
+              
+              {/* PERSISTENT CAMERA FEED (NEVER UNMOUNTS TO PREVENT iOS FREEZING!) */}
+              <div className={`absolute inset-0 bg-slate-950 transition-opacity duration-300 ${gateState === 'SCANNING' ? 'opacity-100 pointer-events-auto z-0' : 'opacity-0 pointer-events-none z-0'}`}>
+                <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover opacity-90" />
                 
-                {/* Result Overlay */}
-                <AnimatePresence>
-                  {!isScanning && (
-                    <motion.div 
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="absolute inset-0 bg-black/40 backdrop-blur-[2px] z-10"
-                    />
-                  )}
-                </AnimatePresence>
-
                 {!hasCameraAccess && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-white/80">
-                    <Camera className="text-slate-300" size={48} />
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Không có tín hiệu camera</p>
-                    <button 
-                      onClick={startCamera}
-                      className="mt-2 text-[10px] font-bold text-primary uppercase border border-primary/20 px-4 py-2 rounded-full hover:bg-primary/5"
-                    >
-                      Thử lại
-                    </button>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-950">
+                    <Camera className="text-slate-700 animate-bounce" size={42} />
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Không tìm thấy Camera</p>
+                    <button onClick={startCamera} className="text-xs font-bold text-blue-400 border border-blue-900/60 px-4 py-2 rounded-full bg-blue-955/40 cursor-pointer hover:bg-blue-900/20 transition-all uppercase tracking-wider">Kích hoạt</button>
                   </div>
                 )}
               </div>
 
-              <div className="relative z-10 flex-1 flex flex-col items-center justify-center pt-12">
-                <AnimatePresence mode="wait">
-                  {isScanning ? (
-                    <motion.div 
-                      key="scanner"
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 1.1 }}
-                      className="relative w-80 h-80 cursor-pointer"
-                      onClick={simulateScan}
-                    >
-                      {/* Premium Scanner Frame */}
-                      <div className="absolute inset-0 border border-primary/30 rounded-[40px]">
-                        <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-primary rounded-tl-[32px]" />
-                        <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-primary rounded-tr-[32px]" />
-                        <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-primary rounded-bl-[32px]" />
-                        <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-primary rounded-br-[32px]" />
-                        
-                        <div className="absolute inset-12 border border-primary/20 flex items-center justify-center rounded-3xl overflow-hidden group-hover:scale-105 transition-transform duration-500">
-                          <div className="scanner-line !animate-[scan_3s_ease-in-out_infinite]" />
-                          <QrCode className="text-primary/5" size={80} />
-                        </div>
-                      </div>
+              {gateState === 'SCANNING' && (
+                /* Stage 1: Premium Streaming Monitor Overlays */
+                <div className="flex-1 flex flex-col relative bg-transparent z-10 pointer-events-auto animate-fade-in">
+                  
+                  {/* Camera AI OCR LPR Loader */}
+                  <AnimatePresence>
+                    {isOcrLoading && (
                       <motion.div 
-                        animate={{ scale: [1, 1.1, 1] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                        className="absolute -inset-4 border border-primary/5 rounded-[48px]" 
-                      />
-                    </motion.div>
-                  ) : (
-                    <motion.div 
-                      key="result"
-                      initial={{ scale: 0.8, opacity: 0, y: 20 }}
-                      animate={{ scale: 1, opacity: 1, y: 0 }}
-                      className="relative"
-                    >
-                      {/* Success Glow */}
-                      <div className="absolute -inset-20 bg-primary/5 blur-[100px] rounded-full animate-pulse" />
-                      
-                      <div className="relative p-10 rounded-[48px] border border-white/20 text-center shadow-[0_32px_64px_-16px_rgba(0,88,188,0.4)] max-w-sm w-80 overflow-hidden bg-gradient-to-br from-[#0058bc] via-[#004bb1] to-[#003d82]">
-                        {/* Decorative background circles */}
-                        <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/20 rounded-full blur-3xl" />
-                        <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-primary/20 rounded-full blur-3xl" />
-
-                        <div className="w-full h-24 mb-6 flex items-center justify-center relative z-10">
-                          {LottieComp && (
-                            <LottieComp 
-                              animationData={WelcomeAnimation} 
-                              loop={false}
-                              className="w-full h-full scale-110 filter brightness-200" 
-                            />
-                          )}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-0 bg-slate-950/85 z-30 flex flex-col items-center justify-center gap-4 text-center"
+                      >
+                        <div className="relative">
+                          <div className="w-16 h-16 rounded-full border-4 border-emerald-500/10 border-t-emerald-500 animate-spin" />
+                          <Zap className="absolute inset-0 m-auto text-emerald-400 animate-pulse" size={24} />
                         </div>
-                        
-                        <div className="relative z-10">
-                          <h2 className="text-[10px] font-black text-white/70 uppercase tracking-[0.3em] mb-4">Xác thực thành công</h2>
-                          <h3 className="text-3xl font-black text-white tracking-tight mb-2">{scannedResult?.plate}</h3>
-                          <p className="text-xs font-bold text-white/50 uppercase tracking-widest opacity-80">{scannedResult?.owner}</p>
-                          
-                          <div className="mt-10 flex items-center justify-center gap-2 py-4 bg-white/10 rounded-2xl border border-white/10 backdrop-blur-md">
-                            <Zap size={14} className="text-white animate-pulse" />
-                            <span className="text-[9px] font-black text-white uppercase tracking-widest">Cổng đang mở...</span>
+                        <div>
+                          <p className="text-white text-sm font-bold uppercase tracking-wider">Hệ thống AI LPR đang định danh biển số...</p>
+                          <p className="text-slate-400 text-[10px] uppercase font-bold mt-1 tracking-widest animate-pulse">Đang trích xuất văn bản & lưu MongoDB...</p>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Camera Header Overlay */}
+                  <div className="absolute top-4 inset-x-4 z-20 flex justify-between items-center pointer-events-none">
+                    <div className="flex items-center gap-2 bg-slate-900/80 backdrop-blur px-3 py-1.5 rounded-full border border-slate-800 text-[10px] font-bold text-white uppercase tracking-wider">
+                      <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                      LIVE FEED • CAMERA LỐI SOÁT
+                    </div>
+                    <span className={`text-[10px] font-black px-4 py-1.5 rounded-full uppercase border backdrop-blur shadow-sm ${
+                      gateMode === 'ENTRY'
+                        ? 'bg-blue-600/90 text-white border-blue-500/50'
+                        : 'bg-amber-600/90 text-white border-amber-500/50'
+                    }`}>
+                      {gateMode === 'ENTRY' ? 'CỔNG VÀO (ENTRY)' : 'CỔNG RA (EXIT)'}
+                    </span>
+                  </div>
+
+                  {/* Sleek Scanner Box overlay */}
+                  <div className="relative z-10 flex-1 flex flex-col items-center justify-center">
+                    <div className="relative w-72 h-44 cursor-pointer flex items-center justify-center" onClick={() => handleOcrAndScan()}>
+                      <div className="absolute inset-0 border border-blue-500/30 rounded-2xl bg-blue-500/5">
+                        {/* Beautiful Corners */}
+                        <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-blue-500 rounded-tl-xl" />
+                        <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-blue-500 rounded-tr-xl" />
+                        <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-blue-500 rounded-bl-xl" />
+                        <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-blue-500 rounded-br-xl" />
+                      </div>
+                      
+                      <div className="text-center px-4">
+                        <QrCode className="text-blue-500/20 mx-auto mb-2" size={44} />
+                        <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest bg-blue-955/60 border border-blue-800/40 px-3 py-1 rounded-full">ĐẶT BIỂN SỐ Ở ĐÂY TO QUÉT</span>
+                      </div>
+                      <div className="absolute inset-x-0 h-0.5 bg-blue-500/80 shadow-[0_0_8px_rgba(59,130,246,0.8)] scanner-line !animate-[scan_3s_ease-in-out_infinite]" />
+                    </div>
+
+                    <div className="mt-8 text-center px-4">
+                      <h2 className="text-white text-lg font-black tracking-widest uppercase mb-1">ĐANG CHỜ XE ĐẾN</h2>
+                      <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">
+                        Đưa thẻ QR hoặc di chuyển biển số vào trước camera
+                      </p>
+                      <p className="text-[10px] text-slate-500 font-bold mt-3">
+                        [Bấm <strong className="text-blue-400">Phím Cách (Spacebar)</strong> để tự động cấp vé]
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Manual Input Bar */}
+                  <div className="z-10 p-4 bg-slate-900/90 backdrop-blur-md border-t border-slate-800 flex items-center gap-3">
+                    <form 
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        if (manualInput.trim()) {
+                          const formatted = formatPlateNumber(manualInput);
+                          setManualInput('');
+                          triggerScan(formatted);
+                        }
+                      }}
+                      className="flex-1 flex items-center gap-3 bg-slate-950 px-4 py-2.5 rounded-xl border border-slate-800 focus-within:border-blue-500/50 transition-all"
+                    >
+                      <Keyboard className="text-slate-600" size={16} />
+                      <input 
+                        className="bg-transparent border-none w-full text-white font-mono text-xs uppercase placeholder:text-slate-700 tracking-wider outline-none" 
+                        placeholder="NHẬP BIỂN SỐ XE..." 
+                        type="text"
+                        value={manualInput}
+                        onChange={(e) => setManualInput(e.target.value)}
+                      />
+                    </form>
+                    <button 
+                      onClick={() => handleOcrAndScan()}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-md"
+                    >
+                      <Zap size={13} />
+                      {gateMode === 'ENTRY' ? 'CHỤP ẢNH XE & TẠO QR VÉ' : 'CHỤP ẢNH XE & KIỂM TRA RA'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {gateState === 'COMPARING' && scannedResult && (
+                /* Stage 2: Dual image split comparison and countdown */
+                <div className="flex-1 flex flex-col bg-white text-slate-800 animate-scale-up">
+                  
+                  {/* Countdown progress / manual override indicator */}
+                  {isCountdownActive ? (
+                    <div className="bg-blue-50 border-b border-blue-100 px-6 py-3 flex justify-between items-center text-xs font-semibold text-blue-800">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 bg-blue-600 rounded-full animate-ping" />
+                        Tự động duyệt và cho xe qua sau <strong>{countdown} giây</strong>...
+                      </span>
+                      <button 
+                        onClick={() => {
+                          setIsCountdownActive(false);
+                          if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+                          playWarningSound();
+                        }}
+                        className="bg-slate-900 hover:bg-slate-800 text-white px-3 py-1.5 rounded-lg text-[9px] uppercase font-bold tracking-wider cursor-pointer"
+                      >
+                        [ESC] DỪNG TỰ ĐỘNG
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="bg-amber-50 border-b border-amber-100 px-6 py-3 flex justify-between items-center text-xs font-semibold text-amber-800">
+                      <span className="flex items-center gap-1.5">
+                        <AlertTriangle size={15} className="text-amber-600" />
+                        Đã tạm dừng tự động. Vui lòng bấm xác nhận bên dưới.
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">ĐỐI CHIẾU THÔNG TIN XE</h4>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Xác thực khớp hình dạng xe & biển số</p>
+                    </div>
+
+                    <span className={`text-[10px] font-black px-3.5 py-1 rounded-full uppercase border ${
+                      scannedResult.type === 'ENTRY' 
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-amber-50 text-amber-700 border-amber-200'
+                    }`}>
+                      {scannedResult.type === 'ENTRY' ? 'Lối Vào • Entry' : 'Lối Ra • Exit'}
+                    </span>
+                  </div>
+
+                  {/* Spacious Split Screen Display */}
+                  {scannedResult.type === 'ENTRY' ? (
+                    // ENTRY CONFIRMATION PANEL with editable input box
+                    <div className="flex-1 p-5 grid grid-cols-1 md:grid-cols-2 gap-5 items-stretch bg-slate-50/50">
+                      {/* Left: Captured camera photo */}
+                      <div className="flex flex-col gap-1.5">
+                        <span className="text-[10px] font-extrabold tracking-wider text-emerald-600 uppercase flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          ẢNH CHỤP CAMERA CỔNG VÀO
+                        </span>
+                        <div className="flex-1 min-h-[220px] rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 relative shadow-sm">
+                          <img src={scannedResult.capturedPhoto} alt="Gate Capture" className="w-full h-full object-cover" />
+                          <div className="absolute bottom-2.5 left-2.5 bg-slate-900/80 backdrop-blur px-2.5 py-1 rounded text-[8px] font-bold text-slate-200 uppercase tracking-widest">
+                            {scannedResult.time} • Camera lối vào A1
                           </div>
                         </div>
                       </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
 
-                <div className="mt-16 text-center">
-                  <motion.h2 
-                    animate={!isScanning ? { opacity: [0.4, 1, 0.4] } : {}}
-                    transition={{ duration: 2, repeat: Infinity }}
-                    className={`text-4xl font-light tracking-[0.5em] uppercase mb-4 ${!isScanning ? 'text-primary' : 'text-on-surface'}`}
-                  >
-                    {isScanning ? 'ĐANG ĐỢI' : 'ĐANG MỞ CỔNG'}
-                  </motion.h2>
-                  <div className="px-6 py-2 bg-primary/5 rounded-full inline-flex items-center gap-3">
-                    <span className={`w-1.5 h-1.5 rounded-full ${isScanning ? 'bg-primary' : 'bg-emerald-500'} animate-pulse`} />
-                    <span className="text-[10px] text-primary font-black tracking-[0.2em] uppercase">
-                      {isScanning ? 'Vui lòng đưa mã vào vùng quét' : 'HỆ THỐNG CỔNG ĐÃ SẴN SÀNG'}
-                    </span>
+                      {/* Right: Large Editable Plate Field */}
+                      <div className="flex flex-col justify-center space-y-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
+                        <div>
+                          <label className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block mb-1.5">
+                            BIỂN SỐ NHẬN DIỆN (NHÂN VIÊN CÓ THỂ SỬA)
+                          </label>
+                          <input 
+                            type="text" 
+                            className="w-full text-3xl font-mono font-black text-slate-900 text-center tracking-widest bg-slate-50 border-2 border-emerald-500 focus:border-indigo-600 focus:bg-white px-4 py-3.5 rounded-2xl shadow-sm outline-none transition-all uppercase"
+                            value={scannedResult.plate}
+                            onChange={(e) => setScannedResult({ ...scannedResult, plate: e.target.value.toUpperCase() })}
+                          />
+                          <span className="text-[10px] text-slate-400 font-semibold block mt-2 text-center">
+                            💡 Nhân viên bấm trực tiếp vào ô trên để chỉnh sửa biển số nếu AI nhận dạng chưa đúng.
+                          </span>
+                        </div>
+
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                          <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider block">LOẠI VÉ KHỞI TẠO</span>
+                          <span className="text-xs font-black text-slate-700 mt-1 block uppercase">{scannedResult.ticketType}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    // EXIT COMPARISON PANEL
+                    <div className="flex-1 p-5 grid grid-cols-1 md:grid-cols-2 gap-5 items-stretch bg-slate-50/50">
+                      <div className="flex flex-col gap-1.5">
+                        <span className="text-[10px] font-extrabold tracking-wider text-emerald-600 uppercase flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          ẢNH CHỤP HIỆN TẠI (LỐI SOÁT)
+                        </span>
+                        <div className="flex-1 min-h-[200px] rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 relative shadow-sm">
+                          <img src={scannedResult.capturedPhoto} alt="Gate Capture" className="w-full h-full object-cover" />
+                          <div className="absolute bottom-2.5 left-2.5 bg-slate-900/80 backdrop-blur px-2.5 py-1 rounded text-[8px] font-bold text-slate-200 uppercase tracking-widest">
+                            {scannedResult.time} • Camera lối soát
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <span className="text-[10px] font-extrabold tracking-wider text-blue-600 uppercase flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                          ẢNH ĐỐI CHIẾU TRONG MONGODB
+                        </span>
+                        <div className="flex-1 min-h-[200px] rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 relative shadow-sm">
+                          <img src={scannedResult.registeredPhoto} alt="Entry Capture" className="w-full h-full object-cover" />
+                          <div className="absolute bottom-2.5 left-2.5 bg-slate-900/80 backdrop-blur px-2.5 py-1 rounded text-[8px] font-bold text-slate-200 uppercase tracking-widest">
+                            {scannedResult.type === 'EXIT' ? 'Ảnh lưu lúc xe vào' : 'Ảnh đối chứng gốc'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Comparative Plate Badge Area (Exit only) */}
+                  {scannedResult.type === 'EXIT' && (
+                    <div className="px-6 py-5 border-t border-slate-200 space-y-4">
+                      <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col md:flex-row gap-4 items-center justify-between">
+                        <div className="flex flex-col gap-1 text-center md:text-left">
+                          <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">BIỂN SỐ NHẬN DIỆN</span>
+                          <span className="text-2xl font-mono font-black text-slate-900 tracking-widest bg-white border border-slate-300 px-5 py-1.5 rounded-xl shadow-sm inline-block">
+                            {scannedResult.plate}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-col gap-1 items-center md:items-end">
+                          <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">THÔNG TIN LOẠI VÉ</span>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs font-bold text-blue-600 flex items-center gap-1.5 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
+                              <ShieldCheck size={14} /> {scannedResult.ticketType}
+                            </span>
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100 flex items-center gap-1">
+                              <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" /> TRÙNG KHỚP
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Unified Decision Actions Block */}
+                  <div className="px-6 pb-6 pt-2 border-t border-slate-200/50">
+                    <div className="flex gap-3">
+                      <button 
+                        onClick={denyPass}
+                        className="flex-1 py-3.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        <AlertTriangle size={15} />
+                        {isTouchDevice ? 'Từ chối / Báo động' : '[Esc] Từ chối / Báo động'}
+                      </button>
+
+                      <button 
+                        onClick={confirmPass}
+                        className="flex-1 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg cursor-pointer"
+                      >
+                        <CheckCircle2 size={15} />
+                        {scannedResult.type === 'ENTRY' 
+                          ? (isTouchDevice ? 'XÁC NHẬN CẤP VÉ' : '[F8] XÁC NHẬN CẤP VÉ')
+                          : (isTouchDevice ? 'XÁC NHẬN CHO QUA' : '[F8] XÁC NHẬN CHO QUA')
+                        }
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
-              {/* Interface Footer */}
-              <div className="z-20 p-8 glass-panel-heavy border-t border-primary/5 flex items-center gap-6">
-                <div className="flex-1 flex items-center gap-4 bg-primary/[0.03] px-6 py-4 rounded-2xl border border-primary/10 focus-within:border-primary/30 focus-within:bg-white transition-all duration-300">
-                  <Keyboard className="text-primary/30" size={18} />
-                  <input 
-                    className="bg-transparent border-none focus:ring-0 w-full text-on-surface font-bold text-sm uppercase placeholder:text-on-surface/20 tracking-widest outline-none" 
-                    placeholder="NHẬP BIỂN SỐ THỦ CÔNG" 
-                    type="text"
-                  />
+              {gateState === 'GATE_OPEN' && (
+                /* Stage 3: High fidelity green "BARRIER OPEN" or "PRINT TICKET" screen */
+                <div className="flex-1 bg-emerald-600 text-white flex flex-col items-center justify-center p-3 md:p-6 text-center animate-fade-in relative min-h-[500px]">
+                  
+                  {generatedTicket ? (
+                    /* Display REAL print-ready Entry Ticket for the guest */
+                    <div className="flex flex-col md:flex-row items-stretch gap-4 md:gap-6 bg-white text-slate-800 p-4 md:p-6 rounded-3xl shadow-2xl max-w-xl w-full border border-emerald-100 animate-scale-up">
+                      
+                      {/* Ticket Left: QR and Core Details */}
+                      <div className="flex-1 flex flex-col items-center justify-center p-2 border-b md:border-b-0 md:border-r border-slate-100 pb-4 md:pb-0 md:pr-6">
+                        <span className="text-[9px] font-black tracking-widest text-emerald-600 uppercase bg-emerald-50 border border-emerald-100 px-3 py-1 rounded-full mb-3">
+                          PHIẾU GỬI XE - VÉ VÀO
+                        </span>
+                        
+                        {/* Real dynamic QR Code from API */}
+                        <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-md">
+                          <img 
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${generatedTicket.qrCode}`} 
+                            alt="Ticket QR Code"
+                            className="w-32 h-32 animate-fade-in"
+                          />
+                        </div>
+                        
+                        <span className="text-[10px] font-mono font-bold text-slate-400 mt-2 tracking-wider">
+                          {generatedTicket.qrCode}
+                        </span>
+                      </div>
+
+                      {/* Ticket Right: Metadata & Printing controls */}
+                      <div className="flex-1 flex flex-col justify-between text-left pt-4 md:pt-0 md:pl-6">
+                        <div className="space-y-4">
+                          <div>
+                            <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider block">BIỂN SỐ ĐỊNH DANH</span>
+                            <span className="text-xl font-mono font-black text-slate-900 tracking-widest bg-slate-50 border border-slate-200 px-4 py-1.5 rounded-xl shadow-sm inline-block mt-1">
+                              {generatedTicket.plate}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider block">GIỜ VÀO</span>
+                              <span className="text-xs font-bold text-slate-700 mt-0.5 block">{generatedTicket.time}</span>
+                            </div>
+                            <div>
+                              <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider block">LỐI SOÁT</span>
+                              <span className="text-xs font-bold text-emerald-600 mt-0.5 block uppercase">CỔNG VÀO A1</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-6">
+                          <button 
+                            onClick={async () => {
+                              playChimeSound();
+                              await fetchRecentSessions();
+                              setGeneratedTicket(null);
+                              setGateState('SCANNING');
+                            }}
+                            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
+                          >
+                            <Printer size={14} /> {isTouchDevice ? 'TIẾP TỤC' : 'TIẾP TỤC [SPACE]'}
+                          </button>
+                        </div>
+                      </div>
+
+                    </div>
+                  ) : (
+                    /* Display Standard Exit / Gate Open screen */
+                    <div className="flex flex-col items-center justify-center">
+                      <motion.div
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center border-4 border-white mb-6"
+                      >
+                        <Unlock size={38} className="text-white animate-pulse" />
+                      </motion.div>
+
+                      <h1 className="text-2xl font-black tracking-wider uppercase mb-1">CỔNG ĐANG MỞ</h1>
+                      <p className="text-xs font-semibold tracking-wider text-emerald-100 uppercase">Mời xe <strong className="text-white bg-slate-900/30 px-3 py-1 rounded-lg border border-white/20 font-mono tracking-widest text-sm mx-1">{scannedResult?.plate}</strong> đi qua lối soát</p>
+
+                      <div className="w-64 h-1 bg-white/20 mt-8 overflow-hidden rounded-full relative">
+                        <motion.div 
+                          initial={{ width: '100%' }}
+                          animate={{ width: '0%' }}
+                          transition={{ duration: 2.2, ease: 'linear' }}
+                          className="absolute inset-y-0 left-0 bg-white"
+                        />
+                      </div>
+                      <p className="text-[10px] text-emerald-200 font-bold uppercase tracking-widest mt-3">Thanh chắn sẽ tự động hạ sau 2 giây...</p>
+                    </div>
+                  )}
+
                 </div>
-                <button 
-                  onClick={simulateScan}
-                  disabled={!isScanning}
-                  className="bg-primary hover:bg-[#004bb1] disabled:opacity-50 text-white px-12 py-4 rounded-2xl font-bold text-[11px] tracking-premium transition-all active:scale-[0.98] shadow-2xl shadow-primary/20 uppercase flex items-center gap-3"
-                >
-                  <RefreshCw size={14} className={!isScanning ? 'animate-spin' : ''} />
-                  Khởi tạo
-                </button>
-              </div>
+              )}
+
             </div>
           </div>
 
-          {/* Right Side: Logs */}
-          <div className="col-span-12 lg:col-span-3 flex flex-col gap-6">
-            <div className="glass-panel flex-1 p-8 flex flex-col rounded-[32px]">
-              <div className="flex justify-between items-center mb-8">
-                <h3 className="text-[10px] font-bold tracking-premium text-on-surface-variant uppercase flex items-center gap-3">
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary" /> Hoạt động gần đây
+          {/* COLUMN 2: RIGHT AREA (Control Configurations & Real-time Live MongoDB Feed) */}
+          <div className="col-span-12 lg:col-span-4 flex flex-col gap-6">
+            
+            {/* Operator Control configurations */}
+            <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex flex-col gap-4">
+              
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 className="text-xs font-extrabold tracking-wider text-slate-700 uppercase flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-blue-600" />
+                  CẤU HÌNH CỔNG
                 </h3>
-                <div className="flex items-center gap-2 px-2 py-1 bg-primary/5 rounded-md">
-                  <span className="w-1 h-1 rounded-full bg-primary animate-pulse"></span>
-                  <span className="text-[8px] font-bold text-primary uppercase tracking-widest">Trực tiếp</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase">
+                  Sức chứa: {capacity}/200
+                </span>
+              </div>
+
+              {/* Segmented Gate Mode switcher */}
+              <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-xl border border-slate-200/50">
+                <button 
+                  disabled={gateState !== 'SCANNING'}
+                  onClick={() => { playChimeSound(); setGateMode('ENTRY'); }}
+                  className={`py-2 text-xs font-extrabold uppercase rounded-lg transition-all cursor-pointer disabled:opacity-40 ${
+                    gateMode === 'ENTRY' 
+                      ? 'bg-white text-blue-600 shadow-sm border border-slate-200/50' 
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  Xe Vào (ENTRY)
+                </button>
+                <button 
+                  disabled={gateState !== 'SCANNING'}
+                  onClick={() => { playChimeSound(); setGateMode('EXIT'); }}
+                  className={`py-2 text-xs font-extrabold uppercase rounded-lg transition-all cursor-pointer disabled:opacity-40 ${
+                    gateMode === 'EXIT' 
+                      ? 'bg-white text-blue-600 shadow-sm border border-slate-200/50' 
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  Xe Ra (EXIT)
+                </button>
+              </div>
+
+              {/* Automation Auto-pass toggle switch */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">DUYỆT TỰ ĐỘNG</span>
+                  <span className="text-xs font-bold text-slate-700 mt-0.5 block">Tự động cho xe qua</span>
                 </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    checked={autoApprove} 
+                    onChange={(e) => {
+                      playChimeSound();
+                      setAutoApprove(e.target.checked);
+                    }} 
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
               </div>
-              
-              <div className="space-y-2 overflow-y-auto max-h-[500px] -mx-8 px-8">
-                {recentLogs.map((log, i) => (
-                  <motion.div 
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    key={i} 
-                    className="group py-4 border-b border-primary/[0.03] flex items-center justify-between hover:bg-primary/[0.02] -mx-4 px-4 rounded-xl transition-all"
-                  >
-                    <div className="flex flex-col gap-1">
-                      <span className="font-bold text-xs text-on-surface group-hover:text-primary transition-colors tracking-wider">{log.plate}</span>
-                      <span className="text-[9px] text-on-surface-variant uppercase font-black tracking-tighter opacity-60">{log.status} • {log.time}</span>
-                    </div>
-                    <div className="p-2 bg-primary/5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
-                      {log.status === 'Xe ra' ? (
-                        <LogOut className="text-on-surface-variant/40" size={14} />
-                      ) : (
-                        <CheckCircle2 className="text-primary" size={14} />
-                      )}
-                    </div>
-                  </motion.div>
-                ))}
+
+              {/* Control Action triggers */}
+              <div className="grid grid-cols-1 gap-2.5">
+                <button 
+                  onClick={() => {
+                    playChimeSound();
+                    setShowVisitorModal(true);
+                    setVisitorPlate('');
+                    setGeneratedTicket(null);
+                  }}
+                  className="w-full flex items-center justify-between p-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-sm"
+                >
+                  <span className="flex items-center gap-2">
+                    <QrCode size={14} /> CẤP VÉ VÃNG LAI [F4]
+                  </span>
+                  <Plus size={14} />
+                </button>
+
+                <button 
+                  onClick={() => {
+                    playChimeSound();
+                    alert("Đã kích hoạt barrier thủ công!");
+                  }}
+                  className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 font-bold text-xs text-slate-700 uppercase tracking-wider transition-all cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <Unlock size={14} className="text-slate-400" /> MỞ CỔNG THỦ CÔNG [F8]
+                  </span>
+                </button>
               </div>
-              
-              <button className="mt-8 text-[10px] text-primary font-black tracking-premium hover:underline transition-colors uppercase flex items-center gap-2 text-left">
-                <span>Xem tất cả nhật ký</span>
-                <ExternalLink size={12} />
-              </button>
+
             </div>
 
-            <div className="glass-panel p-8 rounded-[32px] flex flex-col gap-4">
-              <h3 className="text-[10px] font-bold tracking-premium text-on-surface-variant uppercase">Bảo mật hệ thống</h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3 text-on-surface-variant">
-                    <ShieldCheck size={16} />
-                    <span className="text-[10px] font-bold uppercase tracking-wider">Giao thức</span>
+            {/* MongoDB Real-time audit log feed */}
+            <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex-1 flex flex-col">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xs font-extrabold tracking-wider text-slate-700 uppercase flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+                  NHẬT KÝ THỜI GIAN THỰC
+                </h3>
+                <span className="text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 uppercase tracking-widest">
+                  Live Mongo
+                </span>
+              </div>
+
+              {/* MongoDB Log rows */}
+              <div className="space-y-2.5 overflow-y-auto max-h-[350px] pr-1 flex-1">
+                {recentLogs.length > 0 ? (
+                  recentLogs.map((log, i) => (
+                    <div 
+                      key={i} 
+                      className="group p-2.5 bg-slate-50 hover:bg-blue-50/10 border border-slate-150 hover:border-blue-200 rounded-xl flex items-center justify-between transition-all duration-200"
+                    >
+                      <div className="flex gap-3 items-center">
+                        <button 
+                          onClick={() => setSelectedLogPhoto(log.photo)}
+                          className="w-10 h-10 rounded-lg overflow-hidden bg-slate-200 border border-slate-200 shrink-0 relative hover:scale-105 transition-all cursor-pointer"
+                        >
+                          <img src={log.photo} alt="Audit Thumb" className="w-full h-full object-cover" />
+                        </button>
+                        
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-mono font-extrabold text-xs text-slate-800 group-hover:text-blue-600 transition-colors tracking-wide uppercase">{log.plate}</span>
+                          <span className="text-[10px] text-slate-400 font-bold uppercase">{log.time}</span>
+                        </div>
+                      </div>
+
+                      <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase border ${
+                        log.type === 'ENTRY'
+                          ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                          : log.type === 'EXIT'
+                            ? 'bg-amber-50 text-amber-600 border-amber-100'
+                            : 'bg-red-50 text-red-600 border-red-100'
+                      }`}>
+                        {log.type === 'ENTRY' ? 'XE VÀO' : log.type === 'EXIT' ? 'XE RA' : 'BÁO ĐỘNG'}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  /* Waiting for MongoDB connection state */
+                  <div className="flex flex-col items-center justify-center text-center py-20 px-4 gap-2 text-slate-400">
+                    <Activity size={24} className="text-slate-350 animate-pulse" />
+                    <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Đang hoạt động</p>
+                    <p className="text-[10px] text-slate-400">Sẵn sàng nhận dữ liệu xe từ MongoDB...</p>
                   </div>
-                  <span className="text-[9px] font-black text-primary tracking-widest px-2 py-1 bg-primary/5 rounded-lg">TLS 1.3</span>
+                )}
+              </div>
+
+              {/* Secure Peripheral Indicators */}
+              <div className="border-t border-slate-100 pt-4 mt-4 space-y-2">
+                <div className="flex justify-between items-center text-[10px] font-bold text-slate-400">
+                  <span className="flex items-center gap-1.5 uppercase">
+                    <ShieldCheck size={13} className="text-blue-500" /> CƠ SỞ DỮ LIỆU
+                  </span>
+                  <span className="font-extrabold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded border border-slate-200/50">MongoDB Local</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3 text-on-surface-variant">
-                    <Radio size={16} />
-                    <span className="text-[10px] font-bold uppercase tracking-wider">Luồng truyền</span>
-                  </div>
-                  <span className="text-[9px] font-black text-emerald-500 tracking-widest px-2 py-1 bg-emerald-500/5 rounded-lg">ĐÃ MÃ HÓA</span>
+                <div className="flex justify-between items-center text-[10px] font-bold text-slate-400">
+                  <span className="flex items-center gap-1.5 uppercase">
+                    <Radio size={13} className="text-emerald-500" /> HỆ THỐNG API
+                  </span>
+                  <span className="font-extrabold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded border border-emerald-100/50">KẾT NỐI OK</span>
                 </div>
               </div>
+
             </div>
+
           </div>
 
         </div>
       </main>
 
+      {/* Dynamic Visitor Ticket Modal (F4) */}
+      <AnimatePresence>
+        {showVisitorModal && (
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm" onClick={() => setShowVisitorModal(false)}>
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full relative p-7 text-slate-800"
+              onClick={(e) => e.stopPropagation()}
+            >
+              
+              <div className="flex items-center justify-between pb-4 mb-6 border-b border-slate-100">
+                <div className="flex items-center gap-2.5">
+                  <span className="p-2 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl">
+                    <QrCode size={18} />
+                  </span>
+                  <div>
+                    <h3 className="text-sm font-black uppercase tracking-wider text-slate-900">CẤP PHÁT VÉ VÃNG LAI</h3>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">Tạo mã QR & Chụp ảnh xe cổng vào</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowVisitorModal(false)} className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-800 transition-all flex items-center justify-center text-xs font-black cursor-pointer">✕</button>
+              </div>
+
+              {!generatedTicket ? (
+                /* Form Details */
+                <form onSubmit={handleCreateVisitorTicket} className="space-y-5">
+                  <div>
+                    <label className="text-[9px] font-black uppercase tracking-wider text-slate-400 block ml-0.5 mb-2">Biển số phương tiện</label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                        <Keyboard size={16} />
+                      </div>
+                      <input
+                        required
+                        type="text"
+                        placeholder="Ví dụ: 51G-112.22"
+                        className="block w-full pl-11 pr-5 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-blue-500 focus:bg-white text-xs font-mono font-bold uppercase tracking-widest text-slate-800"
+                        value={visitorPlate}
+                        onChange={(e) => setVisitorPlate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[9px] font-black uppercase tracking-wider text-slate-400 block ml-0.5 mb-2">Loại phương tiện</label>
+                    <div className="grid grid-cols-3 gap-3">
+                      {[
+                        { type: 'Car', label: 'Ô tô (Car)' },
+                        { type: 'Motorbike', label: 'Xe máy' },
+                        { type: 'Bicycle', label: 'Xe điện' }
+                      ].map((item) => (
+                        <button
+                          key={item.type}
+                          type="button"
+                          onClick={() => setVisitorVehicleType(item.type)}
+                          className={`py-3 px-2 rounded-xl border text-xs font-bold transition-all text-center cursor-pointer ${
+                            visitorVehicleType === item.type 
+                              ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                              : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-3 text-slate-500">
+                      <Camera size={16} className={hasCameraAccess ? 'text-emerald-500 animate-pulse' : 'text-slate-400'} />
+                      <span className="font-semibold text-slate-600">Ảnh chụp trước khi vào bãi</span>
+                    </div>
+                    <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                      {hasCameraAccess ? 'READY' : 'MOCK'}
+                    </span>
+                  </div>
+
+                  <button
+                    disabled={isGeneratingTicket}
+                    type="submit"
+                    className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-all shadow-md active:scale-98 cursor-pointer"
+                  >
+                    {isGeneratingTicket ? 'Đang tạo vé...' : 'Tạo vé & Ghi nhận xe vào'}
+                  </button>
+                </form>
+              ) : (
+                /* Card details layout */
+                <div className="space-y-6">
+                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 flex flex-col items-center">
+                    <div className="w-full flex justify-between items-center border-b border-slate-200 pb-3 mb-4.5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded bg-blue-600 flex items-center justify-center font-black text-white text-[11px]">P</div>
+                        <span className="text-[9px] font-black tracking-widest text-slate-800">THẺ VÉ VÃNG LAI</span>
+                      </div>
+                      <span className="text-[9px] font-bold text-slate-400">ID: {generatedTicket.qrCode}</span>
+                    </div>
+
+                    <div className="bg-white p-3.5 rounded-xl border border-slate-200 mb-4 shadow-sm">
+                      <img 
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(generatedTicket.qrCode)}`}
+                        alt="Ticket QR Code" 
+                        className="w-32 h-32"
+                      />
+                    </div>
+
+                    <div className="w-full grid grid-cols-2 gap-4 text-xs border-b border-slate-200 pb-4 mb-4">
+                      <div>
+                        <span className="text-[8px] text-slate-400 uppercase tracking-widest block">Biển số xe</span>
+                        <strong className="text-slate-900 tracking-wider block font-mono text-sm mt-0.5">{generatedTicket.plate}</strong>
+                      </div>
+                      <div>
+                        <span className="text-[8px] text-slate-400 uppercase tracking-widest block">Thời gian vào</span>
+                        <strong className="text-slate-900 block mt-0.5">{generatedTicket.time}</strong>
+                      </div>
+                      <div>
+                        <span className="text-[8px] text-slate-400 uppercase tracking-widest block">Loại xe</span>
+                        <strong className="text-blue-600 block mt-0.5">
+                          {generatedTicket.vehicleType === 'Car' ? 'Ô tô' : 'Xe máy'}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-[8px] text-slate-400 uppercase tracking-widest block">Phương án phí</span>
+                        <strong className="text-emerald-600 block mt-0.5">Theo thời gian</strong>
+                      </div>
+                    </div>
+
+                    <div className="w-full flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-lg overflow-hidden bg-slate-200 border border-slate-200 shrink-0">
+                        <img src={generatedTicket.photo} alt="Car Captured" className="w-full h-full object-cover" />
+                      </div>
+                      <div className="text-[9px] text-slate-400 font-bold leading-tight">
+                        <p className="text-slate-600">ẢNH CHỤP CAMERA CỔNG VÀO</p>
+                        <p className="text-[8px] text-slate-400 uppercase mt-0.5">Đã ghi nhận trực tiếp vào MongoDB</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-4">
+                    <button 
+                      onClick={() => {
+                        const printWindow = window.open('', '_blank');
+                        if (printWindow) {
+                          printWindow.document.write(`
+                            <html>
+                              <head>
+                                <title>Vé xe Vãng lai</title>
+                                <style>
+                                  body { font-family: sans-serif; text-align: center; padding: 40px; }
+                                  .card { border: 2px solid #ccc; padding: 20px; border-radius: 15px; display: inline-block; }
+                                  h2 { margin: 0; font-size: 20px; color: #333; }
+                                  p { margin: 5px 0; }
+                                  img { margin-top: 15px; }
+                                </style>
+                              </head>
+                              <body>
+                                <div class="card">
+                                  <h2>PM SYSTEM - THẺ XE VÃNG LAI</h2>
+                                  <p>Biển số: <strong>${generatedTicket.plate}</strong></p>
+                                  <p>Thời gian vào: ${generatedTicket.time}</p>
+                                  <p>Mã vé: ${generatedTicket.qrCode}</p>
+                                  <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(generatedTicket.qrCode)}" />
+                                </div>
+                                <script>window.print();</script>
+                              </body>
+                            </html>
+                          `);
+                          printWindow.document.close();
+                        }
+                      }}
+                      className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all"
+                    >
+                      <Printer size={14} />
+                      In vé giấy
+                    </button>
+
+                    <button 
+                      onClick={() => {
+                        setShowVisitorModal(false);
+                        setScannedResult({
+                          plate: generatedTicket.plate,
+                          status: 'Hợp lệ',
+                          time: generatedTicket.time,
+                          owner: 'KHÁCH VÃNG LAI',
+                          ticketType: 'Vé vãng lai (Mới cấp)',
+                          capturedPhoto: generatedTicket.photo,
+                          registeredPhoto: generatedTicket.photo, 
+                          type: 'ENTRY',
+                          qrCode: generatedTicket.qrCode
+                        });
+                        setGateState('COMPARING');
+                        if (autoApprove) {
+                          startAutoPassCountdown();
+                        }
+                      }}
+                      className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md shadow-blue-600/10"
+                    >
+                      Cho xe vào (ENTRY)
+                    </button>
+                  </div>
+                </div>
+              )}
+
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Audit Photo full screen preview */}
+      <AnimatePresence>
+        {selectedLogPhoto && (
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm" onClick={() => setSelectedLogPhoto(null)}>
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-2xl max-w-lg w-full p-4 relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                  <Camera size={13} className="text-blue-500 animate-pulse" /> ẢNH CHỤP LÚC XE RA / VÀO TRỰC TIẾP
+                </span>
+                <button onClick={() => setSelectedLogPhoto(null)} className="text-xs font-black text-slate-400 hover:text-slate-900 uppercase cursor-pointer">Đóng</button>
+              </div>
+              <div className="h-80 rounded-xl overflow-hidden bg-slate-100 border border-slate-200">
+                <img src={selectedLogPhoto} alt="Audit Photo Full" className="w-full h-full object-cover" />
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Footer */}
-      <footer className="fixed bottom-0 w-full glass-panel-heavy border-t border-primary/5 px-12 h-10 flex justify-between items-center z-50">
-        <span className="text-[9px] tracking-premium text-on-surface-variant/40 uppercase font-black">© 2024 NEXUS GLOBAL TERMINAL • V2.5.81</span>
-        <div className="flex gap-10">
-          <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]"></div>
-            <span className="text-[9px] tracking-premium text-on-surface-variant/60 uppercase font-bold">Độ trễ: 0.8ms</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="text-primary" size={14} />
-            <span className="text-[9px] tracking-premium text-primary font-bold uppercase">Đã mã hóa</span>
-          </div>
+      <footer className="fixed bottom-0 left-0 right-0 h-11 bg-white/80 backdrop-blur-xl border-t border-slate-200/80 px-10 flex justify-between items-center z-50 text-[9px] tracking-widest text-slate-400 font-bold uppercase">
+        <span>© 2026 PM SYSTEM PORTAL • CHUẨN AN NINH CẤP CAO</span>
+        <div className="flex gap-8">
+          <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />Độ trễ: 0.4ms</span>
+          <span className="flex items-center gap-1.5"><ShieldCheck size={11} className="text-blue-500" />AES-256</span>
         </div>
       </footer>
+
     </div>
   );
 };

@@ -4,6 +4,7 @@ import { CreditCard, Wallet, Apple, ArrowRight, ShieldCheck, Receipt } from 'luc
 import { useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 import api from '../services/api';
+import { parseLicensePlate, getActiveQrs, addActiveQr, removeActiveQr } from '../utils/auth';
 
 const PaymentPage = () => {
   const navigate = useNavigate();
@@ -23,7 +24,7 @@ const PaymentPage = () => {
       try {
         const user = JSON.parse(storedUser);
         if (user.licensePlate) {
-          setLicensePlate(user.licensePlate);
+          setLicensePlate(parseLicensePlate(user.licensePlate));
         }
       } catch (e) {
         console.error(e);
@@ -32,7 +33,8 @@ const PaymentPage = () => {
 
     if (mode === 'checkout') {
       const fetchCheckoutFee = async () => {
-        const sessionQr = localStorage.getItem('activeSessionQr');
+        const sessionQrs = getActiveQrs();
+        const sessionQr = sessionQrs.length > 0 ? sessionQrs[sessionQrs.length - 1] : null;
         if (sessionQr) {
           try {
             const response = await api.get(`/ParkingSessions/verify/${sessionQr}`);
@@ -58,7 +60,8 @@ const PaymentPage = () => {
   const handleConfirmPayment = async () => {
     setLoading(true);
     if (mode === 'checkout') {
-      const sessionQr = localStorage.getItem('activeSessionQr');
+      const sessionQrs = getActiveQrs();
+      const sessionQr = sessionQrs.length > 0 ? sessionQrs[sessionQrs.length - 1] : null;
       if (sessionQr) {
         try {
           // Perform backend checkout
@@ -68,7 +71,7 @@ const PaymentPage = () => {
             exitPhoto: ''
           });
           // Remove from local storage upon successful database checkout completion
-          localStorage.removeItem('activeSessionQr');
+          removeActiveQr(sessionQr);
         } catch (e) {
           console.error('Checkout post error on backend', e);
         }
@@ -86,7 +89,7 @@ const PaymentPage = () => {
         const reservationDate = localStorage.getItem('reservationDate') || '';
         const reservationStartTime = localStorage.getItem('reservationStartTime') || '';
         const reservationVehicleType = localStorage.getItem('reservationVehicleType') || 'car';
-        const reservationLicensePlate = localStorage.getItem('reservationLicensePlate') || licensePlate;
+        const reservationLicensePlate = parseLicensePlate(localStorage.getItem('reservationLicensePlate') || licensePlate);
         const selectedSlot = localStorage.getItem('selectedSlot') || 'A3';
 
         const response = await api.post('/ParkingSessions/checkin', {
@@ -99,8 +102,12 @@ const PaymentPage = () => {
           parkingSlot: selectedSlot
         });
         if (response.data && response.data.qrCode) {
-          localStorage.setItem('activeSessionQr', response.data.qrCode);
+          addActiveQr(response.data.qrCode);
         }
+        localStorage.removeItem('reservationDate');
+        localStorage.removeItem('reservationStartTime');
+        localStorage.removeItem('reservationVehicleType');
+        localStorage.removeItem('reservationLicensePlate');
       } catch (e) {
         console.error('Error creating database active session on reservation', e);
       }

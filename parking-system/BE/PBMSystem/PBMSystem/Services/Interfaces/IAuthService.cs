@@ -19,10 +19,12 @@ public interface IAuthService
     Task<ApiResponse<IEnumerable<UserResponse>>> GetAllUsersAsync();
     Task<ApiResponse<UserResponse>> UpdateUserAsAdminAsync(
         Guid actorId, string actorRole, Guid targetUserId, AdminUpdateUserRequest request);
+    Task<ApiResponse<bool>> DeleteUserAsync(Guid actorId, string actorRole, Guid targetUserId);
 
     // ── OTP Registration ──────────────────────────────────────────────────────
     Task<ApiResponse<OtpSendResponse>> SendRegisterOtpAsync(SendRegisterOtpRequest request);
     Task<ApiResponse<AuthResponse>> VerifyRegisterOtpAsync(VerifyRegisterOtpRequest request, string? ipAddress = null);
+    Task<ApiResponse<bool>> CheckEmailRegisteredAsync(string email);
 
     // ── Forgot / Reset Password ───────────────────────────────────────────────
     Task<ApiResponse<OtpSendResponse>> SendForgotPasswordOtpAsync(ForgotPasswordRequest request);

@@ -1,11 +1,15 @@
+import { useState } from 'react';
 import BrandLogo from '../components/brand/BrandLogo';
-import { motion, type Variants } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
+import { Link, useNavigate } from 'react-router-dom';
 import { useLottie } from 'lottie-react';
 import Navbar from '../components/layout/Navbar';
 import animationData from '../components/ui/hasahar.json';
+import { hasActiveSessions } from '../utils/auth';
 
 const LandingPage = () => {
+  const navigate = useNavigate();
+  const [showActiveWarning, setShowActiveWarning] = useState(false);
   const lottieOptions = {
     animationData: animationData,
     loop: true,
@@ -47,6 +51,7 @@ const LandingPage = () => {
   };
 
   return (
+    <>
     <div className="bg-mesh-gradient text-slate-900 antialiased min-h-screen selection:bg-blue-100 font-['Inter'] overflow-x-hidden">
       <Navbar />
 
@@ -77,14 +82,22 @@ const LandingPage = () => {
               </motion.p>
 
               <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-5 pt-4">
-                <Link to="/reserve" className="group relative bg-gradient-to-br from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-5 px-10 rounded-full shadow-2xl shadow-blue-600/40 flex items-center justify-center gap-3 transition-all duration-300 hover:-translate-y-1 active:scale-95 overflow-hidden">
+                <button
+                  onClick={() => {
+                    if (hasActiveSessions()) {
+                      setShowActiveWarning(true);
+                    } else {
+                      navigate('/reserve');
+                    }
+                  }}
+                  className="group relative bg-gradient-to-br from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-5 px-10 rounded-full shadow-2xl shadow-blue-600/40 flex items-center justify-center gap-3 transition-all duration-300 hover:-translate-y-1 active:scale-95 overflow-hidden cursor-pointer"
+                >
                   <span className="relative z-10">Đặt chỗ ngay</span>
                   <svg className="h-5 w-5 group-hover:translate-x-1 transition-transform relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path d="M13 7l5 5m0 0l-5 5m5-5H6" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5"></path>
                   </svg>
-                  {/* Subtle Shine Effect */}
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shine_1.5s_infinite] pointer-events-none"></div>
-                </Link>
+                </button>
                 <Link to="/status" className="bg-white/60 hover:bg-white text-blue-600 font-bold py-5 px-10 rounded-full border border-blue-100 backdrop-blur-sm transition-all duration-300 text-center hover:shadow-xl hover:-translate-y-1 active:scale-95">
                   Xem Phân tích
                 </Link>
@@ -213,6 +226,69 @@ const LandingPage = () => {
         </div>
       </footer>
     </div>
+
+      {/* ── Active Session Warning Modal ── */}
+      <AnimatePresence>
+        {showActiveWarning && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl border border-slate-100 flex flex-col items-center text-center relative overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-red-500/10 to-transparent blur-xl rounded-full" />
+              
+              <div className="w-16 h-16 bg-red-50 border border-red-100 text-red-600 rounded-full flex items-center justify-center mb-6 shadow-sm">
+                <span className="material-symbols-outlined text-3xl text-red-500 font-bold">warning</span>
+              </div>
+              
+              <h3 className="text-lg font-black text-slate-900 tracking-tight leading-snug mb-2">
+                Phiên đỗ đang hoạt động
+              </h3>
+              
+              <p className="text-slate-500 text-xs font-semibold leading-relaxed mb-8 px-2">
+                Bạn đang có một phiên đỗ xe chưa kết thúc (xe chưa ra khỏi bãi). Vui lòng hoàn tất thanh toán lối ra cho xe hiện tại trước khi thực hiện đặt chỗ mới.
+              </p>
+              
+              <div className="flex flex-col gap-2.5 w-full">
+                <button
+                  onClick={() => {
+                    setShowActiveWarning(false);
+                    navigate('/active-session');
+                  }}
+                  className="w-full bg-slate-950 hover:bg-slate-900 active:scale-[0.98] text-white font-extrabold py-3.5 rounded-full text-[10px] uppercase tracking-wider transition-all shadow-lg cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-[14px]">visibility</span>
+                  Xem phiên đỗ hiện tại
+                </button>
+                <button
+                  onClick={() => {
+                    setShowActiveWarning(false);
+                    navigate('/reserve', { state: { bypassActiveCheck: true } });
+                  }}
+                  className="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-extrabold py-3.5 rounded-full text-[10px] uppercase tracking-wider transition-all shadow-lg shadow-blue-500/10 cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-[14px]">directions_car</span>
+                  Đặt chỗ cho xe khác
+                </button>
+                <button
+                  onClick={() => setShowActiveWarning(false)}
+                  className="w-full hover:bg-slate-50 text-slate-500 font-extrabold py-3 rounded-full text-[10px] uppercase tracking-wider transition-all cursor-pointer"
+                >
+                  Đóng
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
 

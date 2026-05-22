@@ -144,8 +144,15 @@ const ProfilePage = () => {
         setError(response.data.message || 'Cập nhật thông tin thất bại.');
       }
     } catch (err: any) {
-      console.error(err);
-      setError(err.response?.data?.message || 'Có lỗi xảy ra trong quá trình cập nhật.');
+      console.error('Update Profile Error Details:', err.response?.data);
+      const beErrors = err.response?.data?.errors;
+      let errorMessage = 'Có lỗi xảy ra trong quá trình cập nhật.';
+      if (beErrors) {
+        errorMessage = Object.values(beErrors).flat().join(' | ');
+      } else {
+        errorMessage = err.response?.data?.message || 'Có lỗi xảy ra trong quá trình cập nhật.';
+      }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -154,7 +161,23 @@ const ProfilePage = () => {
   if (!currentUser) return null;
 
   return (
-    <div className="min-h-screen bg-mesh-gradient text-[#191c1e] selection:bg-blue-500/10" style={{ fontFamily: "'Manrope', sans-serif" }}>
+    <div className="min-h-screen bg-mesh-gradient text-[#191c1e] selection:bg-blue-500/10">
+      {/* Viewport-fixed premium emerald success toast */}
+      <AnimatePresence>
+        {success && (
+          <motion.div
+            initial={{ opacity: 0, y: -80, x: "-50%" }}
+            animate={{ opacity: 1, y: 24, x: "-50%" }}
+            exit={{ opacity: 0, y: -80, x: "-50%" }}
+            transition={{ type: "spring", stiffness: 120, damping: 14 }}
+            className="fixed top-0 left-1/2 z-[99999] flex items-center gap-2.5 px-4.5 py-2 bg-emerald-500 text-white rounded-full shadow-lg shadow-emerald-500/20 border border-emerald-400/20 whitespace-nowrap"
+          >
+            <CheckCircle2 className="text-white shrink-0" size={15} />
+            <span className="text-xs font-semibold tracking-normal text-white">Cập nhật thành công!</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Hide standard navbar to prevent navigation if force update is active */}
       {!isForceUpdate ? (
         <Navbar />
@@ -394,16 +417,6 @@ const ProfilePage = () => {
                 </motion.div>
               )}
 
-              {success && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex items-center gap-3 p-3 bg-green-50 border border-green-100 rounded-2xl"
-                >
-                  <CheckCircle2 className="text-green-500 shrink-0" size={16} />
-                  <p className="text-[11px] font-bold text-green-600 leading-tight">Đã cập nhật thông tin thành công! Đang chuyển hướng...</p>
-                </motion.div>
-              )}
             </AnimatePresence>
 
             {/* Save Button */}
