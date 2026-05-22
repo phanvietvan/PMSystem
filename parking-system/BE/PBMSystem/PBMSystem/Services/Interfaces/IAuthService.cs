@@ -24,6 +24,7 @@ public interface IAuthService
     // ── OTP Registration ──────────────────────────────────────────────────────
     Task<ApiResponse<OtpSendResponse>> SendRegisterOtpAsync(SendRegisterOtpRequest request);
     Task<ApiResponse<AuthResponse>> VerifyRegisterOtpAsync(VerifyRegisterOtpRequest request, string? ipAddress = null);
+    Task<ApiResponse<bool>> CheckEmailRegisteredAsync(string email);
 
     // ── Forgot / Reset Password ───────────────────────────────────────────────
     Task<ApiResponse<OtpSendResponse>> SendForgotPasswordOtpAsync(ForgotPasswordRequest request);

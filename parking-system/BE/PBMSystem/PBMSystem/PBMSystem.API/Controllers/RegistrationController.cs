@@ -21,6 +21,21 @@ public class RegistrationController : ControllerBase
     }
 
     /// <summary>
+    /// Check if the email is already registered.
+    /// </summary>
+    [HttpGet("check-email")]
+    [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CheckEmail([FromQuery] string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return BadRequest(ApiResponse<bool>.Fail("Email không được để trống."));
+
+        var result = await _authService.CheckEmailRegisteredAsync(email);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
+    /// <summary>
     /// Step 1: Send a 6-digit OTP to the provided email to begin registration.
     /// DEV MODE: the OTP is also returned in the response (otpCode field) so
     /// FE-BE testing works without checking an inbox.
