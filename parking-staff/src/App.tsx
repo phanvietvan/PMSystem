@@ -36,9 +36,9 @@ import BrandLogo from './components/brand/BrandLogo';
 
 import QRCode from 'qrcode';
 
-const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+const API_BASE_URL = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   ? '/api'
-  : 'https://pmsystem-oxl8.onrender.com/api';
+  : 'https://pmsystem-oxl8.onrender.com/api');
 
 // Fallback high-quality car photos for live webcam fallbacks ONLY
 const FALLBACK_CAR_CAPTURES = [
