@@ -59,18 +59,12 @@ const PaymentPage = () => {
 
   const handleConfirmPayment = async () => {
     setLoading(true);
-<<<<<<< HEAD
-=======
     let qrCode = '';
->>>>>>> FE_Main
     if (mode === 'checkout') {
       const sessionQrs = getActiveQrs();
       const sessionQr = sessionQrs.length > 0 ? sessionQrs[sessionQrs.length - 1] : null;
       if (sessionQr) {
-<<<<<<< HEAD
-=======
         qrCode = sessionQr;
->>>>>>> FE_Main
         try {
           // Perform backend checkout
           await api.post('/ParkingSessions/checkout', {
@@ -100,8 +94,6 @@ const PaymentPage = () => {
         const reservationLicensePlate = parseLicensePlate(localStorage.getItem('reservationLicensePlate') || licensePlate);
         const selectedSlot = localStorage.getItem('selectedSlot') || 'A3';
 
-<<<<<<< HEAD
-=======
         const storedUser = localStorage.getItem('user');
         let loggedInUserId = null;
         if (storedUser) {
@@ -110,7 +102,6 @@ const PaymentPage = () => {
           } catch (e) {}
         }
 
->>>>>>> FE_Main
         const response = await api.post('/ParkingSessions/checkin', {
           licensePlate: reservationLicensePlate,
           entryPhoto: '',
@@ -118,17 +109,11 @@ const PaymentPage = () => {
           vehicleType: reservationVehicleType,
           reservationDate: reservationDate,
           reservationStartTime: reservationStartTime,
-<<<<<<< HEAD
-          parkingSlot: selectedSlot
-        });
-        if (response.data && response.data.qrCode) {
-=======
           parkingSlot: selectedSlot,
           userId: loggedInUserId
         });
         if (response.data && response.data.qrCode) {
           qrCode = response.data.qrCode;
->>>>>>> FE_Main
           addActiveQr(response.data.qrCode);
         }
         localStorage.removeItem('reservationDate');
@@ -140,18 +125,20 @@ const PaymentPage = () => {
       }
     }
     setLoading(false);
-<<<<<<< HEAD
-    navigate('/success', { state: { mode } });
-=======
     navigate('/success', { state: { mode, qrCode } });
->>>>>>> FE_Main
   };
 
+  let parkingInfo = { name: "Landmark 81 - Bãi đỗ A1", floor: "Tầng 1", block: "Block A" };
+  try {
+    const raw = localStorage.getItem('selectedParking');
+    if (raw) parkingInfo = JSON.parse(raw);
+  } catch(e) {}
+
   const orderSummary = {
-    date: new Date().toLocaleDateString('vi-VN'),
-    time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+    date: localStorage.getItem('reservationDate') ? new Date(localStorage.getItem('reservationDate')!).toLocaleDateString('vi-VN') : new Date().toLocaleDateString('vi-VN'),
+    time: localStorage.getItem('reservationStartTime') || new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
     slot: selectedSlot,
-    level: selectedLevel.padStart(2, '0'),
+    parkingName: parkingInfo.name,
     plate: licensePlate,
     price: price
   };
@@ -221,7 +208,10 @@ const PaymentPage = () => {
             <div className="space-y-4 mb-8">
               <div className="flex justify-between items-center py-3 border-b border-outline-variant/10">
                 <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest text-[9px]">Vị trí đỗ</span>
-                <span className="text-sm font-black text-on-surface">Tầng {orderSummary.level} • {orderSummary.slot}</span>
+                <div className="text-right flex flex-col items-end">
+                  <span className="text-sm font-black text-on-surface max-w-[200px] truncate" title={orderSummary.parkingName}>{orderSummary.parkingName}</span>
+                  <span className="text-[10px] font-bold text-on-surface-variant">Slot {orderSummary.slot}</span>
+                </div>
               </div>
               <div className="flex justify-between items-center py-3 border-b border-outline-variant/10">
                 <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest text-[9px]">Thời gian</span>

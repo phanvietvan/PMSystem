@@ -193,11 +193,7 @@ const NavigationPage = () => {
             <div className="bg-blue-50/50 p-5 rounded-2xl border border-blue-100 flex items-start gap-4">
               <Info className="w-5 h-5 text-blue-600 mt-1" />
               <p className="text-xs text-slate-600 font-medium leading-relaxed">
-<<<<<<< HEAD
-                Vui lòng đỗ xe đúng ô <strong className="text-blue-600">{selectedSlot}</strong>. Sau khi đỗ, hãy quét mã QR được dán trực tiếp tại ô này để kích hoạt hệ thống giám sát an ninh AI bảo vệ xe của bạn.
-=======
                 Vui lòng di chuyển xe và đỗ đúng vào ô <strong className="text-blue-600">{selectedSlot}</strong>. Sau khi đỗ xe an toàn, bấm xác nhận ở bảng bên phải để kích hoạt hệ thống giám sát an ninh AI bảo vệ xe của bạn.
->>>>>>> FE_Main
               </p>
             </div>
           </div>
@@ -205,39 +201,6 @@ const NavigationPage = () => {
           {/* Right: Verification Action */}
           <div className="lg:col-span-4 space-y-6">
             <div className="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-xl shadow-blue-500/5 text-center">
-<<<<<<< HEAD
-              <h3 className="text-lg font-bold text-slate-800 mb-6">Xác nhận tại chỗ</h3>
-              
-              <div className="space-y-8">
-                <div 
-                  onClick={handleVerifyAtSlot}
-                  className={`aspect-square w-full rounded-3xl border-2 border-dashed flex flex-col items-center justify-center gap-4 transition-all duration-500 cursor-pointer group
-                    ${isVerified ? 'bg-emerald-50 border-emerald-500' : 'bg-slate-50 border-slate-200 hover:border-blue-600'}`}
-                >
-                  {isVerified ? (
-                    <>
-                      <CheckCircle2 className="w-16 h-16 text-emerald-500" />
-                      <span className="text-xs font-black text-emerald-600 uppercase tracking-widest text-[10px]">Đã đỗ đúng vị trí</span>
-                    </>
-                  ) : (
-                    <>
-                      <QrCode className="w-16 h-16 text-slate-300 group-hover:text-blue-500/50 transition-colors" />
-                      <div className="space-y-1">
-                        <p className="text-xs font-bold text-slate-800">Quét mã tại ô đỗ</p>
-                        <p className="text-[9px] text-slate-400 font-medium uppercase tracking-widest">Chạm để mô phỏng quét</p>
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200/50 text-left">
-                    <ShieldCheck className="w-5 h-5 text-blue-600" />
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">An ninh AI</p>
-                      <p className="text-[11px] font-medium text-slate-600 leading-tight">Camera AI sẽ tự động kích hoạt giám sát sau khi bạn xác nhận.</p>
-                    </div>
-=======
               <h3 className="text-lg font-bold text-slate-800 mb-6">Trạng thái đỗ xe</h3>
               
               <div className="space-y-6">
@@ -262,7 +225,6 @@ const NavigationPage = () => {
                     >
                       {isVerified ? 'ĐÃ KÍCH HOẠT AN NINH' : 'ĐANG CHỜ ĐỖ XE'}
                     </span>
->>>>>>> FE_Main
                   </div>
                 </div>
 

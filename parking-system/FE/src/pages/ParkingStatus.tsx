@@ -3,11 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Layers, Sparkles } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
-<<<<<<< HEAD
-import { hasActiveSessions } from '../utils/auth';
-=======
 import { hasActiveSessions, addActiveQr } from '../utils/auth';
->>>>>>> FE_Main
 import api from '../services/api';
 
 /* ─── Types ─── */
@@ -20,28 +16,6 @@ interface ParkingSlot {
 }
 
 /* ─── Helpers ─── */
-<<<<<<< HEAD
-const generateSlots = (prefix: string, count: number, level: number, activeSlots: string[] = []): ParkingSlot[] => {
-  return Array.from({ length: count }, (_, i) => {
-    const seed = level * 100 + prefix.charCodeAt(0) * 10 + i;
-    const val = (Math.sin(seed) + 1) / 2;
-    let status: SlotStatus = 'available';
-    
-    if (level === 1) {
-      status = val > 0.8 ? 'occupied' : val > 0.65 ? 'reserved' : 'available';
-    } else if (level === 2) {
-      status = val > 0.7 ? 'occupied' : val > 0.55 ? 'reserved' : 'available';
-    } else {
-      status = val > 0.6 ? 'occupied' : val > 0.45 ? 'reserved' : 'available';
-    }
-
-    if (activeSlots.includes(`${prefix}${i + 1}`)) {
-      status = 'occupied';
-    }
-
-    return {
-      id: `${prefix}${i + 1}`,
-=======
 const generateSlots = (prefix: string, count: number, level: number, slotStatusMap: Record<string, SlotStatus> = {}): ParkingSlot[] => {
   const actualPrefix = level === 1
     ? prefix
@@ -56,7 +30,6 @@ const generateSlots = (prefix: string, count: number, level: number, slotStatusM
 
     return {
       id: slotId,
->>>>>>> FE_Main
       status,
       isBest: prefix === 'A' && ((level === 1 && i === 2) || (level === 2 && i === 4) || (level === 3 && i === 1)) && status === 'available',
     };
@@ -74,11 +47,7 @@ const ParkingStatus: React.FC = () => {
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [showReservePrompt, setShowReservePrompt] = useState(false);
   const [showActiveSessionWarning, setShowActiveSessionWarning] = useState(false);
-<<<<<<< HEAD
-  const [activeSlots, setActiveSlots] = useState<string[]>([]);
-=======
   const [slotStatusMap, setSlotStatusMap] = useState<Record<string, SlotStatus>>({});
->>>>>>> FE_Main
   const floors = [1, 2, 3];
 
   const selectedParking = location.state?.selectedParking ||
@@ -90,22 +59,6 @@ const ParkingStatus: React.FC = () => {
       const n = parseInt(selectedParking.floor.replace('Tầng ', ''));
       if (!isNaN(n) && n <= 3) setSelectedLevel(n);
     }
-<<<<<<< HEAD
-
-    // Fetch actual occupied slots from BE
-    api.get('/ParkingSessions/active-slots')
-      .then(res => {
-        if (res.data) setActiveSlots(res.data);
-      })
-      .catch(err => console.error('Error fetching active slots', err));
-  }, []);
-
-  // Clear selection on floor change
-  useEffect(() => { setSelectedSlot(null); }, [selectedLevel]);
-
-  const westSlots = generateSlots('A', 10, selectedLevel, activeSlots);
-  const eastSlots = generateSlots('B', 10, selectedLevel, activeSlots);
-=======
   }, [selectedParking.floor]);
 
   // Fetch actual occupied/reserved slots from BE
@@ -127,9 +80,14 @@ const ParkingStatus: React.FC = () => {
   useEffect(() => {
     api.get('/ParkingSessions/my-session')
       .then(res => {
-        if (res.data && res.data.qrCode) {
-          addActiveQr(res.data.qrCode);
-          setShowActiveSessionWarning(true);
+        if (res.data) {
+          if (res.data.hasActiveSession && res.data.session) {
+            addActiveQr(res.data.session.qrCode);
+          } else {
+            localStorage.removeItem('activeSessionQrs');
+            localStorage.removeItem('activeSessionQr');
+            setShowActiveSessionWarning(false);
+          }
         }
       })
       .catch(err => {
@@ -142,7 +100,6 @@ const ParkingStatus: React.FC = () => {
 
   const westSlots = generateSlots('A', 10, selectedLevel, slotStatusMap);
   const eastSlots = generateSlots('B', 10, selectedLevel, slotStatusMap);
->>>>>>> FE_Main
   const allSlots = [...westSlots, ...eastSlots];
   const availableCount = countByStatus(allSlots, 'available');
   const occupiedCount = countByStatus(allSlots, 'occupied');
@@ -310,11 +267,7 @@ const ParkingStatus: React.FC = () => {
 
                 {/* West Parking Zone Slots */}
                 {westSlots.map((slot) => {
-<<<<<<< HEAD
-                  const id = selectedLevel === 1 ? slot.id : selectedLevel === 2 ? slot.id.replace('A', 'C') : slot.id.replace('A', 'E');
-=======
                   const id = slot.id;
->>>>>>> FE_Main
                   const coords = getSlotCoords(id);
                   const isSelected = selectedSlot === id;
                   const isOccupied = slot.status === 'occupied';
@@ -400,11 +353,7 @@ const ParkingStatus: React.FC = () => {
 
                 {/* East Parking Zone Slots */}
                 {eastSlots.map((slot) => {
-<<<<<<< HEAD
-                  const id = selectedLevel === 1 ? slot.id : selectedLevel === 2 ? slot.id.replace('B', 'D') : slot.id.replace('B', 'F');
-=======
                   const id = slot.id;
->>>>>>> FE_Main
                   const coords = getSlotCoords(id);
                   const isSelected = selectedSlot === id;
                   const isOccupied = slot.status === 'occupied';
@@ -526,25 +475,12 @@ const ParkingStatus: React.FC = () => {
                   localStorage.setItem('selectedSlot', selectedSlot || 'A3');
                   localStorage.setItem('selectedLevel', selectedLevel.toString());
                   
-<<<<<<< HEAD
-                  const hasReservationDetails = localStorage.getItem('reservationDate') && localStorage.getItem('reservationLicensePlate');
-                  if (hasReservationDetails) {
-                    navigate('/payment');
-                  } else {
-                    setShowReservePrompt(true);
-                  }
-                }}
-                className="bg-blue-600 text-white px-5 py-2.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider hover:bg-blue-700 hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 shadow-lg shadow-blue-500/20 cursor-pointer"
-              >
-                Tiếp tục thanh toán
-=======
                   // Always navigate to reserve page so user can choose vehicle/date/time cleanly
                   navigate('/reserve', { state: { fromStatus: true } });
                 }}
                 className="bg-blue-600 text-white px-5 py-2.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider hover:bg-blue-700 hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 shadow-lg shadow-blue-500/20 cursor-pointer"
               >
                 Tiếp tục đăng ký xe
->>>>>>> FE_Main
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>

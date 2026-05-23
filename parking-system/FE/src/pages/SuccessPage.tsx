@@ -1,52 +1,33 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-<<<<<<< HEAD
-import { CheckCircle2, Download, Share2, ArrowRight, Loader2, ShieldCheck } from 'lucide-react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import Navbar from '../components/layout/Navbar';
-import { parseLicensePlate } from '../utils/auth';
-=======
 import { CheckCircle2, Download, Share2, Loader2, ShieldCheck } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 import { parseLicensePlate } from '../utils/auth';
 import api from '../services/api';
 import QRCode from 'qrcode';
->>>>>>> FE_Main
 
 const SuccessPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const mode = location.state?.mode || 'reserve';
-<<<<<<< HEAD
-  const [status, setStatus] = useState<'qr' | 'opening'>(mode === 'checkout' ? 'opening' : 'qr');
-  const [licensePlate, setLicensePlate] = useState('51F-123.45');
-=======
   const qrCode = location.state?.qrCode || '';
   const [status, setStatus] = useState<'qr' | 'opening'>(mode === 'checkout' ? 'opening' : 'qr');
   const [licensePlate, setLicensePlate] = useState('51F-123.45');
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
->>>>>>> FE_Main
 
   const selectedSlot = localStorage.getItem('selectedSlot') || 'A3';
-  const selectedLevel = localStorage.getItem('selectedLevel') || '3';
+  
+  let parkingInfo = { name: "Landmark 81 - Bãi đỗ A1", floor: "Tầng 1", block: "Block A" };
+  try {
+    const raw = localStorage.getItem('selectedParking');
+    if (raw) parkingInfo = JSON.parse(raw);
+  } catch(e) {}
+
+  const resDate = localStorage.getItem('reservationDate') ? new Date(localStorage.getItem('reservationDate')!).toLocaleDateString('vi-VN') : new Date().toLocaleDateString('vi-VN');
+  const resTime = localStorage.getItem('reservationStartTime') || new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 
   useEffect(() => {
-<<<<<<< HEAD
-    // Sync license plate
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        const user = JSON.parse(storedUser);
-        if (user.licensePlate) {
-          setLicensePlate(parseLicensePlate(user.licensePlate));
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-=======
     if (qrCode) {
       QRCode.toDataURL(qrCode, { width: 300, margin: 1 }, (err, url) => {
         if (!err && url) {
@@ -70,7 +51,6 @@ const SuccessPage = () => {
       }
     }
 
->>>>>>> FE_Main
     if (mode === 'checkout') {
       // Exit/Checkout Flow: Show barrier opening animation then redirect home
       const timer = setTimeout(() => {
@@ -78,22 +58,6 @@ const SuccessPage = () => {
       }, 5000);
       return () => clearTimeout(timer);
     } else {
-<<<<<<< HEAD
-      // Reservation/Entry Flow: Show QR, simulate staff scanning, then show barrier opening and navigate to map
-      const timer = setTimeout(() => {
-        setStatus('opening');
-        
-        const navTimer = setTimeout(() => {
-          navigate('/navigation');
-        }, 4000);
-        
-        return () => clearTimeout(navTimer);
-      }, 6000);
-
-      return () => clearTimeout(timer);
-    }
-  }, [navigate, mode]);
-=======
       // Reservation/Entry Flow: Poll BE to see if staff scanned QR code
       if (!qrCode) {
         // Fallback if no QR code in state: simulate scan after 12 seconds so the app is not stuck in dev/testing
@@ -131,7 +95,6 @@ const SuccessPage = () => {
       };
     }
   }, [navigate, mode, qrCode]);
->>>>>>> FE_Main
 
   return (
     <div className="min-h-screen bg-mesh-gradient selection:bg-primary/10 relative">
@@ -158,8 +121,6 @@ const SuccessPage = () => {
               <div className="bg-surface-container-low p-8 rounded-[2.5rem] border border-outline-variant/20 relative mb-10 group">
                 <div className="absolute inset-0 bg-white/20 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-[2.5rem] pointer-events-none">
                   <span className="text-[10px] font-black uppercase tracking-widest text-primary">Biển số: {licensePlate}</span>
-<<<<<<< HEAD
-=======
                 </div>
                  {/* Real Scannable QR Code Image */}
                 <div className="mx-auto w-[200px] h-[200px] bg-white p-3 rounded-3xl border border-outline-variant/10 shadow-inner flex items-center justify-center">
@@ -178,7 +139,6 @@ const SuccessPage = () => {
                 <div className="mt-6 flex flex-col items-center">
                   <span className="text-[8px] font-black text-outline uppercase tracking-[0.25em] mb-1">MÃ QUÉT CỦA BẠN</span>
                   <span className="text-sm font-extrabold text-primary font-mono select-all bg-primary/5 px-4 py-1.5 rounded-full border border-primary/10 tracking-widest">{qrCode || 'QR_NO_CODE'}</span>
->>>>>>> FE_Main
                 </div>
               </div>
 
@@ -186,11 +146,13 @@ const SuccessPage = () => {
               <div className="grid grid-cols-2 gap-4 mb-10">
                 <div className="p-4 bg-surface-container rounded-2xl border border-outline-variant/10">
                   <span className="text-[8px] font-black text-outline uppercase tracking-widest block mb-1">Vị trí</span>
-                  <p className="text-sm font-black text-on-surface">Tầng {selectedLevel.padStart(2, '0')} • {selectedSlot}</p>
+                  <p className="text-[13px] font-black text-on-surface leading-tight truncate" title={parkingInfo.name}>{parkingInfo.name}</p>
+                  <p className="text-[10px] text-on-surface-variant font-bold mt-0.5">{parkingInfo.floor} • Slot {selectedSlot}</p>
                 </div>
                 <div className="p-4 bg-surface-container rounded-2xl border border-outline-variant/10">
                   <span className="text-[8px] font-black text-outline uppercase tracking-widest block mb-1">Thời gian</span>
-                  <p className="text-sm font-black text-on-surface">08:30 AM</p>
+                  <p className="text-[13px] font-black text-on-surface leading-tight truncate">{resDate}</p>
+                  <p className="text-[10px] text-on-surface-variant font-bold mt-0.5">{resTime}</p>
                 </div>
               </div>
 

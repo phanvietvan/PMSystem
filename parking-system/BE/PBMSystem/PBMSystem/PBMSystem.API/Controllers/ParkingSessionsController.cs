@@ -32,15 +32,6 @@ public class ParkingSessionsController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.LicensePlate))
             return BadRequest(new { message = "Biển số xe không được trống." });
 
-<<<<<<< HEAD
-        Guid? userId = null;
-        try
-        {
-            if (User.Identity?.IsAuthenticated == true)
-            {
-                userId = User.GetUserId();
-
-=======
         Guid? userId = request.UserId;
         try
         {
@@ -51,7 +42,6 @@ public class ParkingSessionsController : ControllerBase
 
             if (userId.HasValue)
             {
->>>>>>> FE_Main
                 // Prevent duplicate active sessions for the same registered user
                 var existingActive = await _context.ParkingSessions
                     .FirstOrDefaultAsync(ps => ps.UserId == userId && ps.Status == "Active");
@@ -77,12 +67,8 @@ public class ParkingSessionsController : ControllerBase
             VehicleType = request.VehicleType,
             ReservationDate = request.ReservationDate,
             ReservationStartTime = request.ReservationStartTime,
-<<<<<<< HEAD
-            ParkingSlot = request.ParkingSlot
-=======
             ParkingSlot = request.ParkingSlot,
             IsCheckedIn = string.IsNullOrEmpty(request.ReservationDate)
->>>>>>> FE_Main
         };
 
         _context.ParkingSessions.Add(session);
@@ -134,8 +120,6 @@ public class ParkingSessionsController : ControllerBase
         if (session == null)
             return NotFound(new { message = "Không tìm thấy phiên gửi xe hoặc mã QR không hợp lệ/đã thanh toán." });
 
-<<<<<<< HEAD
-=======
         User? user = null;
         if (session.UserId.HasValue)
         {
@@ -152,14 +136,10 @@ public class ParkingSessionsController : ControllerBase
                 u.LicensePlate.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper() == cleanPlate);
         }
 
->>>>>>> FE_Main
         var exitTime = DateTime.UtcNow;
         var fee = CalculateFee(session.EntryTime, exitTime);
         var durationMinutes = (int)Math.Ceiling((exitTime - session.EntryTime).TotalMinutes);
 
-<<<<<<< HEAD
-        return Ok(new { session, fee, durationMinutes });
-=======
         return Ok(new 
         { 
             session, 
@@ -177,7 +157,6 @@ public class ParkingSessionsController : ControllerBase
                 user.VehicleType
             } : null
         });
->>>>>>> FE_Main
     }
 
     [HttpPost("checkout")]
@@ -273,8 +252,6 @@ public class ParkingSessionsController : ControllerBase
         return Ok(matched);
     }
 
-<<<<<<< HEAD
-=======
     [HttpGet("slots-status")]
     public async Task<IActionResult> GetSlotsStatus([FromQuery] string parkingLotName)
     {
@@ -324,7 +301,6 @@ public class ParkingSessionsController : ControllerBase
         return Ok(new { message = "Xác thực thành công. Cổng chắn đã mở và vị trí đỗ đã bị khóa.", session });
     }
 
->>>>>>> FE_Main
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
@@ -332,7 +308,32 @@ public class ParkingSessionsController : ControllerBase
             .OrderByDescending(ps => ps.CreatedAt)
             .Take(50)
             .ToListAsync();
-        return Ok(sessions);
+
+        var userIds = sessions.Where(ps => ps.UserId.HasValue).Select(ps => ps.UserId.Value).Distinct().ToList();
+        var users = await _context.Users.Where(u => userIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id);
+
+        var result = sessions.Select(ps => new {
+            ps.Id,
+            ps.UserId,
+            ps.LicensePlate,
+            ps.EntryTime,
+            ps.ExitTime,
+            ps.Status,
+            ps.QrCode,
+            TotalFee = ps.ExitTime.HasValue ? CalculateFee(ps.EntryTime, ps.ExitTime.Value) : (decimal?)null,
+            ps.IsCheckedIn,
+            ps.EntryPhoto,
+            ps.ExitPhoto,
+            ps.CreatedAt,
+            User = ps.UserId.HasValue && users.TryGetValue(ps.UserId.Value, out var u) ? new {
+                u.FirstName,
+                u.LastName,
+                u.Email,
+                u.PhoneNumber
+            } : null
+        });
+
+        return Ok(result);
     }
 }
 
