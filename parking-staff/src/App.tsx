@@ -514,6 +514,8 @@ const App = () => {
     let userInfo: any = undefined;
     let reservationDate = '';
     let reservationStartTime = '';
+    let parkingSlot: string | undefined = undefined;
+    let parkingLotName: string | undefined = undefined;
 
     if (gateMode === 'ENTRY') {
       if (isQrScan && inputClean) {
@@ -538,6 +540,8 @@ const App = () => {
 
             entryPlate = session.licensePlate;
             ticketType = `Đặt trước • Slot ${session.parkingSlot} (${session.parkingLotName})`;
+            parkingSlot = session.parkingSlot;
+            parkingLotName = session.parkingLotName;
             
             if (user) {
               owner = `${user.lastName || ''} ${user.firstName || ''}`.trim() || 'XE ĐẶT TRƯỚC (RESERVATION)';
@@ -566,7 +570,9 @@ const App = () => {
         registeredPhoto: livePhoto,
         type: 'ENTRY',
         qrCode: foundSessionCode,
-        userInfo: userInfo
+        userInfo: userInfo,
+        parkingSlot: parkingSlot,
+        parkingLotName: parkingLotName
       };
       setScannedResult(payload);
       setGateState('COMPARING');
@@ -603,6 +609,8 @@ const App = () => {
                       owner = `${checkData.user.lastName || ''} ${checkData.user.firstName || ''}`.trim();
                       userInfo = checkData.user;
                       ticketLabel = `Đặt trước • Slot ${session.parkingSlot} (${session.parkingLotName})`;
+                      parkingSlot = session.parkingSlot;
+                      parkingLotName = session.parkingLotName;
                     }
                   }
                 } catch {}
@@ -637,6 +645,8 @@ const App = () => {
               entryPlate = session.licensePlate;
               computedFee = data.fee;
               ticketLabel = session.userId ? `Đặt trước • Slot ${session.parkingSlot} (${session.parkingLotName})` : 'Vé vãng lai (Máy tự động)';
+              parkingSlot = session.parkingSlot;
+              parkingLotName = session.parkingLotName;
               foundSessionCode = session.qrCode;
               reservationDate = session.reservationDate || '';
               reservationStartTime = session.reservationStartTime || '';
@@ -675,7 +685,9 @@ const App = () => {
         userInfo: userInfo,
         entryTime: entryTimeStr,         // Injected entryTime!
         reservationDate: reservationDate,
-        reservationStartTime: reservationStartTime
+        reservationStartTime: reservationStartTime,
+        parkingSlot: parkingSlot,
+        parkingLotName: parkingLotName
       };
 
       setScannedResult(payload);
@@ -1135,9 +1147,23 @@ const App = () => {
                           </span>
                         </div>
 
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                          <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider block">LOẠI VÉ KHỞI TẠO</span>
-                          <span className="text-xs font-black text-slate-700 mt-1 block uppercase">{scannedResult.ticketType}</span>
+                        <div className="flex gap-3">
+                          <div className="flex-1 bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-center">
+                            <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider block">LOẠI VÉ KHỞI TẠO</span>
+                            <span className="text-xs font-black text-slate-700 mt-1 block uppercase truncate" title={scannedResult.ticketType.split(' • ')[0]}>{scannedResult.ticketType.split(' • ')[0]}</span>
+                          </div>
+                          {(scannedResult.parkingLotName || scannedResult.parkingSlot) && (
+                            <div className="flex-[2] bg-blue-50/80 p-4 rounded-xl border border-blue-200 flex items-center justify-between">
+                              <div className="flex flex-col min-w-0 flex-1 pr-3">
+                                <span className="text-[9px] text-blue-500 font-extrabold uppercase tracking-wider block">Tòa nhà / Bãi đỗ</span>
+                                <span className="text-[13px] font-black text-blue-900 mt-1 block uppercase truncate" title={scannedResult.parkingLotName}>{scannedResult.parkingLotName}</span>
+                              </div>
+                              <div className="flex flex-col items-end shrink-0">
+                                <span className="text-[9px] text-blue-500 font-extrabold uppercase tracking-wider block">Vị trí</span>
+                                <span className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-black shadow-sm mt-1 whitespace-nowrap">Slot {scannedResult.parkingSlot}</span>
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         {scannedResult.userInfo && (
@@ -1266,11 +1292,27 @@ const App = () => {
                           </div>
                         </div>
 
+                        {/* Location Details for Reservation */}
+                        {(scannedResult.parkingLotName || scannedResult.parkingSlot) && (
+                          <div className="bg-blue-50/80 p-3 rounded-xl border border-blue-200 flex items-center justify-between mb-2">
+                            <div className="flex flex-col min-w-0 flex-1 pr-3">
+                                <span className="text-[9px] text-blue-500 font-extrabold uppercase tracking-wider block">Tòa nhà / Bãi đỗ</span>
+                                <span className="text-[13px] font-black text-blue-900 mt-0.5 truncate" title={scannedResult.parkingLotName}>{scannedResult.parkingLotName}</span>
+                            </div>
+                            <div className="flex flex-col items-end shrink-0">
+                                <span className="text-[9px] text-blue-500 font-extrabold uppercase tracking-wider block">Vị trí</span>
+                                <div className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-black mt-0.5 shadow-sm whitespace-nowrap">
+                                    Slot {scannedResult.parkingSlot}
+                                </div>
+                            </div>
+                          </div>
+                        )}
+
                         {/* Ticket details & fee */}
                         <div className="grid grid-cols-4 gap-2.5">
                           <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-left">
                             <span className="text-[8px] text-slate-400 font-extrabold uppercase tracking-wider block">Loại vé</span>
-                            <span className="text-[10px] font-bold text-blue-700 block mt-1 truncate" title={scannedResult.ticketType}>{scannedResult.ticketType}</span>
+                            <span className="text-[10px] font-bold text-blue-700 block mt-1 truncate" title={scannedResult.ticketType.split(' • ')[0]}>{scannedResult.ticketType.split(' • ')[0]}</span>
                           </div>
 
                           <div className="bg-slate-50 p-2 rounded-xl border border-slate-200 text-center flex flex-col justify-center">

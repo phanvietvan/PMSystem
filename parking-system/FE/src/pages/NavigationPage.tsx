@@ -47,7 +47,7 @@ const NavigationPage = () => {
   const pathD = `M 40 250 L ${targetCoords.centerX} 250 L ${targetCoords.centerX} ${targetCoords.isRow1 ? 160 : 340}`;
 
   return (
-    <div className="min-h-screen bg-mesh-gradient text-[#191c1e] selection:bg-blue-500/10" style={{ fontFamily: "'Manrope', sans-serif" }}>
+    <div className="min-h-screen bg-mesh-gradient text-[#191c1e] selection:bg-blue-500/10">
       <Navbar />
 
       <main className="max-w-4xl mx-auto px-6 pt-32 pb-20 relative z-10">
@@ -177,16 +177,7 @@ const NavigationPage = () => {
                   </g>
                 </svg>
 
-                {/* Current Location Badge */}
-                <div className="absolute bottom-6 left-6 bg-white px-4 py-3 rounded-2xl border border-slate-200 shadow-lg flex items-center gap-3">
-                   <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
-                     <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></div>
-                   </div>
-                   <div>
-                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Vị trí hiện tại</p>
-                     <p className="text-xs font-bold text-slate-800">Lối vào Tầng {selectedLevel}</p>
-                   </div>
-                </div>
+
               </div>
             </div>
 

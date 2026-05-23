@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { User, LogOut, ChevronDown, Car } from 'lucide-react';
 import BrandLogo from '../brand/BrandLogo';
 import api from '../../services/api';
-import { isAdmin, syncCurrentUserFromApi } from '../../utils/auth';
+import { isAdmin, syncCurrentUserFromApi, clearSession } from '../../utils/auth';
 
 const Navbar = () => {
   const location = useLocation();
@@ -39,10 +39,9 @@ const Navbar = () => {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('user');
+    clearSession();
     setUser(null);
     navigate('/');
-    window.dispatchEvent(new Event('user-login'));
   };
 
   const navLinks = [

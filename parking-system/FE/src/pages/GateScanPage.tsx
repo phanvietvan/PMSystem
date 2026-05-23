@@ -21,17 +21,31 @@ const GateScanPage = () => {
         // Real gate scan for reservation QR!
         await api.post('/ParkingSessions/gate-scan', { qrCode: activeQr });
       } else {
+        const storedParking = localStorage.getItem('selectedParking');
+        let selectedParkingName = 'Landmark 81 - Bãi đỗ A1';
+        if (storedParking) {
+          try {
+            selectedParkingName = JSON.parse(storedParking).name;
+          } catch (e) {}
+        }
+
+        const storedSlot = localStorage.getItem('selectedSlot') || 'A8';
+        const storedVehicleType = localStorage.getItem('reservationVehicleType') || 'car';
+        const storedLicensePlate = localStorage.getItem('reservationLicensePlate') || '51G-888.88';
+
         // Direct gate check-in for walk-in car!
         const response = await api.post('/ParkingSessions/checkin', {
-          licensePlate: '51G-888.88',
+          licensePlate: storedLicensePlate,
           entryPhoto: '',
-          parkingLotName: 'Landmark 81 - Bãi đỗ A1',
-          vehicleType: 'car',
-          parkingSlot: 'A8' // Auto assign A8 for walk-in
+          parkingLotName: selectedParkingName,
+          vehicleType: storedVehicleType,
+          parkingSlot: storedSlot
         });
-        if (response.data && response.data.qrCode) {
+        
+        const returnedQr = response.data.qrCode || response.data.QrCode;
+        if (returnedQr) {
           const { addActiveQr } = await import('../utils/auth');
-          addActiveQr(response.data.qrCode);
+          addActiveQr(returnedQr);
         }
       }
       
@@ -132,7 +146,17 @@ const GateScanPage = () => {
                 </div>
                 <div>
                   <h2 className="text-4xl font-display font-black text-emerald-600 mb-2 tracking-tighter">Barrier Đã Mở</h2>
-                  <p className="text-on-surface-variant text-sm font-bold">Chào mừng bạn đến với PM System Landmark 81</p>
+                  <p className="text-on-surface-variant text-sm font-bold">
+                    Chào mừng bạn đến với {(() => {
+                      const storedParking = localStorage.getItem('selectedParking');
+                      if (storedParking) {
+                        try {
+                          return JSON.parse(storedParking).name;
+                        } catch (e) {}
+                      }
+                      return 'PM System Landmark 81';
+                    })()}
+                  </p>
                 </div>
                 <div className="bg-surface-container rounded-2xl p-6 border border-outline-variant/10 text-left space-y-3">
                    <div className="flex justify-between items-center">

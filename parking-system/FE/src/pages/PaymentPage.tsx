@@ -11,22 +11,27 @@ const PaymentPage = () => {
   const location = useLocation();
   const mode = location.state?.mode || 'reserve';
 
-  const selectedSlot = localStorage.getItem('selectedSlot') || 'A3';
-  const [licensePlate, setLicensePlate] = useState('51F-123.45');
+  const [licensePlate, setLicensePlate] = useState(() => {
+    const reservationPlate = localStorage.getItem('reservationLicensePlate');
+    return reservationPlate ? parseLicensePlate(reservationPlate) : '51F-123.45';
+  });
+  const [checkoutSession, setCheckoutSession] = useState<any>(null);
   const [price, setPrice] = useState(50000);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Sync user plate if logged in
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        const user = JSON.parse(storedUser);
-        if (user.licensePlate) {
-          setLicensePlate(parseLicensePlate(user.licensePlate));
+    // Sync user plate if logged in and no reservation plate exists
+    if (!localStorage.getItem('reservationLicensePlate')) {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        try {
+          const user = JSON.parse(storedUser);
+          if (user.licensePlate) {
+            setLicensePlate(parseLicensePlate(user.licensePlate));
+          }
+        } catch (e) {
+          console.error(e);
         }
-      } catch (e) {
-        console.error(e);
       }
     }
 
@@ -39,6 +44,11 @@ const PaymentPage = () => {
             const response = await api.get(`/ParkingSessions/verify/${sessionQr}`);
             if (response.data && response.data.fee !== undefined) {
               setPrice(response.data.fee);
+              if (response.data.session) {
+                setCheckoutSession(response.data.session);
+                const sPlate = response.data.session.licensePlate || response.data.session.LicensePlate;
+                if (sPlate) setLicensePlate(sPlate);
+              }
             } else {
               setPrice(10000);
             }
@@ -119,8 +129,12 @@ const PaymentPage = () => {
         localStorage.removeItem('reservationStartTime');
         localStorage.removeItem('reservationVehicleType');
         localStorage.removeItem('reservationLicensePlate');
-      } catch (e) {
+      } catch (e: any) {
         console.error('Error creating database active session on reservation', e);
+        const errMsg = e.response?.data?.message || 'Vị trí này hiện đã bị khóa hoặc đang bận. Vui lòng chọn vị trí khác!';
+        alert(errMsg);
+        setLoading(false);
+        return; // Prevent navigating to success page
       }
     }
     setLoading(false);
@@ -134,11 +148,21 @@ const PaymentPage = () => {
   } catch(e) {}
 
   const orderSummary = {
-    date: localStorage.getItem('reservationDate') ? new Date(localStorage.getItem('reservationDate')!).toLocaleDateString('vi-VN') : new Date().toLocaleDateString('vi-VN'),
-    time: localStorage.getItem('reservationStartTime') || new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-    slot: selectedSlot,
-    parkingName: parkingInfo.name,
-    plate: licensePlate,
+    date: mode === 'checkout' && checkoutSession 
+      ? new Date(checkoutSession.entryTime || checkoutSession.EntryTime).toLocaleDateString('vi-VN') 
+      : (localStorage.getItem('reservationDate') ? new Date(localStorage.getItem('reservationDate')!).toLocaleDateString('vi-VN') : new Date().toLocaleDateString('vi-VN')),
+    time: mode === 'checkout' && checkoutSession 
+      ? new Date(checkoutSession.entryTime || checkoutSession.EntryTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) 
+      : (localStorage.getItem('reservationStartTime') || new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })),
+    slot: mode === 'checkout' && checkoutSession 
+      ? (checkoutSession.parkingSlot || checkoutSession.ParkingSlot) 
+      : (localStorage.getItem('selectedSlot') || 'A3'),
+    parkingName: mode === 'checkout' && checkoutSession 
+      ? (checkoutSession.parkingLotName || checkoutSession.ParkingLotName) 
+      : parkingInfo.name,
+    plate: mode === 'checkout' && checkoutSession 
+      ? (checkoutSession.licensePlate || checkoutSession.LicensePlate) 
+      : licensePlate,
     price: price
   };
 
