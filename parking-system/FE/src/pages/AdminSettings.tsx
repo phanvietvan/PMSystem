@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Car,
   Bell,
@@ -11,7 +12,61 @@ import { motion } from 'framer-motion';
 import AdminLayout from '../components/admin/AdminLayout';
 
 const AdminSettings = () => {
-  const [activeTab, setActiveTab] = useState('general');
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'general');
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab) setActiveTab(tab);
+  }, [searchParams]);
+  const [showToast, setShowToast] = useState(false);
+
+  // Pricing State & Handlers
+  const [prices, setPrices] = useState(() => {
+    const saved = localStorage.getItem('parking_pricing');
+    return saved ? JSON.parse(saved) : [
+      { type: 'Xe máy', price: '5.000', sub: 'VNĐ / Lượt' },
+      { type: 'Ô tô 4-7 chỗ', price: '30.000', sub: 'VNĐ / Giờ' },
+      { type: 'SUV / Bán tải', price: '50.000', sub: 'VNĐ / Giờ' }
+    ];
+  });
+
+  const handlePriceChange = (index: number, newPrice: string) => {
+    const updated = [...prices];
+    updated[index].price = newPrice;
+    setPrices(updated);
+  };
+
+  const handleSavePricing = () => {
+    localStorage.setItem('parking_pricing', JSON.stringify(prices));
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
+  };
+
+  // Regulations State & Handlers
+  const [regulations, setRegulations] = useState(() => {
+    const saved = localStorage.getItem('parking_regulations');
+    return saved ? JSON.parse(saved) : [
+      'Vui lòng đỗ xe đúng vị trí ô đỗ đã đặt trước hoặc quét mã tại chỗ.',
+      'Tốc độ di chuyển tối đa trong toàn bộ khuôn viên bãi đỗ xe là 10km/h.',
+      'Tuân thủ tuyệt đối chỉ dẫn của nhân viên và biển báo thông minh.',
+      'Thực hiện thanh toán trực tuyến qua ứng dụng trước khi ra cổng chắn.',
+      'Không chứa các chất dễ cháy nổ, vũ khí hoặc hàng cấm trong phương tiện.',
+      'Tự bảo quản tài sản cá nhân có giá trị. Ban quản lý không chịu trách nhiệm mất mát trong xe.'
+    ];
+  });
+
+  const handleRegulationChange = (index: number, newValue: string) => {
+    const updated = [...regulations];
+    updated[index] = newValue;
+    setRegulations(updated);
+  };
+
+  const handleSaveRegulations = () => {
+    localStorage.setItem('parking_regulations', JSON.stringify(regulations));
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
+  };
 
   const tabs = [
     { id: 'general', label: 'Cài đặt chung', icon: Globe },
@@ -122,23 +177,63 @@ const AdminSettings = () => {
                    {activeTab === 'parking' && (
                       <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8">
                          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8">
-                            <h3 className="text-lg font-black text-slate-900 tracking-tight mb-8">Chính sách Giá gửi xe</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                               {[
-                                 { type: 'Xe máy', price: '5.000', sub: 'VNĐ / Lượt' },
-                                 { type: 'Ô tô 4-7 chỗ', price: '30.000', sub: 'VNĐ / Giờ' },
-                                 { type: 'SUV / Bán tải', price: '50.000', sub: 'VNĐ / Giờ' },
-                               ].map((p, i) => (
-                                 <div key={i} className="p-6 bg-slate-50 rounded-3xl border border-slate-200 group hover:border-blue-600 transition-all cursor-pointer">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">{p.type}</p>
-                                    <div className="flex items-baseline gap-2">
-                                       <input type="text" className="w-full bg-transparent text-2xl font-black text-blue-600 border-none p-0 focus:ring-0" defaultValue={p.price} />
-                                    </div>
-                                    <p className="text-[10px] font-bold text-slate-400 mt-1">{p.sub}</p>
-                                 </div>
-                               ))}
-                            </div>
-                         </div>
+                             <h3 className="text-lg font-black text-slate-900 tracking-tight mb-8">Chính sách Giá gửi xe</h3>
+                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {prices.map((p: any, i: number) => (
+                                  <div key={i} className="p-6 bg-slate-50 rounded-3xl border border-slate-200 group focus-within:border-blue-600 hover:border-blue-600 transition-all cursor-pointer">
+                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">{p.type}</p>
+                                     <div className="flex items-baseline gap-2">
+                                        <input 
+                                          type="text" 
+                                          className="w-full bg-transparent text-2xl font-black text-blue-600 border-none p-0 focus:ring-0 outline-none" 
+                                          value={p.price} 
+                                          onChange={(e) => handlePriceChange(i, e.target.value)}
+                                        />
+                                     </div>
+                                     <p className="text-[10px] font-bold text-slate-400 mt-1">{p.sub}</p>
+                                  </div>
+                                ))}
+                             </div>
+                             
+                             <div className="mt-6 flex justify-end">
+                                <button
+                                  onClick={handleSavePricing}
+                                  className="bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-extrabold py-3.5 px-8 rounded-xl text-[10px] uppercase tracking-wider transition-all shadow-lg shadow-blue-500/10 cursor-pointer flex items-center gap-1.5"
+                                >
+                                   <span className="material-symbols-outlined text-[14px]">save</span>
+                                   Lưu chính sách giá
+                                </button>
+                             </div>
+                          </div>
+
+                          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8">
+                             <h3 className="text-lg font-black text-slate-900 tracking-tight mb-8">Quy định & Nội quy Bãi xe</h3>
+                             <div className="space-y-4">
+                                {regulations.map((r: string, i: number) => (
+                                  <div key={i} className="flex gap-4 items-center bg-slate-50 p-5 rounded-2xl border border-slate-100 focus-within:border-blue-500 hover:border-blue-500 transition-all">
+                                     <span className="w-8 h-8 rounded-xl bg-blue-50 border border-blue-100 text-blue-600 font-black text-xs flex items-center justify-center shrink-0 shadow-sm">{i + 1}</span>
+                                     <div className="flex-1">
+                                        <input 
+                                          type="text" 
+                                          className="w-full bg-transparent font-bold text-slate-700 border-none p-0 focus:ring-0 outline-none text-sm" 
+                                          value={r} 
+                                          onChange={(e) => handleRegulationChange(i, e.target.value)}
+                                        />
+                                     </div>
+                                  </div>
+                                ))}
+                             </div>
+                             
+                             <div className="mt-6 flex justify-end">
+                                <button
+                                  onClick={handleSaveRegulations}
+                                  className="bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-extrabold py-3.5 px-8 rounded-xl text-[10px] uppercase tracking-wider transition-all shadow-lg shadow-blue-500/10 cursor-pointer flex items-center gap-1.5"
+                                >
+                                   <span className="material-symbols-outlined text-[14px]">save</span>
+                                   Lưu quy định
+                                </button>
+                             </div>
+                          </div>
 
                          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8">
                             <h3 className="text-lg font-black text-slate-900 tracking-tight mb-8">Vận hành & Đặt chỗ</h3>
@@ -178,7 +273,23 @@ const AdminSettings = () => {
              </div>
           </div>
         </div>
-    </AdminLayout>
+      {showToast && (
+        <motion.div
+          initial={{ opacity: 0, y: 50, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 20, scale: 0.95 }}
+          className="fixed bottom-10 right-10 z-[9999] bg-slate-900 border border-slate-800 text-white rounded-3xl p-5 shadow-2xl flex items-center gap-4 max-w-sm font-['Inter']"
+        >
+          <div className="w-10 h-10 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-2xl flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-xl">check_circle</span>
+          </div>
+          <div>
+            <p className="text-sm font-black tracking-tight mb-0.5">Cập nhật thành công</p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Thông tin đã được cập nhật real-time</p>
+          </div>
+        </motion.div>
+      )}
+     </AdminLayout>
   );
 };
 

@@ -6,6 +6,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import AdminLayout from '../components/admin/AdminLayout';
 
 const AdminDashboard = () => {
@@ -28,9 +29,18 @@ const AdminDashboard = () => {
   return (
     <AdminLayout>
         <div className="p-10 space-y-10">
-          <div>
-            <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Tổng quan hệ thống</h2>
-            <p className="text-sm text-slate-500 font-medium">Chào mừng trở lại. Dưới đây là hiệu suất vận hành bãi đỗ xe của bạn hôm nay.</p>
+          <div className="flex justify-between items-end">
+            <div>
+              <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Tổng quan hệ thống</h2>
+              <p className="text-sm text-slate-500 font-medium">Chào mừng trở lại. Dưới đây là hiệu suất vận hành bãi đỗ xe của bạn hôm nay.</p>
+            </div>
+            <Link 
+              to="/admin/settings?tab=parking"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-black py-3 px-6 rounded-2xl text-[11px] uppercase tracking-widest transition-all shadow-xl shadow-blue-500/20 flex items-center gap-2"
+            >
+              <span className="material-symbols-outlined text-[16px]">edit_note</span>
+              CHỈNH SỬA BẢNG GIÁ
+            </Link>
           </div>
 
           {/* Metrics Bento Grid */}
