@@ -46,6 +46,7 @@ interface SessionData {
   level: string;
   seconds: number;
   entryTime: string | null;
+  isCheckedIn: boolean;
 }
 
 const ActiveSessionPage = () => {
@@ -73,7 +74,8 @@ const ActiveSessionPage = () => {
               slot: s.parkingSlot || 'A3',
               level: localStorage.getItem('selectedLevel') || '1',
               seconds: 0,
-              entryTime: s.entryTime || s.createdAt || null,
+              entryTime: s.entryTime || null,
+              isCheckedIn: s.isCheckedIn || false,
             }]);
             setLoading(false);
             return;
@@ -109,7 +111,8 @@ const ActiveSessionPage = () => {
               slot: s.parkingSlot || 'A3',
               level: localStorage.getItem('selectedLevel') || '1',
               seconds: 0,
-              entryTime: s.entryTime || s.createdAt || null,
+              entryTime: s.entryTime || null,
+              isCheckedIn: s.isCheckedIn || false,
             });
           } else {
             removeActiveQr(qr);
@@ -132,13 +135,13 @@ const ActiveSessionPage = () => {
     fetchAllActiveSessions();
   }, []);
 
-  // Timer: update seconds every second based on each session's entryTime
+  // Timer: update seconds every second based on each session's entryTime (only if checked in!)
   useEffect(() => {
     if (sessions.length === 0) return;
     const tick = () => {
       setSessions(prev =>
         prev.map(s => {
-          if (!s.entryTime) return { ...s, seconds: s.seconds + 1 };
+          if (!s.isCheckedIn || !s.entryTime) return { ...s, seconds: 0 };
           const diffMs = Date.now() - new Date(s.entryTime).getTime();
           return { ...s, seconds: Math.max(0, Math.floor(diffMs / 1000)) };
         })
@@ -241,10 +244,17 @@ const ActiveSessionPage = () => {
             className="bg-surface-container-lowest border border-outline-variant/30 rounded-[3rem] p-10 shadow-xl shadow-primary/5 relative overflow-hidden"
           >
             <div className="absolute top-0 right-0 p-8">
-               <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Đang giám sát</span>
-               </div>
+               {session.isCheckedIn ? (
+                 <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100 animate-fade-in">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Đang đỗ xe</span>
+                 </div>
+               ) : (
+                 <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100 animate-fade-in">
+                    <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping"></span>
+                    <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Đã đặt - Chờ vào bốt</span>
+                 </div>
+               )}
             </div>
 
             <div className="space-y-10">
@@ -256,10 +266,17 @@ const ActiveSessionPage = () => {
                   </span>
                 </div>
                 <div>
-                  <p className="text-[10px] font-black text-outline uppercase tracking-widest mb-1">Thời gian đã đỗ</p>
+                  <p className="text-[10px] font-black text-outline uppercase tracking-widest mb-1">
+                    {session.isCheckedIn ? 'Thời gian đã đỗ' : 'Thời gian đếm ngược'}
+                  </p>
                   <h1 className="text-6xl font-display font-black text-on-surface tracking-tighter tabular-nums">
                     {formatTime(session.seconds)}
                   </h1>
+                  {!session.isCheckedIn && (
+                    <p className="text-[10px] font-bold text-blue-600 mt-2 animate-pulse">
+                      ⏳ Thời gian đỗ xe sẽ chỉ bắt đầu tính khi bạn quét mã QR đi qua bốt cổng vào!
+                    </p>
+                  )}
                 </div>
               </div>
 
