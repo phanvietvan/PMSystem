@@ -12,7 +12,6 @@ const PaymentPage = () => {
   const mode = location.state?.mode || 'reserve';
 
   const selectedSlot = localStorage.getItem('selectedSlot') || 'A3';
-  const selectedLevel = localStorage.getItem('selectedLevel') || '3';
   const [licensePlate, setLicensePlate] = useState('51F-123.45');
   const [price, setPrice] = useState(50000);
   const [loading, setLoading] = useState(false);
