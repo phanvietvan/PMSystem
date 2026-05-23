@@ -1,3 +1,4 @@
+using Repositories.Enums;
 using System;
 
 namespace Repositories.Entities;
@@ -13,7 +14,8 @@ public class ParkingSession : BaseEntity
     public string? ExitPhoto { get; set; }
     public DateTime EntryTime { get; set; } = DateTime.UtcNow;
     public DateTime? ExitTime { get; set; }
-    public string Status { get; set; } = "Active"; // "Active" or "Completed"
+    public ParkingSessionStatus Status { get; set; }
+    = ParkingSessionStatus.Active;
     public string? ExitLicensePlate { get; set; }
     public bool? IsPlateMatched { get; set; }
     public bool? IsCheckedIn { get; set; } = false;

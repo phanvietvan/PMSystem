@@ -1,12 +1,14 @@
-using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using PBMSystem.API.Extensions;
 using PBMSystem.API.Middleware;
 using Repositories;
 using Repositories.Configuration;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 using Services;
+using Services.Implementations;
+using Services.Interfaces;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,7 +28,21 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // ── Repository + Services Layers ─────────────────────────────────────────────
 builder.Services.AddRepositories();
 builder.Services.AddPBMServices();
+builder.Services.AddScoped<
+    IGateService,
+    GateService>();
 
+builder.Services.AddScoped<
+    INavigationService,
+    NavigationService>();
+
+builder.Services.AddScoped<
+    ISessionService,
+    SessionService>();
+
+builder.Services.AddScoped<
+    IPaymentService,
+    PaymentService>();
 // ── JWT Authentication ────────────────────────────────────────────────────────
 var jwtSettings = builder.Configuration
     .GetSection("JwtSettings")

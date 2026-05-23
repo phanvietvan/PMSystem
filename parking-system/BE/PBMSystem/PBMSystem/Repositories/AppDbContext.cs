@@ -20,7 +20,9 @@ public class AppDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<ParkingSession> ParkingSessions => Set<ParkingSession>();
-
+    public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<ParkingSlot> ParkingSlots => Set<ParkingSlot>();
+    public DbSet<Gate> Gates => Set<Gate>();
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -28,7 +30,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<User>().ToCollection("Users");
         modelBuilder.Entity<RefreshToken>().ToCollection("RefreshTokens");
         modelBuilder.Entity<ParkingSession>().ToCollection("ParkingSessions");
-
+        modelBuilder.Entity<Payment>().ToCollection("Payments");
+        modelBuilder.Entity<ParkingSlot>().ToCollection("ParkingSlots");
+        modelBuilder.Entity<Gate>().ToCollection("Gates");
         // Global query filters for soft-delete
         modelBuilder.Entity<User>().HasQueryFilter(u => !u.IsDeleted);
         modelBuilder.Entity<ParkingSession>().HasQueryFilter(ps => !ps.IsDeleted);

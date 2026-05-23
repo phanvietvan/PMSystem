@@ -1,12 +1,13 @@
-using System;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PBMSystem.API.Extensions;
 using Repositories;
-using Repositories.Entities;
 using Repositories.DTOs;
+using Repositories.Entities;
+using Repositories.Enums;
+using System;
+using System.Threading.Tasks;
 
 namespace PBMSystem.API.Controllers;
 
@@ -44,7 +45,7 @@ public class ParkingSessionsController : ControllerBase
             {
                 // Prevent duplicate active sessions for the same registered user
                 var existingActive = await _context.ParkingSessions
-                    .FirstOrDefaultAsync(ps => ps.UserId == userId && ps.Status == "Active");
+                    .FirstOrDefaultAsync(ps => ps.UserId == userId && ps.Status == ParkingSessionStatus.Active);
                 if (existingActive != null)
                     return BadRequest(new { message = "Bạn đang có phiên đỗ xe đang hoạt động. Vui lòng thanh toán phiên hiện tại trước khi đặt chỗ mới." });
             }
@@ -61,7 +62,7 @@ public class ParkingSessionsController : ControllerBase
             QrCode = qrCode,
             EntryPhoto = request.EntryPhoto,
             EntryTime = DateTime.UtcNow,
-            Status = "Active",
+            Status = ParkingSessionStatus.Active,
             CreatedAt = DateTime.UtcNow,
             ParkingLotName = request.ParkingLotName,
             VehicleType = request.VehicleType,
@@ -97,7 +98,7 @@ public class ParkingSessionsController : ControllerBase
         var userId = User.GetUserId();
 
         var session = await _context.ParkingSessions
-            .Where(ps => ps.UserId == userId && ps.Status == "Active")
+            .Where(ps => ps.UserId == userId && ps.Status == ParkingSessionStatus.Active)
             .OrderByDescending(ps => ps.EntryTime)
             .FirstOrDefaultAsync();
 
@@ -115,7 +116,7 @@ public class ParkingSessionsController : ControllerBase
     public async Task<IActionResult> Verify(string qrCode)
     {
         var session = await _context.ParkingSessions
-            .FirstOrDefaultAsync(ps => ps.QrCode == qrCode && ps.Status == "Active");
+            .FirstOrDefaultAsync(ps => ps.QrCode == qrCode && ps.Status == ParkingSessionStatus.Active);
 
         if (session == null)
             return NotFound(new { message = "Không tìm thấy phiên gửi xe hoặc mã QR không hợp lệ/đã thanh toán." });
@@ -166,7 +167,7 @@ public class ParkingSessionsController : ControllerBase
             return BadRequest(new { message = "Mã QR không được trống." });
 
         var session = await _context.ParkingSessions
-            .FirstOrDefaultAsync(ps => ps.QrCode == request.QrCode && ps.Status == "Active");
+            .FirstOrDefaultAsync(ps => ps.QrCode == request.QrCode && ps.Status == ParkingSessionStatus.Active);
 
         if (session == null)
             return NotFound(new { message = "Phiên gửi xe không hoạt động hoặc không tìm thấy mã QR." });
@@ -177,7 +178,7 @@ public class ParkingSessionsController : ControllerBase
         session.ExitLicensePlate = request.ExitLicensePlate.Trim().ToUpper();
         session.ExitPhoto = request.ExitPhoto;
         session.ExitTime = DateTime.UtcNow;
-        session.Status = "Completed";
+        session.Status = ParkingSessionStatus.Completed;
         session.IsPlateMatched = entryPlateNormalized == exitPlateNormalized;
         session.UpdatedAt = DateTime.UtcNow;
 
@@ -203,7 +204,7 @@ public class ParkingSessionsController : ControllerBase
     public async Task<IActionResult> GetActivePlates()
     {
         var plates = await _context.ParkingSessions
-            .Where(ps => ps.Status == "Active")
+            .Where(ps => ps.Status == ParkingSessionStatus.Active)
             .Select(ps => ps.LicensePlate)
             .Distinct()
             .ToListAsync();
@@ -217,7 +218,7 @@ public class ParkingSessionsController : ControllerBase
     public async Task<IActionResult> GetActiveSlots()
     {
         var slots = await _context.ParkingSessions
-            .Where(ps => ps.Status == "Active" && !string.IsNullOrEmpty(ps.ParkingSlot))
+            .Where(ps => ps.Status == ParkingSessionStatus.Active && !string.IsNullOrEmpty(ps.ParkingSlot))
             .Select(ps => ps.ParkingSlot)
             .Distinct()
             .ToListAsync();
@@ -238,7 +239,7 @@ public class ParkingSessionsController : ControllerBase
             .ToList();
 
         var activeSessions = await _context.ParkingSessions
-            .Where(ps => ps.Status == "Active")
+            .Where(ps => ps.Status == ParkingSessionStatus.Active)
             .ToListAsync();
 
         var matched = activeSessions
@@ -260,7 +261,7 @@ public class ParkingSessionsController : ControllerBase
 
         // Get all active sessions for this parking lot
         var activeSessions = await _context.ParkingSessions
-            .Where(ps => ps.Status == "Active" && ps.ParkingLotName == parkingLotName && !string.IsNullOrEmpty(ps.ParkingSlot))
+            .Where(ps => ps.Status == ParkingSessionStatus.Active && ps.ParkingLotName == parkingLotName && !string.IsNullOrEmpty(ps.ParkingSlot))
             .ToListAsync();
 
         // Map active slot status: Key is Slot ID, Value is "occupied" or "reserved"
@@ -281,7 +282,7 @@ public class ParkingSessionsController : ControllerBase
             return BadRequest(new { message = "Mã QR không được trống." });
 
         var session = await _context.ParkingSessions
-            .FirstOrDefaultAsync(ps => ps.QrCode == request.QrCode && ps.Status == "Active");
+            .FirstOrDefaultAsync(ps => ps.QrCode == request.QrCode && ps.Status == ParkingSessionStatus.Active);
 
         if (session == null)
             return NotFound(new { message = "Không tìm thấy phiên gửi xe hoặc mã QR không hợp lệ/đã thanh toán." });
