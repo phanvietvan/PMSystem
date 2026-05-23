@@ -5,7 +5,7 @@ import ParkingMap from '../components/navigation/ParkingMap';
 import { ArrowRight, Calendar, Clock, MapPin, Info, Map, Layers, Compass, Cpu, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
-import { hasActiveSessions, addActiveQr } from '../utils/auth';
+import { addActiveQr } from '../utils/auth';
 
 const ReservationPage = () => {
   const navigate = useNavigate();
