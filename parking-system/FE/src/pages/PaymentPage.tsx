@@ -59,10 +59,18 @@ const PaymentPage = () => {
 
   const handleConfirmPayment = async () => {
     setLoading(true);
+<<<<<<< HEAD
+=======
+    let qrCode = '';
+>>>>>>> FE_Main
     if (mode === 'checkout') {
       const sessionQrs = getActiveQrs();
       const sessionQr = sessionQrs.length > 0 ? sessionQrs[sessionQrs.length - 1] : null;
       if (sessionQr) {
+<<<<<<< HEAD
+=======
+        qrCode = sessionQr;
+>>>>>>> FE_Main
         try {
           // Perform backend checkout
           await api.post('/ParkingSessions/checkout', {
@@ -92,6 +100,17 @@ const PaymentPage = () => {
         const reservationLicensePlate = parseLicensePlate(localStorage.getItem('reservationLicensePlate') || licensePlate);
         const selectedSlot = localStorage.getItem('selectedSlot') || 'A3';
 
+<<<<<<< HEAD
+=======
+        const storedUser = localStorage.getItem('user');
+        let loggedInUserId = null;
+        if (storedUser) {
+          try {
+            loggedInUserId = JSON.parse(storedUser).id;
+          } catch (e) {}
+        }
+
+>>>>>>> FE_Main
         const response = await api.post('/ParkingSessions/checkin', {
           licensePlate: reservationLicensePlate,
           entryPhoto: '',
@@ -99,9 +118,17 @@ const PaymentPage = () => {
           vehicleType: reservationVehicleType,
           reservationDate: reservationDate,
           reservationStartTime: reservationStartTime,
+<<<<<<< HEAD
           parkingSlot: selectedSlot
         });
         if (response.data && response.data.qrCode) {
+=======
+          parkingSlot: selectedSlot,
+          userId: loggedInUserId
+        });
+        if (response.data && response.data.qrCode) {
+          qrCode = response.data.qrCode;
+>>>>>>> FE_Main
           addActiveQr(response.data.qrCode);
         }
         localStorage.removeItem('reservationDate');
@@ -113,7 +140,11 @@ const PaymentPage = () => {
       }
     }
     setLoading(false);
+<<<<<<< HEAD
     navigate('/success', { state: { mode } });
+=======
+    navigate('/success', { state: { mode, qrCode } });
+>>>>>>> FE_Main
   };
 
   const orderSummary = {

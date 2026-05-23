@@ -3,13 +3,12 @@ node_modules/
 dist/
 build/
 .vscode/
+
+# Logs
 *.log
 
 # Compiled class file
 *.class
-
-# Log file
-*.log
 
 # BlueJ files
 *.ctxt
@@ -17,7 +16,7 @@ build/
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
 
-# Package Files #
+# Package files
 *.jar
 *.war
 *.nar
@@ -26,8 +25,18 @@ build/
 *.tar.gz
 *.rar
 
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
+# Java crash logs
 hs_err_pid*
 replay_pid*
 
-/.vs
+# Visual Studio
+.vs/
+
+# .NET
+bin/
+obj/
+
+# User/cache files
+*.user
+*.suo
+*.cache

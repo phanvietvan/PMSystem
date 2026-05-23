@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { MapPin, Navigation, Info, QrCode, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { MapPin, Navigation, Info, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 
@@ -193,7 +193,11 @@ const NavigationPage = () => {
             <div className="bg-blue-50/50 p-5 rounded-2xl border border-blue-100 flex items-start gap-4">
               <Info className="w-5 h-5 text-blue-600 mt-1" />
               <p className="text-xs text-slate-600 font-medium leading-relaxed">
+<<<<<<< HEAD
                 Vui lòng đỗ xe đúng ô <strong className="text-blue-600">{selectedSlot}</strong>. Sau khi đỗ, hãy quét mã QR được dán trực tiếp tại ô này để kích hoạt hệ thống giám sát an ninh AI bảo vệ xe của bạn.
+=======
+                Vui lòng di chuyển xe và đỗ đúng vào ô <strong className="text-blue-600">{selectedSlot}</strong>. Sau khi đỗ xe an toàn, bấm xác nhận ở bảng bên phải để kích hoạt hệ thống giám sát an ninh AI bảo vệ xe của bạn.
+>>>>>>> FE_Main
               </p>
             </div>
           </div>
@@ -201,6 +205,7 @@ const NavigationPage = () => {
           {/* Right: Verification Action */}
           <div className="lg:col-span-4 space-y-6">
             <div className="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-xl shadow-blue-500/5 text-center">
+<<<<<<< HEAD
               <h3 className="text-lg font-bold text-slate-800 mb-6">Xác nhận tại chỗ</h3>
               
               <div className="space-y-8">
@@ -232,8 +237,56 @@ const NavigationPage = () => {
                       <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">An ninh AI</p>
                       <p className="text-[11px] font-medium text-slate-600 leading-tight">Camera AI sẽ tự động kích hoạt giám sát sau khi bạn xác nhận.</p>
                     </div>
+=======
+              <h3 className="text-lg font-bold text-slate-800 mb-6">Trạng thái đỗ xe</h3>
+              
+              <div className="space-y-6">
+                {/* Visual Status Indicator */}
+                <div className={`p-6 rounded-3xl border flex flex-col items-center justify-center gap-3 transition-all duration-500
+                  ${isVerified ? 'bg-emerald-50/50 border-emerald-200' : 'bg-blue-50/40 border-blue-100'}`}
+                >
+                  <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-sm relative
+                    ${isVerified ? 'bg-emerald-500 text-white' : 'bg-blue-600 text-white animate-pulse'}`}
+                  >
+                    {isVerified ? (
+                      <CheckCircle2 className="w-7 h-7" />
+                    ) : (
+                      <ShieldCheck className="w-7 h-7" />
+                    )}
+                  </div>
+                  <div>
+                    <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border
+                      ${isVerified 
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-200' 
+                        : 'bg-blue-100 text-blue-800 border-blue-200'}`}
+                    >
+                      {isVerified ? 'ĐÃ KÍCH HOẠT AN NINH' : 'ĐANG CHỜ ĐỖ XE'}
+                    </span>
+>>>>>>> FE_Main
                   </div>
                 </div>
+
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/60 text-left space-y-3">
+                  <div>
+                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Vị trí đỗ chỉ định</span>
+                    <span className="text-sm font-black text-slate-800">Tầng {selectedLevel.padStart(2, '0')} • Ô {selectedSlot}</span>
+                  </div>
+                  <div>
+                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Hệ thống an ninh AI</span>
+                    <span className="text-xs text-slate-600 font-medium">Tự động kích hoạt giám sát an ninh camera SecureNode bảo vệ xe của bạn sau khi xác nhận.</span>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={handleVerifyAtSlot}
+                  disabled={isVerified}
+                  className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all duration-300 shadow-md cursor-pointer flex items-center justify-center gap-2
+                    ${isVerified 
+                      ? 'bg-emerald-500 text-white shadow-emerald-200' 
+                      : 'bg-blue-600 hover:bg-blue-500 text-white hover:scale-[1.02] shadow-blue-200'}`}
+                >
+                  {isVerified ? 'ĐANG KẾT NỐI GIÁM SÁT...' : 'XÁC NHẬN ĐÃ ĐỖ AN TOÀN'}
+                </button>
               </div>
             </div>
           </div>
