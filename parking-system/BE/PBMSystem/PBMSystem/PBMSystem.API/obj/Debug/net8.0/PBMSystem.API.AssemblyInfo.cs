@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PBMSystem.API")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+2d1740d9aafdd2038b1cc17f32729bee4dec9a12")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f9512c85371ee96dac3c5c906873b633f9e624dd")]
 [assembly: System.Reflection.AssemblyProductAttribute("PBMSystem.API")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PBMSystem.API")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

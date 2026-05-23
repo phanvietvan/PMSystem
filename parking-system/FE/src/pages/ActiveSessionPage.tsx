@@ -47,6 +47,10 @@ interface SessionData {
   seconds: number;
   entryTime: string | null;
   isCheckedIn: boolean;
+  isCompleted?: boolean;
+  exitTime?: string | null;
+  exitLicensePlate?: string;
+  isPlateMatched?: boolean;
 }
 
 const ActiveSessionPage = () => {
@@ -57,79 +61,93 @@ const ActiveSessionPage = () => {
   useEffect(() => {
     const fetchAllActiveSessions = async () => {
       try {
-        // Primary: fetch the current user's active session from the server
         const token = localStorage.getItem('token');
-        if (token) {
-          const resp = await api.get('/ParkingSessions/my-session');
-          if (resp.data?.hasActiveSession && resp.data?.session) {
-            const s = resp.data.session;
-            // Sync the QR to localStorage so checkout flow still works
-            if (s.qrCode) {
-              const { addActiveQr } = await import('../utils/auth');
-              addActiveQr(s.qrCode);
+        const userStr = localStorage.getItem('user');
+        const user = userStr ? JSON.parse(userStr) : null;
+        
+        const results: SessionData[] = [];
+
+        if (token && user) {
+          // Fetch all sessions to get history
+          const allResp = await api.get('/ParkingSessions');
+          if (allResp.data && Array.isArray(allResp.data)) {
+            // Filter sessions belonging to the user
+            const mySessions = allResp.data.filter((s: any) => s.userId === user.id || (s.licensePlate && user.licensePlate && s.licensePlate.replace(/[^a-zA-Z0-9]/g, '') === user.licensePlate.replace(/[^a-zA-Z0-9]/g, '')));
+            
+            for (const s of mySessions) {
+              const diffMs = s.exitTime && s.entryTime ? new Date(s.exitTime).getTime() - new Date(s.entryTime).getTime() : 0;
+              const isCompleted = s.status === 'Completed';
+              
+              // Sync active QR to localStorage
+              if (!isCompleted && s.qrCode) {
+                const { addActiveQr } = await import('../utils/auth');
+                addActiveQr(s.qrCode);
+              }
+
+              results.push({
+                qr: s.qrCode,
+                licensePlate: parseLicensePlate(s.licensePlate),
+                slot: s.parkingSlot || 'A3',
+                level: localStorage.getItem('selectedLevel') || '1',
+                seconds: isCompleted ? Math.max(0, Math.floor(diffMs / 1000)) : 0,
+                entryTime: s.entryTime || null,
+                isCheckedIn: s.isCheckedIn || false,
+                isCompleted: isCompleted,
+                exitTime: s.exitTime,
+                exitLicensePlate: s.exitLicensePlate,
+                isPlateMatched: s.isPlateMatched
+              });
             }
-            setSessions([{
-              qr: s.qrCode,
-              licensePlate: parseLicensePlate(s.licensePlate),
-              slot: s.parkingSlot || 'A3',
-              level: localStorage.getItem('selectedLevel') || '1',
-              seconds: 0,
-              entryTime: s.entryTime || null,
-              isCheckedIn: s.isCheckedIn || false,
-            }]);
-            setLoading(false);
-            return;
-          } else {
-            // No active session on server — clear stale localStorage QRs
-            localStorage.removeItem('activeSessionQrs');
-            setLoading(false);
-            navigate('/reserve');
-            return;
+          }
+        } else {
+          // Fallback: use QR codes stored in localStorage (anonymous / legacy)
+          const qrs = getActiveQrs();
+          if (qrs.length > 0) {
+            for (const qr of qrs) {
+              try {
+                const resp = await api.get(`/ParkingSessions/verify/${qr}`);
+                if (resp.data && resp.data.session) {
+                  const s = resp.data.session;
+                  results.push({
+                    qr,
+                    licensePlate: parseLicensePlate(s.licensePlate),
+                    slot: s.parkingSlot || 'A3',
+                    level: localStorage.getItem('selectedLevel') || '1',
+                    seconds: 0,
+                    entryTime: s.entryTime || null,
+                    isCheckedIn: s.isCheckedIn || false,
+                    isCompleted: false
+                  });
+                } else {
+                  removeActiveQr(qr);
+                }
+              } catch (e) {
+                removeActiveQr(qr);
+              }
+            }
           }
         }
+
+        if (results.length === 0) {
+          setLoading(false);
+          navigate('/reserve');
+          return;
+        }
+
+        // Sort results: Active first, then completed (newest first)
+        results.sort((a, b) => {
+           if (a.isCompleted === b.isCompleted) {
+              return new Date(b.entryTime || 0).getTime() - new Date(a.entryTime || 0).getTime();
+           }
+           return a.isCompleted ? 1 : -1;
+        });
+
+        setSessions(results);
+        setLoading(false);
       } catch (e) {
-        // Fall through to localStorage fallback if not logged in or network error
-      }
-
-      // Fallback: use QR codes stored in localStorage (anonymous / legacy)
-      const qrs = getActiveQrs();
-      if (qrs.length === 0) {
         setLoading(false);
         navigate('/reserve');
-        return;
       }
-
-      const results: SessionData[] = [];
-      for (const qr of qrs) {
-        try {
-          const resp = await api.get(`/ParkingSessions/verify/${qr}`);
-          if (resp.data && resp.data.session) {
-            const s = resp.data.session;
-            results.push({
-              qr,
-              licensePlate: parseLicensePlate(s.licensePlate),
-              slot: s.parkingSlot || 'A3',
-              level: localStorage.getItem('selectedLevel') || '1',
-              seconds: 0,
-              entryTime: s.entryTime || null,
-              isCheckedIn: s.isCheckedIn || false,
-            });
-          } else {
-            removeActiveQr(qr);
-          }
-        } catch (e) {
-          removeActiveQr(qr);
-        }
-      }
-
-      if (results.length === 0) {
-        setLoading(false);
-        navigate('/reserve');
-        return;
-      }
-
-      setSessions(results);
-      setLoading(false);
     };
 
     fetchAllActiveSessions();
@@ -141,6 +159,7 @@ const ActiveSessionPage = () => {
     const tick = () => {
       setSessions(prev =>
         prev.map(s => {
+          if (s.isCompleted) return s;
           if (!s.isCheckedIn || !s.entryTime) return { ...s, seconds: 0 };
           const diffMs = Date.now() - new Date(s.entryTime).getTime();
           return { ...s, seconds: Math.max(0, Math.floor(diffMs / 1000)) };
@@ -152,46 +171,52 @@ const ActiveSessionPage = () => {
     return () => clearInterval(id);
   }, [sessions.length]);
 
-  // Real-time Status Polling: Automatically end session and redirect when scanned out at exit gate
+  // Real-time Status Polling: Automatically end session and transition to history card when scanned out at exit gate
   useEffect(() => {
     if (sessions.length === 0) return;
 
     const checkSessionStatus = async () => {
       try {
-        const token = localStorage.getItem('token');
-        if (token) {
-          const resp = await api.get('/ParkingSessions/my-session');
-          if (!resp.data?.hasActiveSession || !resp.data?.session) {
-            // The session has been successfully completed in the backend!
-            localStorage.removeItem('activeSessionQrs');
-            alert("Cảm ơn bạn! Phiên đỗ xe của bạn đã hoàn tất và cổng lối ra đã được mở thành công.");
-            navigate('/reserve');
-          }
-        } else {
-          // Check verification for each localStorage QR code
-          const qrs = getActiveQrs();
-          if (qrs.length === 0) {
-            navigate('/reserve');
-            return;
-          }
-          let stillActive = false;
-          for (const qr of qrs) {
-            try {
-              const resp = await api.get(`/ParkingSessions/verify/${qr}`);
-              if (resp.data && resp.data.session) {
-                stillActive = true;
-              } else {
-                removeActiveQr(qr);
-              }
-            } catch {
-              removeActiveQr(qr);
+        // Fetch all sessions to find the completed ones
+        const allResp = await api.get('/ParkingSessions');
+        if (!allResp.data || !Array.isArray(allResp.data)) return;
+        
+        const completedList = allResp.data.filter((s: any) => s.status === 'Completed');
+
+        setSessions(prev => {
+          let updated = false;
+          const newSessions = prev.map(item => {
+            if (item.isCompleted) return item;
+            
+            const foundCompleted = completedList.find((c: any) => c.qrCode === item.qr);
+            if (foundCompleted) {
+              updated = true;
+              
+              // Async remove from local storage
+              import('../utils/auth').then(({ removeActiveQr }) => {
+                removeActiveQr(item.qr);
+              });
+
+              const entryT = foundCompleted.entryTime;
+              const exitT = foundCompleted.exitTime;
+              const diffMs = exitT && entryT ? new Date(exitT).getTime() - new Date(entryT).getTime() : 0;
+              const secs = Math.max(0, Math.floor(diffMs / 1000));
+              
+              return {
+                ...item,
+                isCompleted: true,
+                exitTime: exitT,
+                seconds: secs,
+                exitLicensePlate: foundCompleted.exitLicensePlate,
+                isPlateMatched: foundCompleted.isPlateMatched
+              };
             }
-          }
-          if (!stillActive) {
-            alert("Cảm ơn bạn! Phiên đỗ xe của bạn đã hoàn tất và cổng lối ra đã được mở thành công.");
-            navigate('/reserve');
-          }
-        }
+            return item;
+          });
+
+          return updated ? newSessions : prev;
+        });
+
       } catch (e) {
         console.warn("Polling error:", e);
       }
@@ -199,13 +224,42 @@ const ActiveSessionPage = () => {
 
     const intervalId = setInterval(checkSessionStatus, 2000);
     return () => clearInterval(intervalId);
-  }, [sessions.length, navigate]);
+  }, [sessions.length]);
 
   const formatTime = (totalSeconds: number) => {
     const hrs = Math.floor(totalSeconds / 3600);
     const mins = Math.floor((totalSeconds % 3600) / 60);
     const secs = totalSeconds % 60;
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const formatDateTime = (dateStr: string | null | undefined) => {
+    if (!dateStr) return 'N/A';
+    const d = new Date(dateStr);
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const hours = pad(d.getHours());
+    const minutes = pad(d.getMinutes());
+    const seconds = pad(d.getSeconds());
+    const day = pad(d.getDate());
+    const month = pad(d.getMonth() + 1);
+    const year = d.getFullYear();
+    return `${hours}:${minutes}:${seconds} - ${day}/${month}/${year}`;
+  };
+
+  const calculateFee = (entryStr: string | null | undefined, exitStr: string | null | undefined) => {
+    if (!entryStr || !exitStr) return 10000;
+    const entry = new Date(entryStr);
+    const exit = new Date(exitStr);
+    const elapsedMinutes = Math.ceil((exit.getTime() - entry.getTime()) / (60 * 1000));
+    let fee = 10000;
+    if (elapsedMinutes > 60) {
+      fee += (elapsedMinutes - 60) * 500;
+    }
+    return fee;
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
   };
 
   if (loading) {
@@ -226,109 +280,216 @@ const ActiveSessionPage = () => {
 
       <main className="max-w-2xl mx-auto px-6 pt-32 pb-20 relative z-10">
         {/* Header badge showing count */}
-        {sessions.length > 1 && (
+        {sessions.filter(s => !s.isCompleted).length > 1 && (
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-4 flex justify-center">
             <div className="inline-flex items-center gap-2 bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100">
               <span className="material-symbols-outlined text-[14px] text-blue-500">garage</span>
-              <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{sessions.length} xe đang gửi</span>
+              <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{sessions.filter(s => !s.isCompleted).length} xe đang gửi</span>
             </div>
           </motion.div>
         )}
 
         <div className="space-y-6">
-          {sessions.map((session, idx) => (
-          <motion.div
-            key={session.qr}
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: idx * 0.1 }}
-            className="bg-surface-container-lowest border border-outline-variant/30 rounded-[3rem] p-10 shadow-xl shadow-primary/5 relative overflow-hidden"
-          >
-            <div className="absolute top-0 right-0 p-8">
-               {session.isCheckedIn ? (
-                 <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100 animate-fade-in">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Đang đỗ xe</span>
-                 </div>
-               ) : (
-                 <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100 animate-fade-in">
-                    <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping"></span>
-                    <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Đã đặt - Chờ vào bốt</span>
-                 </div>
-               )}
-            </div>
-
-            <div className="space-y-10">
-              <div className="space-y-4">
-                <div className="flex items-center gap-3 text-primary">
-                  <Zap className="w-5 h-5 fill-primary" />
-                  <span className="text-xs font-black uppercase tracking-widest">
-                    Phiên đỗ {sessions.length > 1 ? `#${idx + 1}` : 'đang hoạt động'}
-                  </span>
-                </div>
-                <div>
-                  <p className="text-[10px] font-black text-outline uppercase tracking-widest mb-1">
-                    {session.isCheckedIn ? 'Thời gian đã đỗ' : 'Thời gian đếm ngược'}
-                  </p>
-                  <h1 className="text-6xl font-display font-black text-on-surface tracking-tighter tabular-nums">
-                    {formatTime(session.seconds)}
-                  </h1>
-                  {!session.isCheckedIn && (
-                    <p className="text-[10px] font-bold text-blue-600 mt-2 animate-pulse">
-                      ⏳ Thời gian đỗ xe sẽ chỉ bắt đầu tính khi bạn quét mã QR đi qua bốt cổng vào!
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-8 border-y border-outline-variant/10 py-8">
-                 <div>
-                   <p className="text-[10px] font-black text-outline uppercase tracking-widest mb-1">Vị trí đỗ</p>
-                   <p className="text-xl font-black text-on-surface">Ô {session.slot}</p>
-                 </div>
-                 <div>
-                   <p className="text-[10px] font-black text-outline uppercase tracking-widest mb-1">Biển số xe</p>
-                   <p className="text-xl font-black text-on-surface tracking-tight">{session.licensePlate}</p>
-                 </div>
-              </div>
-
-              {/* Exit Verification QR Code Card */}
-              <div className="bg-surface-container-low border border-outline-variant/20 rounded-[2rem] p-6 text-center space-y-6">
-                <div>
-                  <h4 className="text-xs font-black uppercase tracking-widest text-on-surface">Mã QR đỗ xe của bạn</h4>
-                  <p className="text-[10px] text-on-surface-variant font-medium mt-1">Trình mã này trước máy quét tại cổng ra để đối chiếu & thanh toán</p>
-                </div>
-
-                 <div 
-                  onClick={() => navigate('/payment', { state: { mode: 'checkout', checkoutQr: session.qr } })}
-                  className="relative w-48 h-48 bg-white border border-outline-variant/30 rounded-2xl mx-auto flex flex-col items-center justify-center p-4 cursor-pointer group hover:border-primary hover:shadow-lg transition-all"
+          {sessions.map((session, idx) => {
+            if (session.isCompleted) {
+              return (
+                <motion.div
+                  key={session.qr}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: idx * 0.1 }}
+                  className="bg-surface-container-lowest border border-emerald-500/20 rounded-[3rem] p-10 shadow-2xl shadow-emerald-500/5 relative overflow-hidden"
                 >
-                  <SessionQr qr={session.qr} />
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
                   
-                  <div className="absolute inset-0 bg-primary/5 flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl">
-                    <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center shadow-md">
-                      <Zap className="w-5 h-5 fill-white" />
+                  <div className="absolute top-0 right-0 p-8">
+                    <div className="flex items-center gap-2 bg-emerald-50 px-4 py-1.5 rounded-full border border-emerald-200 shadow-sm">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                      <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Đã ra cổng</span>
                     </div>
-                    <span className="text-[9px] font-black text-primary uppercase tracking-widest">Giả lập quét lối ra</span>
+                  </div>
+
+                  <div className="space-y-8">
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3 text-emerald-600">
+                        <ShieldCheck className="w-6 h-6 fill-emerald-100 text-emerald-600 animate-bounce" />
+                        <span className="text-xs font-black uppercase tracking-widest">
+                          Lịch sử đã ra vào
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-outline uppercase tracking-widest mb-1">
+                          Tổng thời gian đỗ
+                        </p>
+                        <h1 className="text-5xl font-display font-black text-on-surface tracking-tighter tabular-nums">
+                          {formatTime(session.seconds)}
+                        </h1>
+                      </div>
+                    </div>
+
+                    <div className="bg-surface-container-low border border-outline-variant/10 rounded-[2.5rem] p-8 space-y-6 relative">
+                      <div className="border-b border-outline-variant/10 pb-4 flex justify-between items-center">
+                        <span className="text-xs font-extrabold text-on-surface uppercase tracking-wider">Chi tiết phiên gửi xe</span>
+                        {session.isPlateMatched !== undefined && (
+                          <span className={`text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full border ${
+                            session.isPlateMatched 
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                              : 'bg-amber-50 text-amber-700 border-amber-200'
+                          }`}>
+                            {session.isPlateMatched ? '✓ Khớp biển số' : '⚠ Lệch biển số'}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative">
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 text-xs font-bold">1</div>
+                            <span className="text-[10px] font-black text-outline uppercase tracking-wider">Thời gian xe vào</span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-on-surface">{formatDateTime(session.entryTime)}</p>
+                            <p className="text-xs text-on-surface-variant font-medium mt-1">Biển số: <strong className="text-on-surface font-extrabold">{session.licensePlate}</strong></p>
+                            <p className="text-xs text-on-surface-variant font-medium">Vị trí: <strong className="text-primary font-extrabold">Ô {session.slot}</strong></p>
+                          </div>
+                        </div>
+
+                        <div className="space-y-4 border-t md:border-t-0 md:border-l border-outline-variant/10 pt-4 md:pt-0 md:pl-6">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 text-xs font-bold">2</div>
+                            <span className="text-[10px] font-black text-outline uppercase tracking-wider">Thời gian xe ra</span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-on-surface">{formatDateTime(session.exitTime)}</p>
+                            <p className="text-xs text-on-surface-variant font-medium mt-1">Biển số ra: <strong className="text-on-surface font-extrabold">{session.exitLicensePlate ? parseLicensePlate(session.exitLicensePlate) : session.licensePlate}</strong></p>
+                            <p className="text-xs text-on-surface-variant font-medium">Bãi đỗ: <strong className="text-on-surface font-extrabold">Khu vực {session.level}</strong></p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-emerald-50/50 border border-emerald-200/50 rounded-[2rem] p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-2xl bg-white border border-emerald-100 flex items-center justify-center text-emerald-600 shadow-sm">
+                          <span className="material-symbols-outlined text-[24px]">payments</span>
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">Trạng thái thanh toán</p>
+                          <p className="text-xs text-slate-500 font-semibold">Tự động trừ ví qua tài khoản liên kết</p>
+                        </div>
+                      </div>
+                      <div className="text-left sm:text-right">
+                        <p className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">Số tiền đã trả</p>
+                        <p className="text-2xl font-black text-emerald-600">
+                          {formatCurrency(calculateFee(session.entryTime, session.exitTime))}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="text-center pt-2">
+                      <p className="text-[11px] text-emerald-700/80 font-bold italic leading-relaxed">
+                        🎉 Cảm ơn quý khách đã sử dụng dịch vụ tại PM System! Chúc quý khách lái xe an toàn.
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            }
+
+            return (
+              <motion.div
+                key={session.qr}
+                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.1 }}
+                className="bg-surface-container-lowest border border-outline-variant/30 rounded-[3rem] p-10 shadow-xl shadow-primary/5 relative overflow-hidden"
+              >
+                <div className="absolute top-0 right-0 p-8">
+                   {session.isCheckedIn ? (
+                     <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100 animate-fade-in">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Đang đỗ xe</span>
+                     </div>
+                   ) : (
+                     <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100 animate-fade-in">
+                        <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-ping"></span>
+                        <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Đã đặt - Chờ vào bốt</span>
+                     </div>
+                   )}
+                </div>
+
+                <div className="space-y-10">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3 text-primary">
+                      <Zap className="w-5 h-5 fill-primary" />
+                      <span className="text-xs font-black uppercase tracking-widest">
+                        Phiên đỗ {sessions.length > 1 ? `#${idx + 1}` : 'đang hoạt động'}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-outline uppercase tracking-widest mb-1">
+                        {session.isCheckedIn ? 'Thời gian đã đỗ' : 'Thời gian đếm ngược'}
+                      </p>
+                      <h1 className="text-6xl font-display font-black text-on-surface tracking-tighter tabular-nums">
+                        {formatTime(session.seconds)}
+                      </h1>
+                      {!session.isCheckedIn && (
+                        <p className="text-[10px] font-bold text-blue-600 mt-2 animate-pulse">
+                          ⏳ Thời gian đỗ xe sẽ chỉ bắt đầu tính khi bạn quét mã QR đi qua bốt cổng vào!
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-8 border-y border-outline-variant/10 py-8">
+                     <div>
+                       <p className="text-[10px] font-black text-outline uppercase tracking-widest mb-1">Vị trí đỗ</p>
+                       <p className="text-xl font-black text-on-surface">Ô {session.slot}</p>
+                     </div>
+                     <div>
+                       <p className="text-[10px] font-black text-outline uppercase tracking-widest mb-1">Biển số xe</p>
+                       <p className="text-xl font-black text-on-surface tracking-tight">{session.licensePlate}</p>
+                     </div>
+                  </div>
+
+                  {/* Exit Verification QR Code Card */}
+                  <div className="bg-surface-container-low border border-outline-variant/20 rounded-[2rem] p-6 text-center space-y-6">
+                    <div>
+                      <h4 className="text-xs font-black uppercase tracking-widest text-on-surface">Mã QR đỗ xe của bạn</h4>
+                      <p className="text-[10px] text-on-surface-variant font-medium mt-1">Trình mã này trước máy quét tại cổng ra để đối chiếu & thanh toán</p>
+                    </div>
+
+                     <div 
+                      onClick={() => navigate('/payment', { state: { mode: 'checkout', checkoutQr: session.qr } })}
+                      className="relative w-48 h-48 bg-white border border-outline-variant/30 rounded-2xl mx-auto flex flex-col items-center justify-center p-4 cursor-pointer group hover:border-primary hover:shadow-lg transition-all"
+                    >
+                      <SessionQr qr={session.qr} />
+                      
+                      <div className="absolute inset-0 bg-primary/5 flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl">
+                        <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center shadow-md">
+                          <Zap className="w-5 h-5 fill-white" />
+                        </div>
+                        <span className="text-[9px] font-black text-primary uppercase tracking-widest">Giả lập quét lối ra</span>
+                      </div>
+                    </div>
+
+                    <p className="text-[10px] font-mono text-outline font-semibold tracking-wider">
+                      MÃ SỐ PHIÊN: {session.qr}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                     <div className="w-12 h-12 rounded-2xl bg-surface-container flex items-center justify-center">
+                       <ShieldCheck className="text-emerald-500 w-6 h-6" />
+                     </div>
+                     <div>
+                       <p className="text-xs font-bold text-on-surface">An ninh AI đã kích hoạt</p>
+                       <p className="text-[10px] text-on-surface-variant font-medium">Xe của bạn đang được giám sát bởi SecureNode v1.4</p>
+                     </div>
                   </div>
                 </div>
-
-                <p className="text-[10px] font-mono text-outline font-semibold tracking-wider">
-                  MÃ SỐ PHIÊN: {session.qr}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-4">
-                 <div className="w-12 h-12 rounded-2xl bg-surface-container flex items-center justify-center">
-                   <ShieldCheck className="text-emerald-500 w-6 h-6" />
-                 </div>
-                 <div>
-                   <p className="text-xs font-bold text-on-surface">An ninh AI đã kích hoạt</p>
-                   <p className="text-[10px] text-on-surface-variant font-medium">Xe của bạn đang được giám sát bởi SecureNode v1.4</p>
-                 </div>
-              </div>
-            </div>
-          </motion.div>
-          ))}
+              </motion.div>
+            );
+          })}
 
           <div className="bg-surface-container-low p-6 rounded-3xl border border-outline-variant/10 flex items-start gap-4">
              <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-primary shadow-sm flex-shrink-0">

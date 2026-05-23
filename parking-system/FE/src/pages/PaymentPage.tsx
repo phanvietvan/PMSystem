@@ -128,11 +128,17 @@ const PaymentPage = () => {
     navigate('/success', { state: { mode, qrCode } });
   };
 
+  let parkingInfo = { name: "Landmark 81 - Bãi đỗ A1", floor: "Tầng 1", block: "Block A" };
+  try {
+    const raw = localStorage.getItem('selectedParking');
+    if (raw) parkingInfo = JSON.parse(raw);
+  } catch(e) {}
+
   const orderSummary = {
-    date: new Date().toLocaleDateString('vi-VN'),
-    time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+    date: localStorage.getItem('reservationDate') ? new Date(localStorage.getItem('reservationDate')!).toLocaleDateString('vi-VN') : new Date().toLocaleDateString('vi-VN'),
+    time: localStorage.getItem('reservationStartTime') || new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
     slot: selectedSlot,
-    level: selectedLevel.padStart(2, '0'),
+    parkingName: parkingInfo.name,
     plate: licensePlate,
     price: price
   };
@@ -202,7 +208,10 @@ const PaymentPage = () => {
             <div className="space-y-4 mb-8">
               <div className="flex justify-between items-center py-3 border-b border-outline-variant/10">
                 <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest text-[9px]">Vị trí đỗ</span>
-                <span className="text-sm font-black text-on-surface">Tầng {orderSummary.level} • {orderSummary.slot}</span>
+                <div className="text-right flex flex-col items-end">
+                  <span className="text-sm font-black text-on-surface max-w-[200px] truncate" title={orderSummary.parkingName}>{orderSummary.parkingName}</span>
+                  <span className="text-[10px] font-bold text-on-surface-variant">Slot {orderSummary.slot}</span>
+                </div>
               </div>
               <div className="flex justify-between items-center py-3 border-b border-outline-variant/10">
                 <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest text-[9px]">Thời gian</span>

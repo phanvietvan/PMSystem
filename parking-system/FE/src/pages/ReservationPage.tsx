@@ -62,19 +62,19 @@ const ReservationPage = () => {
   const [activePlates, setActivePlates] = useState<string[]>([]);
 
   useEffect(() => {
-    const hasActive = hasActiveSessions();
     const bypassActiveCheck = location.state?.bypassActiveCheck || false;
-    if (hasActive && !bypassActiveCheck) {
-      navigate('/active-session');
-      return;
-    }
 
     if (!bypassActiveCheck) {
       api.get('/ParkingSessions/my-session')
         .then(res => {
-          if (res.data && res.data.qrCode) {
-            addActiveQr(res.data.qrCode);
-            navigate('/active-session');
+          if (res.data) {
+            if (res.data.hasActiveSession && res.data.session) {
+              addActiveQr(res.data.session.qrCode);
+              navigate('/active-session');
+            } else {
+              localStorage.removeItem('activeSessionQrs');
+              localStorage.removeItem('activeSessionQr');
+            }
           }
         })
         .catch(err => {
