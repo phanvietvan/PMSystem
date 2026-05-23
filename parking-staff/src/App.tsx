@@ -33,6 +33,8 @@ import jsQR from 'jsqr';
 import Tesseract from 'tesseract.js';
 import WelcomeAnimation from './Welcome.json';
 
+import QRCode from 'qrcode';
+
 const API_BASE_URL = '/api';
 
 // Fallback high-quality car photos for live webcam fallbacks ONLY
@@ -78,6 +80,19 @@ const App = () => {
   const [visitorVehicleType, setVisitorVehicleType] = useState('Car');
   const [generatedTicket, setGeneratedTicket] = useState<any>(null);
   const [isGeneratingTicket, setIsGeneratingTicket] = useState(false);
+  const [ticketQrDataUrl, setTicketQrDataUrl] = useState<string>('');
+
+  useEffect(() => {
+    if (generatedTicket?.qrCode) {
+      QRCode.toDataURL(generatedTicket.qrCode, { width: 200, margin: 1 }, (err, url) => {
+        if (!err && url) {
+          setTicketQrDataUrl(url);
+        }
+      });
+    } else {
+      setTicketQrDataUrl('');
+    }
+  }, [generatedTicket]);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -427,109 +442,13 @@ const App = () => {
     }
   };
 
-  // Helper to extract Vietnamese license plates from recognized text
-  const extractLicensePlate = (text: string): string | null => {
-    if (!text) return null;
-    
-    // Split the text by spaces/newlines and clean all non-alphanumeric chars
-    const tokens = text.split(/[\s\n\r\t]+/).map(t => t.replace(/[^A-Z0-9]/g, '').toUpperCase());
-    console.log("Tokens processed by LPR:", tokens);
-
-    let provinceSeries = '';
-    let plateNumber = '';
-
-    // Province + Series Regex: 2 digits followed by 1 or 2 characters (e.g. 92L1, 30F, 29A1, 59G2)
-    const provinceRegex = /^([0-9]{2})([A-Z][A-Z0-9]?)$/;
-    // Plate Number Regex: 4 or 5 digits
-    const numberRegex = /^([0-9]{4,5})$/;
-
-    // Find Province + Series token
-    for (const token of tokens) {
-      if (provinceRegex.test(token)) {
-        provinceSeries = token;
-        break;
-      }
-    }
-
-    // Find Plate Number token
-    for (const token of tokens) {
-      if (numberRegex.test(token)) {
-        plateNumber = token;
-        break;
-      }
-    }
-
-    // If we found both, combine them!
-    if (provinceSeries && plateNumber) {
-      const formattedNumber = plateNumber.length === 5 
-        ? `${plateNumber.slice(0, 3)}.${plateNumber.slice(3)}` 
-        : plateNumber;
-      return `${provinceSeries}-${formattedNumber}`;
-    }
-
-    // Unified 1-line fallback (for car plates, e.g. "30F18665")
-    const cleanAll = tokens.join('');
-    const unifiedRegex = /([0-9]{2})([A-Z][A-Z0-9]?)([0-9]{4,5})/;
-    const match = cleanAll.match(unifiedRegex);
-    if (match) {
-      const province = match[1];
-      const series = match[2];
-      const number = match[3];
-      const formattedNumber = number.length === 5 
-        ? `${number.slice(0, 3)}.${number.slice(3)}` 
-        : number;
-      return `${province}${series}-${formattedNumber}`;
-    }
-
-    return null;
-  };
-
-  // Perform AI OCR and License Plate Recognition from live canvas
-  const runLprOcr = async (): Promise<string | null> => {
-    setIsOcrLoading(true);
-    playChimeSound();
-
-    const livePhoto = captureFrame();
-    if (!livePhoto) {
-      setIsOcrLoading(false);
-      return null;
-    }
-
-    try {
-      const { data: { text } } = await Tesseract.recognize(livePhoto, 'eng');
-      console.log("OCR Extracted text:", text);
-      const plate = extractLicensePlate(text);
-      if (plate) {
-        setIsOcrLoading(false);
-        return formatPlateNumber(plate);
-      }
-    } catch (err) {
-      console.warn("OCR engine exception:", err);
-    }
-
-    setIsOcrLoading(false);
-    return null;
-  };
-
-  // Trigger scanning workflow using recognized plate or manual field input
+  // Trigger manual QR scanning workflow using text input field
   const handleOcrAndScan = async () => {
-    // If the operator has typed a manual plate in the input field, use it directly!
     if (manualInput.trim()) {
-      const formatted = formatPlateNumber(manualInput);
+      const input = manualInput.trim().toUpperCase();
       setManualInput('');
-      await triggerScan(formatted);
-      return;
+      await triggerScan(input);
     }
-
-    // Otherwise, execute AI License Plate Recognition
-    const plate = await runLprOcr();
-    if (!plate) {
-      // Graceful fallback: trigger check-in panel without blocking alert so staff can manually type the plate!
-      await triggerScan('');
-      return;
-    }
-    // Do not pollute the bottom text input field; trigger the scan directly!
-    await triggerScan(plate);
   };
 
   // Trigger exit scan verification
@@ -549,18 +468,50 @@ const App = () => {
     let ticketLabel = gateMode === 'ENTRY' ? 'Vé vãng lai' : 'Vé vãng lai • Phí: 10,000 VNĐ';
     let foundSessionCode = isQrScan ? inputClean : undefined;
     let computedFee = 10000;
+    
+    let owner = 'KHÁCH VÃNG LAI';
+    let ticketType = 'Vé vãng lai';
+    let userInfo = null;
 
     if (gateMode === 'ENTRY') {
+      if (isQrScan && inputClean) {
+        try {
+          const res = await fetch(`${API_BASE_URL}/ParkingSessions/verify/${inputClean}`);
+          if (res.ok) {
+            const data = await res.json();
+            const session = data.session;
+            const user = data.user;
+            entryPlate = session.licensePlate;
+            ticketType = `Đặt trước • Slot ${session.parkingSlot} (${session.parkingLotName})`;
+            
+            if (user) {
+              owner = `${user.lastName || ''} ${user.firstName || ''}`.trim() || 'XE ĐẶT TRƯỚC (RESERVATION)';
+              userInfo = user;
+            } else {
+              owner = 'XE ĐẶT TRƯỚC (RESERVATION)';
+            }
+            foundSessionCode = session.qrCode;
+          } else {
+            playWarningSound();
+            alert("Mã QR đặt chỗ không hợp lệ hoặc đã được sử dụng!");
+            return;
+          }
+        } catch (e) {
+          console.warn("QR verification check failed on entry:", e);
+        }
+      }
+
       const payload = {
         plate: entryPlate,
         status: 'Chờ xác nhận',
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-        owner: 'KHÁCH VÃNG LAI',
-        ticketType: 'Vé vãng lai',
+        owner: owner,
+        ticketType: ticketType,
         capturedPhoto: livePhoto,
         registeredPhoto: livePhoto,
         type: 'ENTRY',
-        qrCode: undefined
+        qrCode: foundSessionCode,
+        userInfo: userInfo
       };
       setScannedResult(payload);
       setGateState('COMPARING');
@@ -581,11 +532,25 @@ const App = () => {
               const sessions = await res.json();
               if (sessions && sessions.length > 0) {
                 const session = sessions[0];
-                entryPhoto = session.entryPhoto || fallbackEntryPhoto;
-                entryTimeStr = new Date(session.entryTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                entryPhoto = session.entryPhoto || '';
+                const entryTimeVal = session.entryTime || session.createdAt;
+                entryTimeStr = new Date(entryTimeVal).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
                 entryPlate = session.licensePlate;
                 ticketLabel = `Vé vãng lai • Vào: ${entryTimeStr}`;
                 foundSessionCode = session.qrCode;
+                
+                // Fetch user info for plate check as well!
+                try {
+                  const checkRes = await fetch(`${API_BASE_URL}/ParkingSessions/verify/${session.qrCode}`);
+                  if (checkRes.ok) {
+                    const checkData = await checkRes.json();
+                    if (checkData.user) {
+                      owner = `${checkData.user.lastName || ''} ${checkData.user.firstName || ''}`.trim();
+                      userInfo = checkData.user;
+                      ticketLabel = `Đặt trước • Slot ${session.parkingSlot} (${session.parkingLotName})`;
+                    }
+                  }
+                } catch {}
               } else {
                 // Warning if plate not found in database active list
                 playWarningSound();
@@ -603,12 +568,21 @@ const App = () => {
             if (response.ok) {
               const data = await response.json();
               const session = data.session;
-              entryPhoto = session.entryPhoto || fallbackEntryPhoto;
-              entryTimeStr = new Date(session.entryTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+              const user = data.user;
+              entryPhoto = session.entryPhoto || '';
+              const entryTimeVal = session.entryTime || session.createdAt;
+              entryTimeStr = new Date(entryTimeVal).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
               entryPlate = session.licensePlate;
               computedFee = data.fee;
-              ticketLabel = `Vé vãng lai • Phí: ${data.fee.toLocaleString()} VNĐ`;
+              ticketLabel = `Đặt trước • Slot ${session.parkingSlot} (${session.parkingLotName})`;
               foundSessionCode = session.qrCode;
+              
+              if (user) {
+                owner = `${user.lastName || ''} ${user.firstName || ''}`.trim() || 'XE ĐẶT TRƯỚC (RESERVATION)';
+                userInfo = user;
+              } else {
+                owner = 'XE ĐẶT TRƯỚC (RESERVATION)';
+              }
             } else {
               // Warning if QR not active or not found
               playWarningSound();
@@ -622,16 +596,19 @@ const App = () => {
       }
 
       const payload = {
-        plate: entryPlate,
+        plate: entryPlate,              // Entry plate from MongoDB
+        exitPlate: entryPlate,          // Exit plate (can be modified by operator for comparison!)
         status: 'Hợp lệ',
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-        owner: 'KHÁCH VÃNG LAI',
+        owner: owner,
         ticketType: ticketLabel,
         capturedPhoto: livePhoto,       // Current live exit photo
         registeredPhoto: entryPhoto,   // REAL MongoDB entry photo!
         type: 'EXIT',
         qrCode: foundSessionCode,
-        fee: computedFee
+        fee: computedFee,
+        userInfo: userInfo,
+        entryTime: entryTimeStr         // Injected entryTime!
       };
 
       setScannedResult(payload);
@@ -676,32 +653,53 @@ const App = () => {
     if (scannedResult.type === 'ENTRY') {
       setIsOcrLoading(true);
       try {
-        const res = await fetch(`${API_BASE_URL}/ParkingSessions/checkin`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            LicensePlate: scannedResult.plate,
-            EntryPhoto: scannedResult.capturedPhoto,
-            ParkingLotName: 'Cổng Vào A1',
-            VehicleType: 'Car'
-          })
-        });
+        let res;
+        if (scannedResult.qrCode) {
+          // Real gate-scan for existing reservation!
+          res = await fetch(`${API_BASE_URL}/ParkingSessions/gate-scan`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              qrCode: scannedResult.qrCode,
+              QrCode: scannedResult.qrCode,
+              entryPhoto: scannedResult.capturedPhoto,
+              EntryPhoto: scannedResult.capturedPhoto
+            })
+          });
+        } else {
+          // Standard check-in for walk-in visitor!
+          res = await fetch(`${API_BASE_URL}/ParkingSessions/checkin`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              licensePlate: scannedResult.plate,
+              LicensePlate: scannedResult.plate,
+              entryPhoto: scannedResult.capturedPhoto,
+              EntryPhoto: scannedResult.capturedPhoto,
+              parkingLotName: 'Cổng Vào A1',
+              ParkingLotName: 'Cổng Vào A1',
+              vehicleType: 'Car',
+              VehicleType: 'Car'
+            })
+          });
+        }
+
         if (res.ok) {
           const data = await res.json();
-          // Play success chime sound
+          // Extract session correctly (gate-scan returns { message, session })
+          const session = data.session || data;
           playChimeSound();
-          // Set generated ticket to display QR Ticket Card
           setGeneratedTicket({
-            qrCode: data.qrCode,
-            plate: data.licensePlate,
-            time: new Date(data.entryTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-            photo: data.entryPhoto || scannedResult.capturedPhoto,
-            vehicleType: data.vehicleType || 'Car'
+            qrCode: session.qrCode,
+            plate: session.licensePlate,
+            time: new Date(session.entryTime || session.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+            photo: session.entryPhoto || scannedResult.capturedPhoto,
+            vehicleType: session.vehicleType || 'Car'
           });
           setGateState('GATE_OPEN');
         }
       } catch (err) {
-        console.warn("Database check-in failed:", err);
+        console.warn("Database check-in / gate-scan failed:", err);
       }
       setIsOcrLoading(false);
     } else {
@@ -715,8 +713,11 @@ const App = () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            qrCode: qrCodeToPost,
             QrCode: qrCodeToPost,
-            ExitLicensePlate: scannedResult.plate,
+            exitLicensePlate: scannedResult.exitPlate || scannedResult.plate,
+            ExitLicensePlate: scannedResult.exitPlate || scannedResult.plate,
+            exitPhoto: scannedResult.capturedPhoto,
             ExitPhoto: scannedResult.capturedPhoto
           })
         });
@@ -925,31 +926,31 @@ const App = () => {
                       
                       <div className="text-center px-4">
                         <QrCode className="text-blue-500/20 mx-auto mb-2" size={44} />
-                        <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest bg-blue-955/60 border border-blue-800/40 px-3 py-1 rounded-full">ĐẶT BIỂN SỐ Ở ĐÂY TO QUÉT</span>
+                        <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest bg-blue-955/60 border border-blue-800/40 px-3 py-1 rounded-full">ĐƯA MÃ QR VÀO KHUNG QUÉT</span>
                       </div>
                       <div className="absolute inset-x-0 h-0.5 bg-blue-500/80 shadow-[0_0_8px_rgba(59,130,246,0.8)] scanner-line !animate-[scan_3s_ease-in-out_infinite]" />
                     </div>
-
+ 
                     <div className="mt-8 text-center px-4">
-                      <h2 className="text-white text-lg font-black tracking-widest uppercase mb-1">ĐANG CHỜ XE ĐẾN</h2>
+                      <h2 className="text-white text-lg font-black tracking-widest uppercase mb-1">ĐANG CHỜ MÃ QR</h2>
                       <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">
-                        Đưa thẻ QR hoặc di chuyển biển số vào trước camera
+                        Đưa mã QR của khách hàng vào trước camera soát vé
                       </p>
                       <p className="text-[10px] text-slate-500 font-bold mt-3">
-                        [Bấm <strong className="text-blue-400">Phím Cách (Spacebar)</strong> để tự động cấp vé]
+                        [Hoặc nhập mã QR thủ công ở thanh công cụ bên dưới]
                       </p>
                     </div>
                   </div>
-
+ 
                   {/* Manual Input Bar */}
                   <div className="z-10 p-4 bg-slate-900/90 backdrop-blur-md border-t border-slate-800 flex items-center gap-3">
                     <form 
                       onSubmit={(e) => {
                         e.preventDefault();
                         if (manualInput.trim()) {
-                          const formatted = formatPlateNumber(manualInput);
+                          const input = manualInput.trim().toUpperCase();
                           setManualInput('');
-                          triggerScan(formatted);
+                          triggerScan(input);
                         }
                       }}
                       className="flex-1 flex items-center gap-3 bg-slate-950 px-4 py-2.5 rounded-xl border border-slate-800 focus-within:border-blue-500/50 transition-all"
@@ -957,7 +958,7 @@ const App = () => {
                       <Keyboard className="text-slate-600" size={16} />
                       <input 
                         className="bg-transparent border-none w-full text-white font-mono text-xs uppercase placeholder:text-slate-700 tracking-wider outline-none" 
-                        placeholder="NHẬP BIỂN SỐ XE..." 
+                        placeholder="NHẬP MÃ QR CỦA XE (Ví dụ: QR_...)..." 
                         type="text"
                         value={manualInput}
                         onChange={(e) => setManualInput(e.target.value)}
@@ -968,7 +969,7 @@ const App = () => {
                       className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-md"
                     >
                       <Zap size={13} />
-                      {gateMode === 'ENTRY' ? 'CHỤP ẢNH XE & TẠO QR VÉ' : 'CHỤP ẢNH XE & KIỂM TRA RA'}
+                      XÁC THỰC MÃ QR
                     </button>
                   </div>
                 </div>
@@ -1059,61 +1060,184 @@ const App = () => {
                           <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider block">LOẠI VÉ KHỞI TẠO</span>
                           <span className="text-xs font-black text-slate-700 mt-1 block uppercase">{scannedResult.ticketType}</span>
                         </div>
+
+                        {scannedResult.userInfo && (
+                          <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100/70 flex flex-col gap-3 text-left">
+                            <span className="text-[9px] text-blue-600 font-black uppercase tracking-widest block">THÔNG TIN KHÁCH HÀNG ĐẶT TRƯỚC</span>
+                            
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <span className="text-[8px] text-slate-400 font-extrabold block uppercase tracking-wider">Chủ tài khoản</span>
+                                <span className="text-xs font-black text-slate-800 uppercase tracking-wide">
+                                  {`${scannedResult.userInfo.lastName || scannedResult.userInfo.LastName || ''} ${scannedResult.userInfo.firstName || scannedResult.userInfo.FirstName || ''}`.trim() || scannedResult.userInfo.username || scannedResult.userInfo.Username || 'N/A'}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-[8px] text-slate-400 font-extrabold block uppercase tracking-wider">Số điện thoại</span>
+                                <span className="text-xs font-mono font-black text-slate-700">
+                                  {scannedResult.userInfo.phoneNumber || scannedResult.userInfo.PhoneNumber || 'N/A'}
+                                </span>
+                              </div>
+                              <div className="col-span-2">
+                                <span className="text-[8px] text-slate-400 font-extrabold block uppercase tracking-wider">Email liên hệ</span>
+                                <span className="text-xs font-mono font-bold text-slate-600">
+                                  {scannedResult.userInfo.email || scannedResult.userInfo.Email || 'N/A'}
+                                </span>
+                              </div>
+                              {scannedResult.userInfo.address && (
+                                <div className="col-span-2">
+                                  <span className="text-[8px] text-slate-400 font-extrabold block uppercase tracking-wider">Địa chỉ</span>
+                                  <span className="text-xs text-slate-600 font-semibold">
+                                    {scannedResult.userInfo.address}
+                                  </span>
+                                </div>
+                              )}
+                              <div className="col-span-2">
+                                <span className="text-[8px] text-slate-400 font-extrabold block uppercase tracking-wider">Mã đặt chỗ (QR Code)</span>
+                                <span className="text-xs font-mono font-black text-blue-700 bg-blue-100/60 px-2.5 py-1 rounded border border-blue-200/50 inline-block tracking-wider">
+                                  {scannedResult.qrCode}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ) : (
-                    // EXIT COMPARISON PANEL
+                    // EXIT COMPARISON PANEL (Same premium design system)
                     <div className="flex-1 p-5 grid grid-cols-1 md:grid-cols-2 gap-5 items-stretch bg-slate-50/50">
-                      <div className="flex flex-col gap-1.5">
-                        <span className="text-[10px] font-extrabold tracking-wider text-emerald-600 uppercase flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                          ẢNH CHỤP HIỆN TẠI (LỐI SOÁT)
-                        </span>
-                        <div className="flex-1 min-h-[200px] rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 relative shadow-sm">
-                          <img src={scannedResult.capturedPhoto} alt="Gate Capture" className="w-full h-full object-cover" />
-                          <div className="absolute bottom-2.5 left-2.5 bg-slate-900/80 backdrop-blur px-2.5 py-1 rounded text-[8px] font-bold text-slate-200 uppercase tracking-widest">
-                            {scannedResult.time} • Camera lối soát
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col gap-1.5">
-                        <span className="text-[10px] font-extrabold tracking-wider text-blue-600 uppercase flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                          ẢNH ĐỐI CHIẾU TRONG MONGODB
-                        </span>
-                        <div className="flex-1 min-h-[200px] rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 relative shadow-sm">
-                          <img src={scannedResult.registeredPhoto} alt="Entry Capture" className="w-full h-full object-cover" />
-                          <div className="absolute bottom-2.5 left-2.5 bg-slate-900/80 backdrop-blur px-2.5 py-1 rounded text-[8px] font-bold text-slate-200 uppercase tracking-widest">
-                            {scannedResult.type === 'EXIT' ? 'Ảnh lưu lúc xe vào' : 'Ảnh đối chứng gốc'}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Comparative Plate Badge Area (Exit only) */}
-                  {scannedResult.type === 'EXIT' && (
-                    <div className="px-6 py-5 border-t border-slate-200 space-y-4">
-                      <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col md:flex-row gap-4 items-center justify-between">
-                        <div className="flex flex-col gap-1 text-center md:text-left">
-                          <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">BIỂN SỐ NHẬN DIỆN</span>
-                          <span className="text-2xl font-mono font-black text-slate-900 tracking-widest bg-white border border-slate-300 px-5 py-1.5 rounded-xl shadow-sm inline-block">
-                            {scannedResult.plate}
+                      {/* Left: Photos Comparison (stacked vertically, beautiful and compact) */}
+                      <div className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-1.5">
+                          <span className="text-[10px] font-extrabold tracking-wider text-emerald-600 uppercase flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            ẢNH CHỤP HIỆN TẠI (LỐI SOÁT)
                           </span>
-                        </div>
-
-                        <div className="flex flex-col gap-1 items-center md:items-end">
-                          <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">THÔNG TIN LOẠI VÉ</span>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-xs font-bold text-blue-600 flex items-center gap-1.5 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
-                              <ShieldCheck size={14} /> {scannedResult.ticketType}
-                            </span>
-                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100 flex items-center gap-1">
-                              <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" /> TRÙNG KHỚP
-                            </span>
+                          <div className="h-[180px] rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 relative shadow-sm">
+                            <img src={scannedResult.capturedPhoto} alt="Gate Capture" className="w-full h-full object-cover" />
+                            <div className="absolute bottom-2.5 left-2.5 bg-slate-900/80 backdrop-blur px-2.5 py-1 rounded text-[8px] font-bold text-slate-200 uppercase tracking-widest">
+                              {scannedResult.time} • Camera lối soát
+                            </div>
                           </div>
                         </div>
+
+                        <div className="flex flex-col gap-1.5">
+                          <span className="text-[10px] font-extrabold tracking-wider text-blue-600 uppercase flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                            ẢNH ĐỐI CHIẾU TRONG MONGODB
+                          </span>
+                          <div className="h-[180px] rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 relative shadow-sm">
+                            {scannedResult.registeredPhoto ? (
+                              <>
+                                <img src={scannedResult.registeredPhoto} alt="Entry Capture" className="w-full h-full object-cover" />
+                                <div className="absolute bottom-2.5 left-2.5 bg-slate-900/80 backdrop-blur px-2.5 py-1 rounded text-[8px] font-bold text-slate-200 uppercase tracking-widest">
+                                  Ảnh lưu lúc xe vào
+                                </div>
+                              </>
+                            ) : (
+                              <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 text-slate-400 gap-1.5 p-4 text-center">
+                                <span className="material-symbols-outlined text-[32px] text-slate-300">image_not_supported</span>
+                                <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider block">
+                                  ẢNH VÀO: KHÔNG KHẢ DỤNG
+                                </span>
+                                <span className="text-[8px] text-slate-400 block leading-tight">
+                                  (Xe chưa qua cổng vào hoặc chưa chụp được ảnh)
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right: Plate Verification, computed fee, and User Details */}
+                      <div className="flex flex-col space-y-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm justify-between">
+                        {/* Plate comparison input */}
+                        <div className="space-y-3">
+                          <div>
+                            <label className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block mb-1">
+                              BIỂN SỐ XE RA (LỐI SOÁT)
+                            </label>
+                            <input 
+                              type="text" 
+                              className="w-full text-3xl font-mono font-black text-slate-900 text-center tracking-widest bg-slate-50 border-2 border-indigo-500 focus:border-indigo-600 focus:bg-white px-4 py-2.5 rounded-2xl shadow-sm outline-none transition-all uppercase"
+                              value={scannedResult.exitPlate || ''}
+                              onChange={(e) => setScannedResult({ ...scannedResult, exitPlate: e.target.value.toUpperCase() })}
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3.5">
+                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                              <span className="text-[8px] text-slate-400 font-extrabold uppercase tracking-wider block">Biển số lúc vào</span>
+                              <span className="text-sm font-mono font-black text-slate-700 block mt-1 tracking-wider">{scannedResult.plate}</span>
+                            </div>
+
+                            {/* Comparison Result Badge */}
+                            <div className={`p-3 rounded-xl border flex flex-col justify-center items-center text-center
+                              ${(scannedResult.plate || '').replace(/[^A-Z0-9]/g, "") === (scannedResult.exitPlate || '').replace(/[^A-Z0-9]/g, "")
+                                ? 'bg-emerald-50 border-emerald-100 text-emerald-800'
+                                : 'bg-red-50 border-red-100 text-red-800 animate-pulse'}`}
+                            >
+                              <span className="text-[8px] font-extrabold uppercase tracking-wider block">Kết quả đối chiếu</span>
+                              <span className="text-[10px] font-black mt-1">
+                                {(scannedResult.plate || '').replace(/[^A-Z0-9]/g, "") === (scannedResult.exitPlate || '').replace(/[^A-Z0-9]/g, "")
+                                  ? '✅ TRÙNG KHỚP'
+                                  : '❌ KHÔNG KHỚP'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Ticket details & fee */}
+                        <div className="grid grid-cols-3 gap-2.5">
+                          <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-left">
+                            <span className="text-[8px] text-slate-400 font-extrabold uppercase tracking-wider block">Loại vé</span>
+                            <span className="text-[10px] font-bold text-blue-700 block mt-1 truncate" title={scannedResult.ticketType}>{scannedResult.ticketType}</span>
+                          </div>
+
+                          <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-center">
+                            <span className="text-[8px] text-slate-400 font-extrabold uppercase tracking-wider block">THỜI GIAN VÀO</span>
+                            <span className="text-[9px] font-mono font-black text-slate-700 block mt-1 leading-tight">{scannedResult.entryTime || 'N/A'}</span>
+                          </div>
+
+                          <div className="bg-amber-50 p-2.5 rounded-xl border border-amber-100 text-center">
+                            <span className="text-[8px] text-amber-600 font-extrabold uppercase tracking-wider block">PHÍ DỊCH VỤ</span>
+                            <span className="text-xs font-black text-amber-800 mt-1 block">{(scannedResult.fee || 10000).toLocaleString()}đ</span>
+                          </div>
+                        </div>
+
+                        {/* Customer Information Card (same as entry) */}
+                        {scannedResult.userInfo && (
+                          <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100/70 flex flex-col gap-2.5 text-left">
+                            <span className="text-[9px] text-blue-600 font-black uppercase tracking-widest block">THÔNG TIN KHÁCH HÀNG ĐĂNG KÝ</span>
+                            
+                            <div className="grid grid-cols-2 gap-2.5">
+                              <div>
+                                <span className="text-[8px] text-slate-400 font-extrabold block uppercase tracking-wider">Chủ tài khoản</span>
+                                <span className="text-[11px] font-black text-slate-800 uppercase tracking-wide">
+                                  {`${scannedResult.userInfo.lastName || scannedResult.userInfo.LastName || ''} ${scannedResult.userInfo.firstName || scannedResult.userInfo.FirstName || ''}`.trim() || scannedResult.userInfo.username || scannedResult.userInfo.Username || 'N/A'}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-[8px] text-slate-400 font-extrabold block uppercase tracking-wider">Số điện thoại</span>
+                                <span className="text-[11px] font-mono font-black text-slate-700">
+                                  {scannedResult.userInfo.phoneNumber || scannedResult.userInfo.PhoneNumber || 'N/A'}
+                                </span>
+                              </div>
+                              <div className="col-span-2">
+                                <span className="text-[8px] text-slate-400 font-extrabold block uppercase tracking-wider">Email liên hệ</span>
+                                <span className="text-[11px] font-mono font-bold text-slate-600 truncate block">
+                                  {scannedResult.userInfo.email || scannedResult.userInfo.Email || 'N/A'}
+                                </span>
+                              </div>
+                              <div className="col-span-2">
+                                <span className="text-[8px] text-slate-400 font-extrabold block uppercase tracking-wider">Mã đặt chỗ (QR Code)</span>
+                                <span className="text-[10px] font-mono font-black text-blue-700 bg-blue-100/60 px-2.5 py-0.5 rounded border border-blue-200/50 inline-block tracking-wider">
+                                  {scannedResult.qrCode}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -1160,11 +1284,17 @@ const App = () => {
                         
                         {/* Real dynamic QR Code from API */}
                         <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-md">
-                          <img 
-                            src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${generatedTicket.qrCode}`} 
-                            alt="Ticket QR Code"
-                            className="w-32 h-32 animate-fade-in"
-                          />
+                          {ticketQrDataUrl ? (
+                            <img 
+                              src={ticketQrDataUrl} 
+                              alt="Ticket QR Code"
+                              className="w-32 h-32 animate-fade-in"
+                            />
+                          ) : (
+                            <div className="w-32 h-32 flex items-center justify-center text-[10px] text-slate-400 font-bold">
+                              Đang tạo QR...
+                            </div>
+                          )}
                         </div>
                         
                         <span className="text-[10px] font-mono font-bold text-slate-400 mt-2 tracking-wider">
