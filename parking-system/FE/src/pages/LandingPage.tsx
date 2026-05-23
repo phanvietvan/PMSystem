@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import BrandLogo from '../components/brand/BrandLogo';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useLottie } from 'lottie-react';
 import Navbar from '../components/layout/Navbar';
 import animationData from '../components/ui/hasahar.json';
@@ -10,6 +10,7 @@ import { hasActiveSessions } from '../utils/auth';
 const LandingPage = () => {
   const navigate = useNavigate();
   const [showActiveWarning, setShowActiveWarning] = useState(false);
+
   const lottieOptions = {
     animationData: animationData,
     loop: true,
@@ -98,9 +99,12 @@ const LandingPage = () => {
                   </svg>
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shine_1.5s_infinite] pointer-events-none"></div>
                 </button>
-                <Link to="/status" className="bg-white/60 hover:bg-white text-blue-600 font-bold py-5 px-10 rounded-full border border-blue-100 backdrop-blur-sm transition-all duration-300 text-center hover:shadow-xl hover:-translate-y-1 active:scale-95">
-                  Xem Phân tích
-                </Link>
+                <button
+                  onClick={() => navigate('/pricing')}
+                  className="bg-white/60 hover:bg-white text-blue-600 font-bold py-5 px-10 rounded-full border border-blue-100 backdrop-blur-sm transition-all duration-300 flex items-center justify-center hover:shadow-xl hover:-translate-y-1 active:scale-95 cursor-pointer"
+                >
+                  Xem Bảng giá
+                </button>
               </motion.div>
             </motion.div>
 
@@ -288,6 +292,8 @@ const LandingPage = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+
     </>
   );
 };

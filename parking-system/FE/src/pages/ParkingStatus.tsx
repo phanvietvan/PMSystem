@@ -120,7 +120,16 @@ const ParkingStatus: React.FC = () => {
   };
 
   const handleSlotClick = (id: string) => {
-    setSelectedSlot((prev) => (prev === id ? null : id));
+    setSelectedSlot((prev) => {
+      const newSlot = prev === id ? null : id;
+      if (newSlot) {
+        localStorage.setItem('selectedSlot', newSlot);
+        localStorage.setItem('selectedLevel', selectedLevel.toString());
+      } else {
+        localStorage.removeItem('selectedSlot');
+      }
+      return newSlot;
+    });
   };
 
   return (
@@ -466,8 +475,9 @@ const ParkingStatus: React.FC = () => {
               </div>
               <button
                 onClick={() => {
+                  const bypassActiveCheck = location.state?.bypassActiveCheck || false;
                   const isActive = hasActiveSessions();
-                  if (isActive) {
+                  if (isActive && !bypassActiveCheck) {
                     setShowActiveSessionWarning(true);
                     return;
                   }
@@ -475,12 +485,15 @@ const ParkingStatus: React.FC = () => {
                   localStorage.setItem('selectedSlot', selectedSlot || 'A3');
                   localStorage.setItem('selectedLevel', selectedLevel.toString());
                   
-                  // Always navigate to reserve page so user can choose vehicle/date/time cleanly
-                  navigate('/reserve', { state: { fromStatus: true } });
+                  if (location.state?.fromReserve) {
+                    navigate('/payment', { state: { mode: 'reserve' } });
+                  } else {
+                    navigate('/reserve', { state: { fromStatus: true } });
+                  }
                 }}
                 className="bg-blue-600 text-white px-5 py-2.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider hover:bg-blue-700 hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 shadow-lg shadow-blue-500/20 cursor-pointer"
               >
-                Tiếp tục đăng ký xe
+                {location.state?.fromReserve ? 'XÁC NHẬN VÀ THANH TOÁN' : 'Tiếp tục đăng ký xe'}
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -521,6 +534,8 @@ const ParkingStatus: React.FC = () => {
                 <button
                   onClick={() => {
                     setShowReservePrompt(false);
+                    localStorage.setItem('selectedSlot', selectedSlot || 'A3');
+                    localStorage.setItem('selectedLevel', selectedLevel.toString());
                     navigate('/reserve', { state: { fromStatus: true } });
                   }}
                   className="w-full bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-extrabold py-3.5 rounded-full text-[10px] uppercase tracking-wider transition-all shadow-lg shadow-blue-500/20 cursor-pointer"
