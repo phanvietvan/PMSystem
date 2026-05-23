@@ -80,9 +80,14 @@ const ParkingStatus: React.FC = () => {
   useEffect(() => {
     api.get('/ParkingSessions/my-session')
       .then(res => {
-        if (res.data && res.data.qrCode) {
-          addActiveQr(res.data.qrCode);
-          setShowActiveSessionWarning(true);
+        if (res.data) {
+          if (res.data.hasActiveSession && res.data.session) {
+            addActiveQr(res.data.session.qrCode);
+          } else {
+            localStorage.removeItem('activeSessionQrs');
+            localStorage.removeItem('activeSessionQr');
+            setShowActiveSessionWarning(false);
+          }
         }
       })
       .catch(err => {

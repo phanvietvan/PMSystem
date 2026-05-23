@@ -17,7 +17,15 @@ const SuccessPage = () => {
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
 
   const selectedSlot = localStorage.getItem('selectedSlot') || 'A3';
-  const selectedLevel = localStorage.getItem('selectedLevel') || '3';
+  
+  let parkingInfo = { name: "Landmark 81 - Bãi đỗ A1", floor: "Tầng 1", block: "Block A" };
+  try {
+    const raw = localStorage.getItem('selectedParking');
+    if (raw) parkingInfo = JSON.parse(raw);
+  } catch(e) {}
+
+  const resDate = localStorage.getItem('reservationDate') ? new Date(localStorage.getItem('reservationDate')!).toLocaleDateString('vi-VN') : new Date().toLocaleDateString('vi-VN');
+  const resTime = localStorage.getItem('reservationStartTime') || new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 
   useEffect(() => {
     if (qrCode) {
@@ -138,11 +146,13 @@ const SuccessPage = () => {
               <div className="grid grid-cols-2 gap-4 mb-10">
                 <div className="p-4 bg-surface-container rounded-2xl border border-outline-variant/10">
                   <span className="text-[8px] font-black text-outline uppercase tracking-widest block mb-1">Vị trí</span>
-                  <p className="text-sm font-black text-on-surface">Tầng {selectedLevel.padStart(2, '0')} • {selectedSlot}</p>
+                  <p className="text-[13px] font-black text-on-surface leading-tight truncate" title={parkingInfo.name}>{parkingInfo.name}</p>
+                  <p className="text-[10px] text-on-surface-variant font-bold mt-0.5">{parkingInfo.floor} • Slot {selectedSlot}</p>
                 </div>
                 <div className="p-4 bg-surface-container rounded-2xl border border-outline-variant/10">
                   <span className="text-[8px] font-black text-outline uppercase tracking-widest block mb-1">Thời gian</span>
-                  <p className="text-sm font-black text-on-surface">08:30 AM</p>
+                  <p className="text-[13px] font-black text-on-surface leading-tight truncate">{resDate}</p>
+                  <p className="text-[10px] text-on-surface-variant font-bold mt-0.5">{resTime}</p>
                 </div>
               </div>
 

@@ -308,7 +308,32 @@ public class ParkingSessionsController : ControllerBase
             .OrderByDescending(ps => ps.CreatedAt)
             .Take(50)
             .ToListAsync();
-        return Ok(sessions);
+
+        var userIds = sessions.Where(ps => ps.UserId.HasValue).Select(ps => ps.UserId.Value).Distinct().ToList();
+        var users = await _context.Users.Where(u => userIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id);
+
+        var result = sessions.Select(ps => new {
+            ps.Id,
+            ps.UserId,
+            ps.LicensePlate,
+            ps.EntryTime,
+            ps.ExitTime,
+            ps.Status,
+            ps.QrCode,
+            TotalFee = ps.ExitTime.HasValue ? CalculateFee(ps.EntryTime, ps.ExitTime.Value) : (decimal?)null,
+            ps.IsCheckedIn,
+            ps.EntryPhoto,
+            ps.ExitPhoto,
+            ps.CreatedAt,
+            User = ps.UserId.HasValue && users.TryGetValue(ps.UserId.Value, out var u) ? new {
+                u.FirstName,
+                u.LastName,
+                u.Email,
+                u.PhoneNumber
+            } : null
+        });
+
+        return Ok(result);
     }
 }
 
