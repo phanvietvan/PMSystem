@@ -5,7 +5,7 @@ import ParkingMap from '../components/navigation/ParkingMap';
 import { ArrowRight, Calendar, Clock, MapPin, Info, Map, Layers, Compass, Cpu, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
-import { hasActiveSessions } from '../utils/auth';
+import { hasActiveSessions, addActiveQr } from '../utils/auth';
 
 const ReservationPage = () => {
   const navigate = useNavigate();
@@ -67,6 +67,19 @@ const ReservationPage = () => {
     if (hasActive && !bypassActiveCheck) {
       navigate('/active-session');
       return;
+    }
+
+    if (!bypassActiveCheck) {
+      api.get('/ParkingSessions/my-session')
+        .then(res => {
+          if (res.data && res.data.qrCode) {
+            addActiveQr(res.data.qrCode);
+            navigate('/active-session');
+          }
+        })
+        .catch(err => {
+          console.log('No active session on database.', err);
+        });
     }
 
     const init = async () => {
