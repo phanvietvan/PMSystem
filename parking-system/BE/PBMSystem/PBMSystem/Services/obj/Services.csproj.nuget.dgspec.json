@@ -1,25 +1,31 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\Admin\\Desktop\\Parking Building Management System\\parking-system\\BE\\PBMSystem\\PBMSystem\\Services\\Services.csproj": {}
+    "C:\\Users\\insig\\source\\repos\\PMSystem\\parking-system\\BE\\PBMSystem\\PBMSystem\\Services\\Services.csproj": {}
   },
   "projects": {
-    "C:\\Users\\Admin\\Desktop\\Parking Building Management System\\parking-system\\BE\\PBMSystem\\PBMSystem\\Repositories\\Repositories.csproj": {
+    "C:\\Users\\insig\\source\\repos\\PMSystem\\parking-system\\BE\\PBMSystem\\PBMSystem\\Repositories\\Repositories.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\Admin\\Desktop\\Parking Building Management System\\parking-system\\BE\\PBMSystem\\PBMSystem\\Repositories\\Repositories.csproj",
+        "projectUniqueName": "C:\\Users\\insig\\source\\repos\\PMSystem\\parking-system\\BE\\PBMSystem\\PBMSystem\\Repositories\\Repositories.csproj",
         "projectName": "Repositories",
-        "projectPath": "C:\\Users\\Admin\\Desktop\\Parking Building Management System\\parking-system\\BE\\PBMSystem\\PBMSystem\\Repositories\\Repositories.csproj",
-        "packagesPath": "C:\\Users\\Admin\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\Admin\\Desktop\\Parking Building Management System\\parking-system\\BE\\PBMSystem\\PBMSystem\\Repositories\\obj\\",
+        "projectPath": "C:\\Users\\insig\\source\\repos\\PMSystem\\parking-system\\BE\\PBMSystem\\PBMSystem\\Repositories\\Repositories.csproj",
+        "packagesPath": "C:\\Users\\insig\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\insig\\Source\\Repos\\PMSystem\\parking-system\\BE\\PBMSystem\\PBMSystem\\Repositories\\obj\\",
         "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
         "configFilePaths": [
-          "C:\\Users\\Admin\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "C:\\Users\\insig\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
         "originalTargetFrameworks": [
           "net8.0"
         ],
         "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -92,53 +98,45 @@
           ],
           "assetTargetFallback": true,
           "warn": true,
-          "downloadDependencies": [
-            {
-              "name": "Microsoft.AspNetCore.App.Ref",
-              "version": "[8.0.27, 8.0.27]"
-            },
-            {
-              "name": "Microsoft.NETCore.App.Ref",
-              "version": "[8.0.27, 8.0.27]"
-            },
-            {
-              "name": "Microsoft.WindowsDesktop.App.Ref",
-              "version": "[8.0.27, 8.0.27]"
-            }
-          ],
           "frameworkReferences": {
             "Microsoft.NETCore.App": {
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.314/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.304/PortableRuntimeIdentifierGraph.json"
         }
       }
     },
-    "C:\\Users\\Admin\\Desktop\\Parking Building Management System\\parking-system\\BE\\PBMSystem\\PBMSystem\\Services\\Services.csproj": {
+    "C:\\Users\\insig\\source\\repos\\PMSystem\\parking-system\\BE\\PBMSystem\\PBMSystem\\Services\\Services.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\Admin\\Desktop\\Parking Building Management System\\parking-system\\BE\\PBMSystem\\PBMSystem\\Services\\Services.csproj",
+        "projectUniqueName": "C:\\Users\\insig\\source\\repos\\PMSystem\\parking-system\\BE\\PBMSystem\\PBMSystem\\Services\\Services.csproj",
         "projectName": "Services",
-        "projectPath": "C:\\Users\\Admin\\Desktop\\Parking Building Management System\\parking-system\\BE\\PBMSystem\\PBMSystem\\Services\\Services.csproj",
-        "packagesPath": "C:\\Users\\Admin\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\Admin\\Desktop\\Parking Building Management System\\parking-system\\BE\\PBMSystem\\PBMSystem\\Services\\obj\\",
+        "projectPath": "C:\\Users\\insig\\source\\repos\\PMSystem\\parking-system\\BE\\PBMSystem\\PBMSystem\\Services\\Services.csproj",
+        "packagesPath": "C:\\Users\\insig\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\insig\\Source\\Repos\\PMSystem\\parking-system\\BE\\PBMSystem\\PBMSystem\\Services\\obj\\",
         "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
         "configFilePaths": [
-          "C:\\Users\\Admin\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "C:\\Users\\insig\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
         "originalTargetFrameworks": [
           "net8.0"
         ],
         "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
           "net8.0": {
             "targetAlias": "net8.0",
             "projectReferences": {
-              "C:\\Users\\Admin\\Desktop\\Parking Building Management System\\parking-system\\BE\\PBMSystem\\PBMSystem\\Repositories\\Repositories.csproj": {
-                "projectPath": "C:\\Users\\Admin\\Desktop\\Parking Building Management System\\parking-system\\BE\\PBMSystem\\PBMSystem\\Repositories\\Repositories.csproj"
+              "C:\\Users\\insig\\source\\repos\\PMSystem\\parking-system\\BE\\PBMSystem\\PBMSystem\\Repositories\\Repositories.csproj": {
+                "projectPath": "C:\\Users\\insig\\source\\repos\\PMSystem\\parking-system\\BE\\PBMSystem\\PBMSystem\\Repositories\\Repositories.csproj"
               }
             }
           }
@@ -211,26 +209,12 @@
           ],
           "assetTargetFallback": true,
           "warn": true,
-          "downloadDependencies": [
-            {
-              "name": "Microsoft.AspNetCore.App.Ref",
-              "version": "[8.0.27, 8.0.27]"
-            },
-            {
-              "name": "Microsoft.NETCore.App.Ref",
-              "version": "[8.0.27, 8.0.27]"
-            },
-            {
-              "name": "Microsoft.WindowsDesktop.App.Ref",
-              "version": "[8.0.27, 8.0.27]"
-            }
-          ],
           "frameworkReferences": {
             "Microsoft.NETCore.App": {
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.314/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.304/PortableRuntimeIdentifierGraph.json"
         }
       }
     }
