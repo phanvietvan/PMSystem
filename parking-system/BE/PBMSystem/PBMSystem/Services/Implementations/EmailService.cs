@@ -216,4 +216,74 @@ public class EmailService : IEmailService
 
         _logger.LogInformation("Contact submission email successfully sent to pmsystem.system@gmail.com");
     }
+
+    public async Task SendBookingConfirmationEmailAsync(string toEmail, string userName, string qrCode, string lotName, string slot, string licensePlate)
+    {
+        var emailSubject = "Xác nhận đặt chỗ thành công - PM System";
+        var body = $"""
+            <!DOCTYPE html>
+            <html>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; color: #333; line-height: 1.6;">
+                <h2 style="color: #1a1a2e; border-bottom: 2px solid #3b82f6; padding-bottom: 8px;">Xác nhận đặt chỗ bãi đỗ xe</h2>
+                <p>Xin chào <strong>{userName}</strong>,</p>
+                <p>Cảm ơn bạn đã tin tưởng và sử dụng dịch vụ của PM System. Dưới đây là thông tin chi tiết về lượt đặt chỗ của bạn:</p>
+
+                <div style="text-align: center; margin: 35px 0;">
+                    <div style="display: inline-block; padding: 15px; background: #ffffff; border: 2px solid #e2e8f0; border-radius: 16px;">
+                        <img src="https://quickchart.io/qr?text={qrCode}&size=250" alt="Mã QR Đặt chỗ" style="display: block; margin: 0 auto; width: 250px; height: 250px;" />
+                    </div>
+                </div>
+
+                <table style="width: 100%; border-collapse: collapse; margin: 20px 0; background: #f4f6f9; border-radius: 8px; overflow: hidden;">
+                    <tr>
+                        <td style="padding: 12px; font-weight: bold; border-bottom: 1px solid #e2e8f0; width: 150px;">Mã QR đặt chỗ:</td>
+                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; font-family: monospace; font-size: 18px; color: #0050cb; font-weight: bold; letter-spacing: 2px;">{qrCode}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px; font-weight: bold; border-bottom: 1px solid #e2e8f0;">Tòa nhà:</td>
+                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">{lotName}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px; font-weight: bold; border-bottom: 1px solid #e2e8f0;">Vị trí (Slot):</td>
+                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; font-weight: bold; color: #e11d48;">{slot}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px; font-weight: bold;">Biển số xe:</td>
+                        <td style="padding: 12px; font-weight: bold;">{licensePlate}</td>
+                    </tr>
+                </table>
+                <p>Vui lòng xuất trình mã QR này tại trạm kiểm soát lối vào để nhân viên xác thực.</p>
+                <p style="color: #888; font-size: 11px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 10px;">
+                    Thư này được gửi tự động từ hệ thống quản lý đỗ xe PM System. Vui lòng không trả lời thư này.
+                </p>
+            </body>
+            </html>
+            """;
+
+        var mailMessage = new MimeMessage();
+        mailMessage.From.Add(new MailboxAddress(_smtp.FromName, _smtp.FromAddress));
+        mailMessage.To.Add(MailboxAddress.Parse(toEmail));
+        mailMessage.Subject = emailSubject;
+        mailMessage.Body = new TextPart("html") { Text = body };
+
+        if (_isDevelopment && (string.IsNullOrWhiteSpace(_smtp.Username) || _smtp.Username.Contains("MAILTRAP_") || _smtp.Username.Contains("REPLACE_WITH")))
+        {
+            _logger.LogInformation("Booking confirmation email simulated for {toEmail} with QR {qrCode}", toEmail, qrCode);
+            return;
+        }
+
+        try
+        {
+            using var client = new SmtpClient();
+            await client.ConnectAsync(_smtp.Host, _smtp.Port, SecureSocketOptions.StartTls);
+            await client.AuthenticateAsync(_smtp.Username, _smtp.Password);
+            await client.SendAsync(mailMessage);
+            await client.DisconnectAsync(true);
+            _logger.LogInformation("Booking confirmation email successfully sent to {toEmail}", toEmail);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send booking confirmation email to {toEmail}", toEmail);
+        }
+    }
 }

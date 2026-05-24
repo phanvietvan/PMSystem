@@ -369,18 +369,25 @@ const ReservationPage = () => {
                   <label className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-slate-400/90 ml-1 flex items-center gap-1.5">
                     <MapPin size={12} className="text-blue-500" /> Chọn vị trí / bãi đỗ
                   </label>
-                  <div
-                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                    className="w-full bg-white border border-outline-variant/80 hover:border-blue-500/40 rounded-full py-2.5 px-5 text-slate-900 font-extrabold flex items-center justify-between cursor-pointer transition-all duration-300 group shadow-sm hover:shadow-md"
-                  >
-                    <span className="text-xs truncate pr-2">{selectedParking.name}</span>
-                    <span className={`material-symbols-outlined text-[18px] text-slate-400 group-hover:text-blue-500 transition-all duration-300 ${isDropdownOpen ? 'rotate-180' : ''}`}>
-                      keyboard_arrow_down
-                    </span>
-                  </div>
+                  {fromStatus ? (
+                    <div className="w-full bg-slate-50 border border-slate-200 rounded-full py-2.5 px-5 text-slate-500 font-extrabold flex items-center justify-between cursor-not-allowed shadow-inner">
+                      <span className="text-xs truncate pr-2">{selectedParking.name}</span>
+                      <Lock size={14} className="text-slate-400" />
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                      className="w-full bg-white border border-outline-variant/80 hover:border-blue-500/40 rounded-full py-2.5 px-5 text-slate-900 font-extrabold flex items-center justify-between cursor-pointer transition-all duration-300 group shadow-sm hover:shadow-md"
+                    >
+                      <span className="text-xs truncate pr-2">{selectedParking.name}</span>
+                      <span className={`material-symbols-outlined text-[18px] text-slate-400 group-hover:text-blue-500 transition-all duration-300 ${isDropdownOpen ? 'rotate-180' : ''}`}>
+                        keyboard_arrow_down
+                      </span>
+                    </div>
+                  )}
 
                   <AnimatePresence>
-                    {isDropdownOpen && (
+                    {!fromStatus && isDropdownOpen && (
                       <motion.div
                         initial={{ opacity: 0, y: -12, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}

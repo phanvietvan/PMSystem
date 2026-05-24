@@ -7,6 +7,7 @@ using PBMSystem.API.Extensions;
 using Repositories;
 using Repositories.Entities;
 using Repositories.DTOs;
+using Services.Interfaces;
 
 namespace PBMSystem.API.Controllers;
 
@@ -15,10 +16,12 @@ namespace PBMSystem.API.Controllers;
 public class ParkingSessionsController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly IEmailService _emailService;
 
-    public ParkingSessionsController(AppDbContext context)
+    public ParkingSessionsController(AppDbContext context, IEmailService emailService)
     {
         _context = context;
+        _emailService = emailService;
     }
 
     /// <summary>
@@ -90,6 +93,28 @@ public class ParkingSessionsController : ControllerBase
 
         _context.ParkingSessions.Add(session);
         await _context.SaveChangesAsync();
+
+        User? user = null;
+        if (userId.HasValue)
+        {
+            user = await _context.Users.FindAsync(userId.Value);
+        }
+
+        if (user != null && !string.IsNullOrWhiteSpace(user.Email) && !string.IsNullOrEmpty(request.ReservationDate))
+        {
+            var userName = !string.IsNullOrWhiteSpace(user.FirstName) || !string.IsNullOrWhiteSpace(user.LastName)
+                ? $"{user.FirstName} {user.LastName}".Trim()
+                : (user.Username ?? "Khách hàng");
+
+            _ = _emailService.SendBookingConfirmationEmailAsync(
+                user.Email,
+                userName,
+                qrCode,
+                request.ParkingLotName ?? "PM System Central",
+                request.ParkingSlot ?? "Tự động phân bổ",
+                request.LicensePlate.ToUpper()
+            );
+        }
 
         return Ok(session);
     }
@@ -322,7 +347,6 @@ public class ParkingSessionsController : ControllerBase
     {
         var sessions = await _context.ParkingSessions
             .OrderByDescending(ps => ps.CreatedAt)
-            .Take(50)
             .ToListAsync();
 
         var userIds = sessions.Where(ps => ps.UserId.HasValue).Select(ps => ps.UserId.Value).Distinct().ToList();
@@ -343,6 +367,7 @@ public class ParkingSessionsController : ControllerBase
             ps.CreatedAt,
             ps.ParkingLotName,
             ps.ParkingSlot,
+            ps.VehicleType,
             User = ps.UserId.HasValue && users.TryGetValue(ps.UserId.Value, out var u) ? new {
                 u.FirstName,
                 u.LastName,
