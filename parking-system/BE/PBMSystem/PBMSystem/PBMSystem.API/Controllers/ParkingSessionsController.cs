@@ -7,6 +7,7 @@ using PBMSystem.API.Extensions;
 using Repositories;
 using Repositories.Entities;
 using Repositories.DTOs;
+using Services.Interfaces;
 
 namespace PBMSystem.API.Controllers;
 
@@ -15,10 +16,12 @@ namespace PBMSystem.API.Controllers;
 public class ParkingSessionsController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly IEmailService _emailService;
 
-    public ParkingSessionsController(AppDbContext context)
+    public ParkingSessionsController(AppDbContext context, IEmailService emailService)
     {
         _context = context;
+        _emailService = emailService;
     }
 
     /// <summary>
@@ -32,6 +35,20 @@ public class ParkingSessionsController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.LicensePlate))
             return BadRequest(new { message = "Biển số xe không được trống." });
 
+        // Verify if the parking slot is already locked/reserved in the selected building
+        if (!string.IsNullOrWhiteSpace(request.ParkingLotName) && !string.IsNullOrWhiteSpace(request.ParkingSlot))
+        {
+            var isSlotTaken = await _context.ParkingSessions
+                .AnyAsync(ps => ps.Status == "Active" 
+                             && ps.ParkingLotName == request.ParkingLotName 
+                             && ps.ParkingSlot == request.ParkingSlot);
+            
+            if (isSlotTaken)
+            {
+                return BadRequest(new { message = $"Vị trí đỗ {request.ParkingSlot} tại {request.ParkingLotName} hiện đã bị khóa hoặc đang bận. Vui lòng chọn vị trí khác!" });
+            }
+        }
+
         Guid? userId = request.UserId;
         try
         {
@@ -39,17 +56,20 @@ public class ParkingSessionsController : ControllerBase
             {
                 userId = User.GetUserId();
             }
-
-            if (userId.HasValue)
-            {
-                // Prevent duplicate active sessions for the same registered user
-                var existingActive = await _context.ParkingSessions
-                    .FirstOrDefaultAsync(ps => ps.UserId == userId && ps.Status == "Active");
-                if (existingActive != null)
-                    return BadRequest(new { message = "Bạn đang có phiên đỗ xe đang hoạt động. Vui lòng thanh toán phiên hiện tại trước khi đặt chỗ mới." });
-            }
         }
         catch { }
+
+        // Prevent duplicate active sessions for the same vehicle (license plate)
+        var cleanLicensePlate = request.LicensePlate.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper();
+        var allSessions = await _context.ParkingSessions.Where(ps => ps.Status == "Active").ToListAsync();
+        var existingActive = allSessions.FirstOrDefault(ps => 
+            ps.LicensePlate.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper() == cleanLicensePlate &&
+            ps.ParkingLotName == request.ParkingLotName);
+
+        if (existingActive != null)
+        {
+            return BadRequest(new { message = $"Xe với biển số {request.LicensePlate} đang có phiên đỗ xe hoạt động tại {existingActive.ParkingLotName}. Vui lòng thanh toán phiên hiện tại trước khi đặt chỗ mới." });
+        }
 
         var qrCode = $"QR_{Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper()}";
 
@@ -73,6 +93,28 @@ public class ParkingSessionsController : ControllerBase
 
         _context.ParkingSessions.Add(session);
         await _context.SaveChangesAsync();
+
+        User? user = null;
+        if (userId.HasValue)
+        {
+            user = await _context.Users.FindAsync(userId.Value);
+        }
+
+        if (user != null && !string.IsNullOrWhiteSpace(user.Email) && !string.IsNullOrEmpty(request.ReservationDate))
+        {
+            var userName = !string.IsNullOrWhiteSpace(user.FirstName) || !string.IsNullOrWhiteSpace(user.LastName)
+                ? $"{user.FirstName} {user.LastName}".Trim()
+                : (user.Username ?? "Khách hàng");
+
+            _ = _emailService.SendBookingConfirmationEmailAsync(
+                user.Email,
+                userName,
+                qrCode,
+                request.ParkingLotName ?? "PM System Central",
+                request.ParkingSlot ?? "Tự động phân bổ",
+                request.LicensePlate.ToUpper()
+            );
+        }
 
         return Ok(session);
     }
@@ -204,8 +246,7 @@ public class ParkingSessionsController : ControllerBase
     {
         var plates = await _context.ParkingSessions
             .Where(ps => ps.Status == "Active")
-            .Select(ps => ps.LicensePlate)
-            .Distinct()
+            .Select(ps => new { ps.LicensePlate, ps.ParkingLotName })
             .ToListAsync();
         return Ok(plates);
     }
@@ -306,9 +347,36 @@ public class ParkingSessionsController : ControllerBase
     {
         var sessions = await _context.ParkingSessions
             .OrderByDescending(ps => ps.CreatedAt)
-            .Take(50)
             .ToListAsync();
-        return Ok(sessions);
+
+        var userIds = sessions.Where(ps => ps.UserId.HasValue).Select(ps => ps.UserId.Value).Distinct().ToList();
+        var users = await _context.Users.Where(u => userIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id);
+
+        var result = sessions.Select(ps => new {
+            ps.Id,
+            ps.UserId,
+            ps.LicensePlate,
+            ps.EntryTime,
+            ps.ExitTime,
+            ps.Status,
+            ps.QrCode,
+            TotalFee = ps.ExitTime.HasValue ? CalculateFee(ps.EntryTime, ps.ExitTime.Value) : (decimal?)null,
+            ps.IsCheckedIn,
+            ps.EntryPhoto,
+            ps.ExitPhoto,
+            ps.CreatedAt,
+            ps.ParkingLotName,
+            ps.ParkingSlot,
+            ps.VehicleType,
+            User = ps.UserId.HasValue && users.TryGetValue(ps.UserId.Value, out var u) ? new {
+                u.FirstName,
+                u.LastName,
+                u.Email,
+                u.PhoneNumber
+            } : null
+        });
+
+        return Ok(result);
     }
 }
 

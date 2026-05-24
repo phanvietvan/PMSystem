@@ -5,7 +5,7 @@ import ParkingMap from '../components/navigation/ParkingMap';
 import { ArrowRight, Calendar, Clock, MapPin, Info, Map, Layers, Compass, Cpu, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
-import { hasActiveSessions } from '../utils/auth';
+import { addActiveQr } from '../utils/auth';
 
 const ReservationPage = () => {
   const navigate = useNavigate();
@@ -58,15 +58,33 @@ const ReservationPage = () => {
 
   const selectedParking = parkingLots.find(p => p.id === formData.parkingLotId) || parkingLots[0];
 
+  const [isSlotSelected, setIsSlotSelected] = useState(fromStatus);
+  const [currentSlot, setCurrentSlot] = useState(() => localStorage.getItem('selectedSlot') || '');
+
   const [userVehicles, setUserVehicles] = useState<Array<{ plate: string; type: string }>>([]);
-  const [activePlates, setActivePlates] = useState<string[]>([]);
+  const [activePlates, setActivePlates] = useState<Array<{ plate: string; parkingLotName: string }>>([]);
 
   useEffect(() => {
-    const hasActive = hasActiveSessions();
     const bypassActiveCheck = location.state?.bypassActiveCheck || false;
-    if (hasActive && !bypassActiveCheck) {
-      navigate('/active-session');
-      return;
+
+    if (!bypassActiveCheck) {
+      api.get('/ParkingSessions/my-session')
+        .then(res => {
+          if (res.data) {
+            if (res.data.hasActiveSession && res.data.session) {
+              const sQrCode = res.data.session.qrCode || res.data.session.QrCode;
+              if (sQrCode) {
+                addActiveQr(sQrCode);
+              }
+            } else {
+              localStorage.removeItem('activeSessionQrs');
+              localStorage.removeItem('activeSessionQr');
+            }
+          }
+        })
+        .catch(err => {
+          console.log('No active session on database.', err);
+        });
     }
 
     const init = async () => {
@@ -89,14 +107,18 @@ const ReservationPage = () => {
           // Fetch active plates from BE to determine locked vehicles
           try {
             const resp = await api.get('/ParkingSessions/active-plates');
-            const plates: string[] = resp.data || [];
-            const normalizedActive = plates.map((p: string) => p.replace(/[-. ]/g, '').toUpperCase());
+            const data: any[] = resp.data || [];
+            const normalizedActive = data.map((item: any) => ({
+              plate: (item.licensePlate || item.LicensePlate || '').replace(/[-. ]/g, '').toUpperCase(),
+              parkingLotName: item.parkingLotName || item.ParkingLotName || ''
+            }));
             setActivePlates(normalizedActive);
 
-            // Auto-select the first available (non-active) vehicle
+            // Auto-select the first available (non-active in current building) vehicle
+            const currentLotName = parkingLots.find(p => p.id === formData.parkingLotId)?.name || parkingLots[0].name;
             const firstAvailable = parsedVehicles.find(v => {
               const norm = v.plate.replace(/[-. ]/g, '').toUpperCase();
-              return !normalizedActive.includes(norm);
+              return !normalizedActive.some(a => a.plate === norm && a.parkingLotName === currentLotName);
             });
             if (firstAvailable) {
               setFormData(prev => ({
@@ -133,12 +155,12 @@ const ReservationPage = () => {
     localStorage.setItem('reservationVehicleType', formData.vehicleType);
     localStorage.setItem('reservationLicensePlate', formData.licensePlate);
     
-    if (fromStatus) {
+    if (isSlotSelected && currentSlot) {
       navigate('/payment', { state: { mode: 'reserve' } });
     } else {
       localStorage.removeItem('selectedSlot');
       localStorage.removeItem('selectedLevel');
-      navigate('/status', { state: { selectedParking } });
+      navigate('/status', { state: { selectedParking, fromReserve: true, bypassActiveCheck: location.state?.bypassActiveCheck } });
     }
   };
 
@@ -250,7 +272,8 @@ const ReservationPage = () => {
                           className="absolute z-[2500] left-0 right-0 mt-2 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-100/90 max-h-56 overflow-y-auto divide-y divide-slate-50 scrollbar-thin overflow-hidden p-1.5"
                         >
                           {userVehicles.map((veh, i) => {
-                            const isLocked = activePlates.includes(veh.plate.replace(/[-. ]/g, '').toUpperCase());
+                            const normPlate = veh.plate.replace(/[-. ]/g, '').toUpperCase();
+                            const isLocked = activePlates.some(a => a.plate === normPlate && a.parkingLotName === selectedParking.name);
                             return (
                             <div
                               key={i}
@@ -346,18 +369,25 @@ const ReservationPage = () => {
                   <label className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-slate-400/90 ml-1 flex items-center gap-1.5">
                     <MapPin size={12} className="text-blue-500" /> Chọn vị trí / bãi đỗ
                   </label>
-                  <div
-                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                    className="w-full bg-white border border-outline-variant/80 hover:border-blue-500/40 rounded-full py-2.5 px-5 text-slate-900 font-extrabold flex items-center justify-between cursor-pointer transition-all duration-300 group shadow-sm hover:shadow-md"
-                  >
-                    <span className="text-xs truncate pr-2">{selectedParking.name}</span>
-                    <span className={`material-symbols-outlined text-[18px] text-slate-400 group-hover:text-blue-500 transition-all duration-300 ${isDropdownOpen ? 'rotate-180' : ''}`}>
-                      keyboard_arrow_down
-                    </span>
-                  </div>
+                  {fromStatus ? (
+                    <div className="w-full bg-slate-50 border border-slate-200 rounded-full py-2.5 px-5 text-slate-500 font-extrabold flex items-center justify-between cursor-not-allowed shadow-inner">
+                      <span className="text-xs truncate pr-2">{selectedParking.name}</span>
+                      <Lock size={14} className="text-slate-400" />
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                      className="w-full bg-white border border-outline-variant/80 hover:border-blue-500/40 rounded-full py-2.5 px-5 text-slate-900 font-extrabold flex items-center justify-between cursor-pointer transition-all duration-300 group shadow-sm hover:shadow-md"
+                    >
+                      <span className="text-xs truncate pr-2">{selectedParking.name}</span>
+                      <span className={`material-symbols-outlined text-[18px] text-slate-400 group-hover:text-blue-500 transition-all duration-300 ${isDropdownOpen ? 'rotate-180' : ''}`}>
+                        keyboard_arrow_down
+                      </span>
+                    </div>
+                  )}
 
                   <AnimatePresence>
-                    {isDropdownOpen && (
+                    {!fromStatus && isDropdownOpen && (
                       <motion.div
                         initial={{ opacity: 0, y: -12, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -369,6 +399,10 @@ const ReservationPage = () => {
                           <div
                             key={lot.id}
                             onClick={() => {
+                              if (formData.parkingLotId !== lot.id) {
+                                setIsSlotSelected(false);
+                                setCurrentSlot('');
+                              }
                               setFormData({ ...formData, parkingLotId: lot.id });
                               setIsDropdownOpen(false);
                             }}
@@ -431,13 +465,38 @@ const ReservationPage = () => {
 
               </div>
 
+              {/* Selected Slot Indicator */}
+              {isSlotSelected && currentSlot && (
+                <div className="flex items-center justify-between p-4 bg-blue-50/50 border border-blue-100 rounded-2xl mt-2 mb-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center font-black shadow-sm">
+                      {currentSlot}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Vị trí đã chọn</span>
+                      <span className="text-xs font-black text-slate-800">{selectedParking.name}</span>
+                    </div>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setIsSlotSelected(false);
+                      setCurrentSlot('');
+                    }}
+                    className="text-[10px] font-bold text-slate-500 hover:text-blue-600 underline cursor-pointer"
+                  >
+                    Thay đổi
+                  </button>
+                </div>
+              )}
+
               {/* Next Step Action Button */}
               <button
                 className="group relative overflow-hidden w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold rounded-full transition-all duration-300 shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 active:scale-[0.98] text-xs flex items-center justify-center gap-2 mt-4 shrink-0 cursor-pointer"
                 type="submit"
               >
                 <span className="relative z-10 uppercase tracking-widest font-black text-[10px]">
-                  {fromStatus ? 'TIẾP THEO: ĐI TỚI THANH TOÁN' : 'TIẾP THEO: CHỌN VỊ TRÍ CHI TIẾT'}
+                  {isSlotSelected && currentSlot ? 'TIẾP THEO: ĐI TỚI THANH TOÁN' : 'TIẾP THEO: CHỌN VỊ TRÍ CHI TIẾT'}
                 </span>
                 <ArrowRight size={16} className="relative z-10 transition-transform duration-300 group-hover:translate-x-1" />
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shine_1.5s_infinite] pointer-events-none"></div>

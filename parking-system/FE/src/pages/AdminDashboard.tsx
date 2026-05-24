@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { 
   CalendarDays, 
   TrendingUp, 
@@ -6,31 +7,91 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import AdminLayout from '../components/admin/AdminLayout';
+import api from '../services/api';
 
 const AdminDashboard = () => {
-  console.log("AdminDashboard rendered");
+
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchSessions = async () => {
+      try {
+        const response = await api.get('/ParkingSessions');
+        if (response.data) {
+          setSessions(Array.isArray(response.data) ? response.data : (response.data.data || []));
+        }
+      } catch (error) {
+        console.error('Error fetching sessions:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSessions();
+    const interval = setInterval(fetchSessions, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const totalRevenue = sessions.reduce((sum, s) => sum + (s.totalFee || 0), 0);
+  const activeBookings = sessions.filter(s => s.status === 'Active' || s.status === 'Pending').length;
+  const occupancyRate = sessions.length ? ((activeBookings / 174) * 100).toFixed(1) + '%' : '0%';
+
+  const formatRevenue = (amount: number) => {
+    if (amount >= 1000000) return (amount / 1000000).toFixed(1) + 'M';
+    if (amount >= 1000) return (amount / 1000).toFixed(0) + 'K';
+    return amount.toString();
+  };
 
   const metrics = [
-    { label: 'TỔNG DOANH THU', value: '245M', unit: 'VND', trend: '+12%', icon: TrendingUp, color: 'text-blue-600', sub: 'So với tháng trước' },
-    { label: 'TỶ LỆ LẤP ĐẦY', value: '85%', trend: '85%', icon: Car, color: 'text-emerald-600', sub: 'Công suất tối ưu' },
-    { label: 'ĐẶT CHỖ HOẠT ĐỘNG', value: '124', trend: '18', icon: CalendarDays, color: 'text-blue-500', sub: 'Đang chờ xử lý: 18' },
+    { label: 'TỔNG DOANH THU', value: loading ? '...' : formatRevenue(totalRevenue), unit: 'VND', trend: '+12%', icon: TrendingUp, color: 'text-blue-600', sub: 'Toàn thời gian' },
+    { label: 'TỶ LỆ LẤP ĐẦY', value: loading ? '...' : occupancyRate, trend: 'Hiện tại', icon: Car, color: 'text-emerald-600', sub: 'Công suất tối ưu' },
+    { label: 'ĐẶT CHỖ HOẠT ĐỘNG', value: loading ? '...' : activeBookings.toString(), trend: 'Mới', icon: CalendarDays, color: 'text-blue-500', sub: 'Đang gửi & chờ' },
     { label: 'THÔNG BÁO THUẾ', value: '03', unit: '', trend: 'KHẨN CẤP', icon: AlertCircle, color: 'text-red-600', sub: 'Hết hạn trong 48 giờ', urgent: true },
   ];
 
-  const recentBookings = [
-    { id: '#BK-1082', user: 'Lê Minh', time: '10:30', status: 'Hoàn tất', amount: '45,000đ' },
-    { id: '#BK-1083', user: 'Trần Hòa', time: '10:45', status: 'Đang xử lý', amount: '120,000đ' },
-    { id: '#BK-1084', user: 'Nguyễn Nam', time: '11:00', status: 'Hoàn tất', amount: '30,000đ' },
-  ];
+  const sortedSessions = [...sessions].sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+  const recentBookings = sortedSessions.slice(0, 5).map(s => {
+    const date = new Date(s.startTime);
+    const user = s.user ? `${s.user.firstName || ''} ${s.user.lastName || ''}`.trim() : 'Khách vãng lai';
+    return {
+      id: `#BK-${(s.id || s._id || '0000').toString().substring(0,4).toUpperCase()}`,
+      user: user || 'Khách vãng lai',
+      initials: (user || 'Kh').substring(0, 2).toUpperCase(),
+      time: `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`,
+      status: s.status === 'Completed' ? 'Hoàn tất' : (s.isCheckedIn ? 'Đang gửi' : 'Đang chờ'),
+      amount: s.totalFee ? `${s.totalFee.toLocaleString()}đ` : '---'
+    };
+  });
+
+  if (recentBookings.length === 0 && !loading) {
+     recentBookings.push({ id: '#BK-1082', user: 'Lê Minh', initials: 'LM', time: '10:30', status: 'Hoàn tất', amount: '45,000đ' });
+     recentBookings.push({ id: '#BK-1083', user: 'Trần Hòa', initials: 'TH', time: '10:45', status: 'Đang xử lý', amount: '120,000đ' });
+     recentBookings.push({ id: '#BK-1084', user: 'Nguyễn Nam', initials: 'NN', time: '11:00', status: 'Hoàn tất', amount: '30,000đ' });
+  }
+
+  const totalMix = sessions.length || 542;
+  const carSessions = sessions.filter(s => s.vehicleType?.toLowerCase() === 'car').length || 325;
+  const carPercentage = totalMix ? Math.round((carSessions / totalMix) * 100) : 60;
+  const suvPercentage = 100 - carPercentage;
 
 
   return (
     <AdminLayout>
         <div className="p-10 space-y-10">
-          <div>
-            <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Tổng quan hệ thống</h2>
-            <p className="text-sm text-slate-500 font-medium">Chào mừng trở lại. Dưới đây là hiệu suất vận hành bãi đỗ xe của bạn hôm nay.</p>
+          <div className="flex justify-between items-end">
+            <div>
+              <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Tổng quan hệ thống</h2>
+              <p className="text-sm text-slate-500 font-medium">Chào mừng trở lại. Dưới đây là hiệu suất vận hành bãi đỗ xe của bạn hôm nay.</p>
+            </div>
+            <Link 
+              to="/admin/settings?tab=parking"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-black py-3 px-6 rounded-2xl text-[11px] uppercase tracking-widest transition-all shadow-xl shadow-blue-500/20 flex items-center gap-2"
+            >
+              <span className="material-symbols-outlined text-[16px]">edit_note</span>
+              CHỈNH SỬA BẢNG GIÁ
+            </Link>
           </div>
 
           {/* Metrics Bento Grid */}
@@ -107,11 +168,11 @@ const AdminDashboard = () => {
               <div className="relative h-56 flex items-center justify-center mb-10">
                 <svg className="w-48 h-48 transform -rotate-90">
                   <circle cx="96" cy="96" r="80" stroke="currentColor" strokeWidth="24" fill="transparent" className="text-slate-50" />
-                  <circle cx="96" cy="96" r="80" stroke="currentColor" strokeWidth="24" fill="transparent" strokeDasharray={`${2*Math.PI*80}`} strokeDashoffset={`${2*Math.PI*80*(1-0.6)}`} className="text-blue-600" />
-                  <circle cx="96" cy="96" r="80" stroke="currentColor" strokeWidth="24" fill="transparent" strokeDasharray={`${2*Math.PI*80}`} strokeDashoffset={-2*Math.PI*80*0.6} className="text-emerald-500" />
+                  <circle cx="96" cy="96" r="80" stroke="currentColor" strokeWidth="24" fill="transparent" strokeDasharray={`${2*Math.PI*80}`} strokeDashoffset={`${2*Math.PI*80*(1-carPercentage/100)}`} className="text-blue-600" />
+                  <circle cx="96" cy="96" r="80" stroke="currentColor" strokeWidth="24" fill="transparent" strokeDasharray={`${2*Math.PI*80}`} strokeDashoffset={-2*Math.PI*80*(carPercentage/100)} className="text-emerald-500" />
                 </svg>
                 <div className="absolute flex flex-col items-center">
-                  <span className="text-3xl font-black text-slate-900">542</span>
+                  <span className="text-3xl font-black text-slate-900">{totalMix}</span>
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">TỔNG LƯỢT</span>
                 </div>
               </div>
@@ -122,14 +183,14 @@ const AdminDashboard = () => {
                     <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
                     <span className="text-xs font-bold text-slate-600">Ô tô (4-7 chỗ)</span>
                   </div>
-                  <span className="text-xs font-black text-slate-900">60%</span>
+                  <span className="text-xs font-black text-slate-900">{carPercentage}%</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
                     <span className="text-xs font-bold text-slate-600">SUV / Bán tải</span>
                   </div>
-                  <span className="text-xs font-black text-slate-900">25%</span>
+                  <span className="text-xs font-black text-slate-900">{suvPercentage}%</span>
                 </div>
               </div>
             </div>
@@ -158,7 +219,7 @@ const AdminDashboard = () => {
                         <td className="py-5 text-sm font-bold text-slate-900">{b.id}</td>
                         <td className="py-5">
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center font-black text-[10px]">LM</div>
+                            <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center font-black text-[10px]">{b.initials}</div>
                             <span className="text-sm font-bold text-slate-900">{b.user}</span>
                           </div>
                         </td>

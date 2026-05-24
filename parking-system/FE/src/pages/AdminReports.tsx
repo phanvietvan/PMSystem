@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import {
   TrendingUp,
   Leaf,
@@ -5,18 +6,45 @@ import {
   MoreVertical,
 } from 'lucide-react';
 import AdminLayout from '../components/admin/AdminLayout';
+import api from '../services/api';
 
 const AdminReports = () => {
-  console.log("AdminReports rendered");
 
-  const monthlyData = [
+  const [loading, setLoading] = useState(true);
+  const [summary, setSummary] = useState({ totalCount: 24592, growth: '+12.5%', occupancyRate: '88.4%' });
+  const [monthlyData, setMonthlyData] = useState<any[]>([
     { month: 'Th.1', lastYear: 40, current: 55 },
     { month: 'Th.2', lastYear: 35, current: 48 },
     { month: 'Th.3', lastYear: 60, current: 75 },
     { month: 'Th.4', lastYear: 50, current: 65 },
     { month: 'Th.5', lastYear: 80, current: 95, active: true },
     { month: 'Th.6', lastYear: 40, current: 50, forecast: true },
-  ];
+  ]);
+
+  const [zones, setZones] = useState<any[]>([
+    { id: 'A1', name: 'Khu A1 - Hầm B2', count: '1,240', revenue: '45,2tr ₫' },
+    { id: 'C3', name: 'Khu C3 - Ngoài trời', count: '980', revenue: '32,1tr ₫' },
+    { id: 'B2', name: 'Khu B2 - Hầm B1', count: '850', revenue: '28,5tr ₫' },
+    { id: 'D1', name: 'Khu D1 - VIP', count: '420', revenue: '25,8tr ₫' },
+  ]);
+
+  useEffect(() => {
+    const fetchReports = async () => {
+      try {
+        const response = await api.get('/Reports/dashboard');
+        if (response.data) {
+           setSummary(response.data.summary);
+           setMonthlyData(response.data.monthlyData);
+           setZones(response.data.zones);
+        }
+      } catch (error) {
+        console.error("Error fetching reports, using fallback data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchReports();
+  }, []);
 
   const heatmapDays = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
   const heatmapColors = [
@@ -24,13 +52,6 @@ const AdminReports = () => {
     'bg-blue-200', 'bg-blue-200', 'bg-blue-600', 'bg-blue-600', 'bg-slate-900', 'bg-slate-900', 'bg-slate-900',
     'bg-blue-50', 'bg-blue-50', 'bg-blue-100', 'bg-blue-200', 'bg-blue-600', 'bg-blue-600', 'bg-blue-600',
     'bg-blue-50', 'bg-blue-50', 'bg-blue-50', 'bg-blue-100', 'bg-blue-200', 'bg-blue-600', 'bg-blue-600',
-  ];
-
-  const zones = [
-    { id: 'A1', name: 'Khu A1 - Hầm B2', count: '1,240', revenue: '45,2tr ₫' },
-    { id: 'C3', name: 'Khu C3 - Ngoài trời', count: '980', revenue: '32,1tr ₫' },
-    { id: 'B2', name: 'Khu B2 - Hầm B1', count: '850', revenue: '28,5tr ₫' },
-    { id: 'D1', name: 'Khu D1 - VIP', count: '420', revenue: '25,8tr ₫' },
   ];
 
 
@@ -43,18 +64,18 @@ const AdminReports = () => {
               <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
                  <div className="flex justify-between items-center mb-4">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tổng lượt gửi</span>
-                    <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">+12.5%</span>
+                    <span className={`text-[10px] font-black px-2.5 py-1 rounded-full ${summary.growth.startsWith('-') ? 'text-red-600 bg-red-50' : 'text-emerald-600 bg-emerald-50'}`}>{summary.growth}</span>
                  </div>
-                 <div className="text-4xl font-black text-blue-600">24,592</div>
-                 <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase tracking-widest">Giao dịch trong tháng 5</p>
+                 <div className="text-4xl font-black text-blue-600">{loading ? '...' : summary.totalCount}</div>
+                 <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase tracking-widest">Giao dịch lũy kế</p>
               </div>
               <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
                  <div className="flex justify-between items-center mb-4">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tỷ lệ lấp đầy</span>
-                    <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full uppercase">Cao nhất</span>
+                    <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full uppercase">Hiện tại</span>
                  </div>
-                 <div className="text-4xl font-black text-slate-900">88.4%</div>
-                 <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase tracking-widest">Giờ cao điểm (18:00 - 21:00)</p>
+                 <div className="text-4xl font-black text-slate-900">{loading ? '...' : summary.occupancyRate}</div>
+                 <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase tracking-widest">Sức chứa tổng thể</p>
               </div>
               <div className="bg-blue-600 p-8 rounded-3xl shadow-xl shadow-blue-600/20 text-white relative overflow-hidden group">
                  <div className="relative z-10">

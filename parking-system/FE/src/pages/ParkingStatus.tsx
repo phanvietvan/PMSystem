@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, Layers, Sparkles } from 'lucide-react';
+import { ArrowRight, Layers, Sparkles, ChevronDown } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
-import { hasActiveSessions } from '../utils/auth';
+import { hasActiveSessions, addActiveQr } from '../utils/auth';
 import api from '../services/api';
 
 /* ─── Types ─── */
@@ -16,26 +16,20 @@ interface ParkingSlot {
 }
 
 /* ─── Helpers ─── */
-const generateSlots = (prefix: string, count: number, level: number, activeSlots: string[] = []): ParkingSlot[] => {
-  return Array.from({ length: count }, (_, i) => {
-    const seed = level * 100 + prefix.charCodeAt(0) * 10 + i;
-    const val = (Math.sin(seed) + 1) / 2;
-    let status: SlotStatus = 'available';
-    
-    if (level === 1) {
-      status = val > 0.8 ? 'occupied' : val > 0.65 ? 'reserved' : 'available';
-    } else if (level === 2) {
-      status = val > 0.7 ? 'occupied' : val > 0.55 ? 'reserved' : 'available';
-    } else {
-      status = val > 0.6 ? 'occupied' : val > 0.45 ? 'reserved' : 'available';
-    }
+const generateSlots = (prefix: string, count: number, level: number, slotStatusMap: Record<string, SlotStatus> = {}): ParkingSlot[] => {
+  const actualPrefix = level === 1
+    ? prefix
+    : level === 2
+      ? (prefix === 'A' ? 'C' : 'D')
+      : (prefix === 'A' ? 'E' : 'F');
 
-    if (activeSlots.includes(`${prefix}${i + 1}`)) {
-      status = 'occupied';
-    }
+  return Array.from({ length: count }, (_, i) => {
+    const slotId = `${actualPrefix}${i + 1}`;
+    // Real status from database. By default, it's 'available' (clean & empty).
+    const status = slotStatusMap[slotId] || 'available';
 
     return {
-      id: `${prefix}${i + 1}`,
+      id: slotId,
       status,
       isBest: prefix === 'A' && ((level === 1 && i === 2) || (level === 2 && i === 4) || (level === 3 && i === 1)) && status === 'available',
     };
@@ -53,32 +47,73 @@ const ParkingStatus: React.FC = () => {
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [showReservePrompt, setShowReservePrompt] = useState(false);
   const [showActiveSessionWarning, setShowActiveSessionWarning] = useState(false);
-  const [activeSlots, setActiveSlots] = useState<string[]>([]);
+  const [slotStatusMap, setSlotStatusMap] = useState<Record<string, SlotStatus>>({});
   const floors = [1, 2, 3];
 
-  const selectedParking = location.state?.selectedParking ||
+  const parkingLots = [
+    { id: 1, name: "Landmark 81 - Bãi đỗ A1", floor: "Tầng 1", block: "Block A" },
+    { id: 2, name: "Bitexco Financial - Bãi đỗ B2", floor: "Tầng 2", block: "Block B" },
+    { id: 3, name: "Vincom Center - Bãi đỗ V3", floor: "Hầm B3", block: "Block V" },
+    { id: 4, name: "Saigon Centre - Bãi đỗ S1", floor: "Tầng 4", block: "Block S" },
+    { id: 5, name: "Lotte Mart Q7 - Bãi đỗ L1", floor: "Hầm B1", block: "Block L" },
+    { id: 6, name: "Crescent Mall Q7 - Bãi đỗ C1", floor: "Tầng G", block: "Block C" },
+    { id: 7, name: "Sân bay Tân Sơn Nhất - Block A", floor: "Ga quốc tế", block: "Khu vực A" }
+  ];
+
+  const [selectedParking, setSelectedParking] = useState(
+    location.state?.selectedParking ||
     JSON.parse(localStorage.getItem('selectedParking') || 'null') ||
-    { name: 'Landmark 81 - Bãi đỗ A1', floor: 'Tầng 1', block: 'Block A' };
+    parkingLots[0]
+  );
+  
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   useEffect(() => {
     if (selectedParking.floor?.includes('Tầng')) {
       const n = parseInt(selectedParking.floor.replace('Tầng ', ''));
       if (!isNaN(n) && n <= 3) setSelectedLevel(n);
     }
+  }, [selectedParking.floor]);
 
-    // Fetch actual occupied slots from BE
-    api.get('/ParkingSessions/active-slots')
+  // Fetch actual occupied/reserved slots from BE
+  useEffect(() => {
+    const fetchStatus = () => {
+      api.get(`/ParkingSessions/slots-status?parkingLotName=${encodeURIComponent(selectedParking.name)}`)
+        .then(res => {
+          if (res.data) setSlotStatusMap(res.data);
+        })
+        .catch(err => console.error('Error fetching slot status map', err));
+    };
+
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 2000);
+    return () => clearInterval(interval);
+  }, [selectedParking.name]);
+
+  // Verify and sync active session from database
+  useEffect(() => {
+    api.get('/ParkingSessions/my-session')
       .then(res => {
-        if (res.data) setActiveSlots(res.data);
+        if (res.data) {
+          if (res.data.hasActiveSession && res.data.session) {
+            addActiveQr(res.data.session.qrCode);
+          } else {
+            localStorage.removeItem('activeSessionQrs');
+            localStorage.removeItem('activeSessionQr');
+            setShowActiveSessionWarning(false);
+          }
+        }
       })
-      .catch(err => console.error('Error fetching active slots', err));
+      .catch(err => {
+        console.log('No active session on database.', err);
+      });
   }, []);
 
   // Clear selection on floor change
   useEffect(() => { setSelectedSlot(null); }, [selectedLevel]);
 
-  const westSlots = generateSlots('A', 10, selectedLevel, activeSlots);
-  const eastSlots = generateSlots('B', 10, selectedLevel, activeSlots);
+  const westSlots = generateSlots('A', 10, selectedLevel, slotStatusMap);
+  const eastSlots = generateSlots('B', 10, selectedLevel, slotStatusMap);
   const allSlots = [...westSlots, ...eastSlots];
   const availableCount = countByStatus(allSlots, 'available');
   const occupiedCount = countByStatus(allSlots, 'occupied');
@@ -99,7 +134,16 @@ const ParkingStatus: React.FC = () => {
   };
 
   const handleSlotClick = (id: string) => {
-    setSelectedSlot((prev) => (prev === id ? null : id));
+    setSelectedSlot((prev) => {
+      const newSlot = prev === id ? null : id;
+      if (newSlot) {
+        localStorage.setItem('selectedSlot', newSlot);
+        localStorage.setItem('selectedLevel', selectedLevel.toString());
+      } else {
+        localStorage.removeItem('selectedSlot');
+      }
+      return newSlot;
+    });
   };
 
   return (
@@ -116,6 +160,45 @@ const ParkingStatus: React.FC = () => {
         {/* ── Sidebar (Glassmorphic, static height) ── */}
         <aside className="w-72 shrink-0 h-full bg-white/70 backdrop-blur-xl border-r border-slate-100 px-6 py-6 flex flex-col justify-between overflow-y-auto">
           <div className="flex flex-col gap-6">
+            
+            {/* Building selector */}
+            <div className="relative">
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-3">Tòa nhà</p>
+              <div 
+                className="w-full flex items-center justify-between px-4 py-3 rounded-2xl bg-white border border-slate-200 text-[10px] font-black text-slate-900 cursor-pointer shadow-sm hover:shadow-md transition-all"
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              >
+                <span className="truncate pr-2">{selectedParking.name}</span>
+                <ChevronDown className={`w-4 h-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+              </div>
+              
+              <AnimatePresence>
+                {isDropdownOpen && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 5 }}
+                    className="absolute top-full left-0 right-0 mt-2 bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-100 py-2 z-[9999] max-h-60 overflow-y-auto"
+                  >
+                    {parkingLots.map((lot) => (
+                      <div 
+                        key={lot.id}
+                        className={`px-4 py-3 hover:bg-blue-50 text-[10px] font-bold cursor-pointer transition-colors ${selectedParking.name === lot.name ? 'text-blue-600 bg-blue-50/50' : 'text-slate-700'}`}
+                        onClick={() => {
+                          setSelectedParking(lot);
+                          localStorage.setItem('selectedParking', JSON.stringify(lot));
+                          setIsDropdownOpen(false);
+                          setSelectedSlot(null); // Clear selected slot when changing building
+                        }}
+                      >
+                        {lot.name}
+                      </div>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
             {/* Floor selector */}
             <div>
               <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-3">Chọn tầng</p>
@@ -246,7 +329,7 @@ const ParkingStatus: React.FC = () => {
 
                 {/* West Parking Zone Slots */}
                 {westSlots.map((slot) => {
-                  const id = selectedLevel === 1 ? slot.id : selectedLevel === 2 ? slot.id.replace('A', 'C') : slot.id.replace('A', 'E');
+                  const id = slot.id;
                   const coords = getSlotCoords(id);
                   const isSelected = selectedSlot === id;
                   const isOccupied = slot.status === 'occupied';
@@ -332,7 +415,7 @@ const ParkingStatus: React.FC = () => {
 
                 {/* East Parking Zone Slots */}
                 {eastSlots.map((slot) => {
-                  const id = selectedLevel === 1 ? slot.id : selectedLevel === 2 ? slot.id.replace('B', 'D') : slot.id.replace('B', 'F');
+                  const id = slot.id;
                   const coords = getSlotCoords(id);
                   const isSelected = selectedSlot === id;
                   const isOccupied = slot.status === 'occupied';
@@ -445,8 +528,9 @@ const ParkingStatus: React.FC = () => {
               </div>
               <button
                 onClick={() => {
+                  const bypassActiveCheck = location.state?.bypassActiveCheck || false;
                   const isActive = hasActiveSessions();
-                  if (isActive) {
+                  if (isActive && !bypassActiveCheck) {
                     setShowActiveSessionWarning(true);
                     return;
                   }
@@ -454,16 +538,15 @@ const ParkingStatus: React.FC = () => {
                   localStorage.setItem('selectedSlot', selectedSlot || 'A3');
                   localStorage.setItem('selectedLevel', selectedLevel.toString());
                   
-                  const hasReservationDetails = localStorage.getItem('reservationDate') && localStorage.getItem('reservationLicensePlate');
-                  if (hasReservationDetails) {
-                    navigate('/payment');
+                  if (location.state?.fromReserve) {
+                    navigate('/payment', { state: { mode: 'reserve' } });
                   } else {
-                    setShowReservePrompt(true);
+                    navigate('/reserve', { state: { fromStatus: true } });
                   }
                 }}
                 className="bg-blue-600 text-white px-5 py-2.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider hover:bg-blue-700 hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 shadow-lg shadow-blue-500/20 cursor-pointer"
               >
-                Tiếp tục thanh toán
+                {location.state?.fromReserve ? 'XÁC NHẬN VÀ THANH TOÁN' : 'Tiếp tục đăng ký xe'}
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -504,6 +587,8 @@ const ParkingStatus: React.FC = () => {
                 <button
                   onClick={() => {
                     setShowReservePrompt(false);
+                    localStorage.setItem('selectedSlot', selectedSlot || 'A3');
+                    localStorage.setItem('selectedLevel', selectedLevel.toString());
                     navigate('/reserve', { state: { fromStatus: true } });
                   }}
                   className="w-full bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-extrabold py-3.5 rounded-full text-[10px] uppercase tracking-wider transition-all shadow-lg shadow-blue-500/20 cursor-pointer"

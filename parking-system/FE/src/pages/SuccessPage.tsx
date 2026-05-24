@@ -1,19 +1,49 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, Download, Share2, ArrowRight, Loader2, ShieldCheck } from 'lucide-react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { CheckCircle2, Download, Share2, Loader2, ShieldCheck } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 import { parseLicensePlate } from '../utils/auth';
+import api from '../services/api';
+import QRCode from 'qrcode';
 
 const SuccessPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const mode = location.state?.mode || 'reserve';
+  const qrCode = location.state?.qrCode || '';
   const [status, setStatus] = useState<'qr' | 'opening'>(mode === 'checkout' ? 'opening' : 'qr');
   const [licensePlate, setLicensePlate] = useState('51F-123.45');
+  const [qrDataUrl, setQrDataUrl] = useState<string>('');
 
   const selectedSlot = localStorage.getItem('selectedSlot') || 'A3';
-  const selectedLevel = localStorage.getItem('selectedLevel') || '3';
+  
+  let parkingInfo = { name: "Landmark 81 - Bãi đỗ A1", floor: "Tầng 1", block: "Block A" };
+  try {
+    const raw = localStorage.getItem('selectedParking');
+    if (raw) parkingInfo = JSON.parse(raw);
+  } catch(e) {}
+
+  let displayFloor = parkingInfo.floor;
+  if (selectedSlot && selectedSlot !== 'Auto') {
+    const prefix = selectedSlot.charAt(0).toUpperCase();
+    if (prefix === 'A' || prefix === 'B') displayFloor = 'Tầng 1';
+    else if (prefix === 'C' || prefix === 'D') displayFloor = 'Tầng 2';
+    else if (prefix === 'E' || prefix === 'F') displayFloor = 'Tầng 3';
+  }
+
+  const resDate = localStorage.getItem('reservationDate') ? new Date(localStorage.getItem('reservationDate')!).toLocaleDateString('vi-VN') : new Date().toLocaleDateString('vi-VN');
+  const resTime = localStorage.getItem('reservationStartTime') || new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+
+  useEffect(() => {
+    if (qrCode) {
+      QRCode.toDataURL(qrCode, { width: 300, margin: 1 }, (err, url) => {
+        if (!err && url) {
+          setQrDataUrl(url);
+        }
+      });
+    }
+  }, [qrCode]);
 
   useEffect(() => {
     // Sync license plate
@@ -36,20 +66,43 @@ const SuccessPage = () => {
       }, 5000);
       return () => clearTimeout(timer);
     } else {
-      // Reservation/Entry Flow: Show QR, simulate staff scanning, then show barrier opening and navigate to map
-      const timer = setTimeout(() => {
-        setStatus('opening');
-        
-        const navTimer = setTimeout(() => {
-          navigate('/navigation');
-        }, 4000);
-        
-        return () => clearTimeout(navTimer);
-      }, 6000);
+      // Reservation/Entry Flow: Poll BE to see if staff scanned QR code
+      if (!qrCode) {
+        // Fallback if no QR code in state: simulate scan after 12 seconds so the app is not stuck in dev/testing
+        const timer = setTimeout(() => {
+          setStatus('opening');
+          const navTimer = setTimeout(() => {
+            navigate('/navigation');
+          }, 4000);
+          return () => clearTimeout(navTimer);
+        }, 12000);
+        return () => clearTimeout(timer);
+      }
 
-      return () => clearTimeout(timer);
+      // Real-time polling
+      let isCleared = false;
+      const pollInterval = setInterval(async () => {
+        try {
+          const res = await api.get(`/ParkingSessions/verify/${qrCode}`);
+          if (res.data && res.data.session && res.data.session.isCheckedIn) {
+            clearInterval(pollInterval);
+            isCleared = true;
+            setStatus('opening');
+            
+            setTimeout(() => {
+              navigate('/navigation');
+            }, 4000);
+          }
+        } catch (err) {
+          console.error('Error polling session status', err);
+        }
+      }, 2000);
+
+      return () => {
+        if (!isCleared) clearInterval(pollInterval);
+      };
     }
-  }, [navigate, mode]);
+  }, [navigate, mode, qrCode]);
 
   return (
     <div className="min-h-screen bg-mesh-gradient selection:bg-primary/10 relative">
@@ -77,33 +130,37 @@ const SuccessPage = () => {
                 <div className="absolute inset-0 bg-white/20 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-[2.5rem] pointer-events-none">
                   <span className="text-[10px] font-black uppercase tracking-widest text-primary">Biển số: {licensePlate}</span>
                 </div>
-                {/* Mock QR SVG */}
-                <svg width="200" height="200" viewBox="0 0 200 200" className="mx-auto" xmlns="http://www.w3.org/2000/svg">
-                  <rect width="200" height="200" fill="transparent"/>
-                  <path d="M20 20h60v60h-60zM120 20h60v60h-60zM20 120h60v60h-60z" fill="#000" fillOpacity="0.9"/>
-                  <path d="M40 40h20v20h-20zM140 40h20v20h-20zM40 140h20v20h-20z" fill="#fff"/>
-                  <rect x="90" y="20" width="20" height="20" fill="#000"/>
-                  <rect x="90" y="50" width="10" height="30" fill="#000"/>
-                  <rect x="20" y="90" width="30" height="10" fill="#000"/>
-                  <rect x="60" y="90" width="80" height="20" fill="#000"/>
-                  <rect x="150" y="90" width="30" height="10" fill="#000"/>
-                  <rect x="90" y="120" width="20" height="60" fill="#000"/>
-                  <rect x="120" y="120" width="60" height="60" fill="#000"/>
-                  <rect x="130" y="130" width="40" height="40" fill="#fff"/>
-                  <rect x="145" y="145" width="10" height="10" fill="#000"/>
-                </svg>
-                <p className="mt-6 text-[10px] font-black text-outline uppercase tracking-[0.3em]">Mã định danh duy nhất</p>
+                 {/* Real Scannable QR Code Image */}
+                <div className="mx-auto w-[200px] h-[200px] bg-white p-3 rounded-3xl border border-outline-variant/10 shadow-inner flex items-center justify-center">
+                  {qrDataUrl ? (
+                    <img 
+                      src={qrDataUrl} 
+                      alt="Real Scannable QR Code"
+                      className="w-full h-full object-contain select-none"
+                    />
+                  ) : (
+                    <div className="text-xs text-outline font-bold animate-pulse">
+                      Đang tạo mã quét...
+                    </div>
+                  )}
+                </div>
+                <div className="mt-6 flex flex-col items-center">
+                  <span className="text-[8px] font-black text-outline uppercase tracking-[0.25em] mb-1">MÃ QUÉT CỦA BẠN</span>
+                  <span className="text-sm font-extrabold text-primary font-mono select-all bg-primary/5 px-4 py-1.5 rounded-full border border-primary/10 tracking-widest">{qrCode || 'QR_NO_CODE'}</span>
+                </div>
               </div>
 
               {/* Details */}
               <div className="grid grid-cols-2 gap-4 mb-10">
                 <div className="p-4 bg-surface-container rounded-2xl border border-outline-variant/10">
                   <span className="text-[8px] font-black text-outline uppercase tracking-widest block mb-1">Vị trí</span>
-                  <p className="text-sm font-black text-on-surface">Tầng {selectedLevel.padStart(2, '0')} • {selectedSlot}</p>
+                  <p className="text-[13px] font-black text-on-surface leading-tight truncate" title={parkingInfo.name}>{parkingInfo.name}</p>
+                  <p className="text-[10px] text-on-surface-variant font-bold mt-0.5">{displayFloor} • Slot {selectedSlot}</p>
                 </div>
                 <div className="p-4 bg-surface-container rounded-2xl border border-outline-variant/10">
                   <span className="text-[8px] font-black text-outline uppercase tracking-widest block mb-1">Thời gian</span>
-                  <p className="text-sm font-black text-on-surface">08:30 AM</p>
+                  <p className="text-[13px] font-black text-on-surface leading-tight truncate">{resDate}</p>
+                  <p className="text-[10px] text-on-surface-variant font-bold mt-0.5">{resTime}</p>
                 </div>
               </div>
 
@@ -113,14 +170,9 @@ const SuccessPage = () => {
                   <Download className="w-4 h-4" />
                   Lưu mã QR về điện thoại
                 </button>
-                <div className="flex gap-3">
-                  <button className="flex-1 bg-surface-container hover:bg-surface-container-high font-bold py-4 rounded-2xl transition-all flex items-center justify-center gap-2 text-xs">
-                    <Share2 className="w-4 h-4" /> Chia sẻ
-                  </button>
-                  <Link to="/gate-scan" className="flex-1 bg-primary text-on-primary font-bold py-4 rounded-2xl transition-all flex items-center justify-center gap-2 text-xs shadow-lg shadow-primary/20">
-                    Tới cổng bãi đỗ <ArrowRight className="w-4 h-4" />
-                  </Link>
-                </div>
+                <button className="w-full bg-surface-container hover:bg-surface-container-high font-bold py-4 rounded-2xl transition-all flex items-center justify-center gap-2 text-xs">
+                  <Share2 className="w-4 h-4" /> Chia sẻ mã QR
+                </button>
               </div>
 
               <div className="mt-10 flex items-start gap-2 bg-primary/5 p-4 rounded-2xl border border-primary/10">
