@@ -31,9 +31,25 @@ const ForgotPasswordPage = () => {
   const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [devOtpCode, setDevOtpCode] = useState('');
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [countdown, setCountdown] = useState(0);
+  const [resendLoading, setResendLoading] = useState(false);
+  const countdownRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startCountdown = () => {
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    setCountdown(60);
+    countdownRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(countdownRef.current!);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
   
   const navigate = useNavigate();
 
@@ -54,14 +70,12 @@ const ForgotPasswordPage = () => {
         });
 
         const apiResponse = response.data;
-        if (apiResponse.data && apiResponse.data.otpCode) {
-          setDevOtpCode(apiResponse.data.otpCode);
-        } else {
-          setDevOtpCode('');
-        }
+        // devOtpCode intentionally not shown in production UI
+        void apiResponse;
 
         setLoading(false);
         setStep(1);
+        startCountdown();
       } catch (err: any) {
         setLoading(false);
         console.error('Forgot Password OTP Error:', err.response?.data);
@@ -216,12 +230,46 @@ const ForgotPasswordPage = () => {
               {step === 1 && (
                 <div className="space-y-6 animate-fade-in-up">
                   <div className="text-center p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30">
-                    <p className="text-xs text-on-surface-variant">Mã OTP đã được gửi. Vui lòng nhập mã để đặt lại mật khẩu.</p>
-                    {devOtpCode && (
-                      <p className="text-[11px] font-black text-indigo-600 mt-2 bg-indigo-50 py-1 px-3 rounded-full inline-block">
-                        Mã OTP của bạn: {devOtpCode}
-                      </p>
-                    )}
+                    <span className="material-symbols-outlined text-indigo-500 text-[28px] mb-2 block">mark_email_read</span>
+                    <p className="text-sm font-bold text-on-surface mb-1">Kiểm tra hộp thư của bạn</p>
+                    <p className="text-xs text-on-surface-variant">
+                      Mã OTP đã được gửi đến email
+                    </p>
+                    <p className="text-xs font-black text-indigo-600 mt-1 bg-indigo-50 py-1 px-3 rounded-full inline-block">
+                      {email}
+                    </p>
+                    <p className="text-[10px] text-on-surface-variant/60 mt-2">Kiểm tra cả mục spam nếu không thấy.</p>
+                    {/* Countdown + Resend */}
+                    <div className="mt-3 flex items-center justify-center gap-3">
+                      {countdown > 0 ? (
+                        <div className="flex items-center gap-1.5 text-xs text-on-surface-variant">
+                          <span className="material-symbols-outlined text-[14px] text-amber-500 animate-pulse">timer</span>
+                          <span>Mã hết hiệu lực sau </span>
+                          <span className="font-black text-amber-600 tabular-nums w-6 text-center">{countdown}s</span>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={resendLoading}
+                          onClick={async () => {
+                            setResendLoading(true);
+                            setError('');
+                            try {
+                              await api.post('/auth/password/forgot', { email: email.toLowerCase().trim() });
+                              setOtp('');
+                              startCountdown();
+                            } catch (err: any) {
+                              setError(err.response?.data?.message || 'Không thể gửi lại mã OTP.');
+                            } finally {
+                              setResendLoading(false);
+                            }
+                          }}
+                          className="text-xs font-bold text-indigo-600 hover:text-indigo-700 underline underline-offset-2 transition-colors disabled:opacity-50 disabled:cursor-wait"
+                        >
+                          {resendLoading ? 'Đang gửi lại...' : '↺ Gửi lại mã OTP'}
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/70 ml-1">Mã xác thực OTP (6 chữ số)</label>

@@ -1,15 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Mail, Phone, MapPin, Tag, Car, Save, AlertCircle, CheckCircle2, ShieldAlert } from 'lucide-react';
 import api from '../services/api';
 import Navbar from '../components/layout/Navbar';
 import BrandLogo from '../components/brand/BrandLogo';
+import { clearSession } from '../utils/auth';
 
 const ProfilePage = () => {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState<any>(null);
-  
+
   // State fields
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -22,6 +23,12 @@ const ProfilePage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [vehicleToDelete, setVehicleToDelete] = useState<number | null>(null);
+  const [pendingUrl, setPendingUrl] = useState<string | null>(null);
+
+  // Ref luôn phản ánh trạng thái dirty mới nhất (tránh stale closure trong event listener)
+  const isDirtyRef = useRef(false);
+  const successRef = useRef(false);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -49,6 +56,85 @@ const ProfilePage = () => {
     }
   }, [navigate]);
 
+  const isDirty = () => {
+    if (!currentUser) return false;
+
+    let initialVehicles: { plate: string; type: string }[] = [];
+    const lp = currentUser.licensePlate || '';
+    if (lp.startsWith('[')) {
+      try {
+        initialVehicles = JSON.parse(lp);
+      } catch (e) {
+        initialVehicles = [{ plate: lp, type: currentUser.vehicleType || 'Car' }];
+      }
+    } else {
+      initialVehicles = [{ plate: lp, type: currentUser.vehicleType || 'Car' }];
+    }
+
+    const hasNameChanged = firstName !== (currentUser.firstName || '');
+    const hasLastNameChanged = lastName !== (currentUser.lastName || '');
+    const hasPhoneChanged = phoneNumber !== (currentUser.phoneNumber || '');
+    const hasAddressChanged = address !== (currentUser.address || '');
+    const hasVehiclesChanged = JSON.stringify(vehicles) !== JSON.stringify(initialVehicles);
+
+    return hasNameChanged || hasLastNameChanged || hasPhoneChanged || hasAddressChanged || hasVehiclesChanged;
+  };
+
+  // Đồng bộ isDirtyRef với giá trị isDirty() mới nhất sau mỗi lần render
+  useEffect(() => {
+    isDirtyRef.current = isDirty();
+    successRef.current = success;
+  });
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirtyRef.current && !successRef.current) {
+        e.preventDefault();
+        e.returnValue = ''; // Required for Chrome/Firefox
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
+
+  useEffect(() => {
+    const handleCaptureClick = (e: MouseEvent) => {
+      // Đọc từ ref để luôn lấy giá trị mới nhất, tránh stale closure
+      if (!isDirtyRef.current || successRef.current) return;
+
+      const target = e.target as HTMLElement;
+
+      // 1. Check for standard <a> link clicks
+      const anchor = target.closest('a');
+      if (anchor) {
+        const href = anchor.getAttribute('href');
+        // Only block if it's a relative URL or matches origin, and is not a hash link or target="_blank"
+        if (href && (href.startsWith('/') || href.startsWith(window.location.origin)) && !href.startsWith('#') && anchor.getAttribute('target') !== '_blank') {
+          let targetPath = href;
+          if (href.startsWith(window.location.origin)) {
+            targetPath = href.substring(window.location.origin.length);
+          }
+          e.preventDefault();
+          e.stopPropagation();
+          setPendingUrl(targetPath);
+          return;
+        }
+      }
+
+      // 2. Check for "Đăng xuất" button click in the Navbar dropdown
+      const button = target.closest('button');
+      if (button && button.textContent?.includes('Đăng xuất')) {
+        e.preventDefault();
+        e.stopPropagation();
+        setPendingUrl('logout');
+        return;
+      }
+    };
+
+    document.addEventListener('click', handleCaptureClick, true);
+    return () => document.removeEventListener('click', handleCaptureClick, true);
+  }, []); // Chỉ đăng ký 1 lần khi mount, dùng ref để đọc giá trị mới nhất
+
   const handleAddVehicle = () => {
     setVehicles([...vehicles, { plate: '', type: 'Car' }]);
   };
@@ -60,24 +146,24 @@ const ProfilePage = () => {
 
   // Determine if profile update is mandatory based on persisted user profile fields
   const isForceUpdate = currentUser && (
-    !currentUser.firstName || 
-    !currentUser.lastName || 
-    !currentUser.phoneNumber || 
-    !currentUser.licensePlate || 
-    !currentUser.vehicleType || 
-    !currentUser.address || 
-    currentUser.firstName === 'Google' || 
+    !currentUser.firstName ||
+    !currentUser.lastName ||
+    !currentUser.phoneNumber ||
+    !currentUser.licensePlate ||
+    !currentUser.vehicleType ||
+    !currentUser.address ||
+    currentUser.firstName === 'Google' ||
     currentUser.lastName === 'User'
   );
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate empty inputs
     if (
-      !firstName.trim() || 
-      !lastName.trim() || 
-      !phoneNumber.trim() || 
+      !firstName.trim() ||
+      !lastName.trim() ||
+      !phoneNumber.trim() ||
       !address.trim() ||
       vehicles.length === 0
     ) {
@@ -85,10 +171,44 @@ const ProfilePage = () => {
       return;
     }
 
-    const hasEmptyPlate = vehicles.some(v => !v.plate.trim());
-    if (hasEmptyPlate) {
-      setError('Vui lòng điền đầy đủ biển số xe cho tất cả các xe.');
+    // Validate Họ (lastName) and Tên (firstName)
+    const nameRegex = /^[\p{L}\s]+$/u;
+    if (lastName.trim().length < 2 || lastName.trim().length > 50) {
+      setError('Họ phải chứa từ 2 đến 50 ký tự.');
       return;
+    }
+    if (!nameRegex.test(lastName.trim())) {
+      setError('Họ chỉ được chứa chữ cái và khoảng trắng.');
+      return;
+    }
+
+    if (firstName.trim().length < 2 || firstName.trim().length > 50) {
+      setError('Tên phải chứa từ 2 đến 50 ký tự.');
+      return;
+    }
+    if (!nameRegex.test(firstName.trim())) {
+      setError('Tên chỉ được chứa chữ cái và khoảng trắng.');
+      return;
+    }
+
+    // Validate Vietnamese Phone Number
+    const vnPhoneRegex = /^(0|\+84|84)(3|5|7|8|9)[0-9]{8}$/;
+    if (!vnPhoneRegex.test(phoneNumber.trim())) {
+      setError('Số điện thoại không đúng định dạng Việt Nam.');
+      return;
+    }
+
+    const plateRegex = /^[0-9]{2}[A-Z]{1}[A-Z0-9]{0,1}[-. ]?(?:[0-9]{4,5}|[0-9]{3}\.[0-9]{2})$/i;
+    for (let i = 0; i < vehicles.length; i++) {
+      const plate = vehicles[i].plate.trim();
+      if (!plate) {
+        setError(`Vui lòng điền biển số xe cho xe thứ ${i + 1}.`);
+        return;
+      }
+      if (!plateRegex.test(plate)) {
+        setError(`Biển số xe thứ ${i + 1} (${plate}) không đúng định dạng biển số Việt Nam (ví dụ: 29A-12345, 30F-9999, 59G1-123.45).`);
+        return;
+      }
     }
 
     if (firstName.trim() === 'Google' || lastName.trim() === 'User') {
@@ -126,10 +246,10 @@ const ProfilePage = () => {
         };
         localStorage.setItem('user', JSON.stringify(updatedUser));
         setCurrentUser(updatedUser);
-        
+
         // Notify Navbar and other listening components
         window.dispatchEvent(new Event('user-login'));
-        
+
         setSuccess(true);
         if (isForceUpdate) {
           setTimeout(() => {
@@ -217,11 +337,11 @@ const ProfilePage = () => {
             <div className="flex justify-center mb-4">
               <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white shadow-lg relative bg-blue-100 flex items-center justify-center text-blue-600">
                 {currentUser.avatarUrl && currentUser.avatarUrl !== 'null' && currentUser.avatarUrl !== 'undefined' ? (
-                  <img 
-                    src={currentUser.avatarUrl} 
-                    alt="Profile Avatar" 
+                  <img
+                    src={currentUser.avatarUrl}
+                    alt="Profile Avatar"
                     referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover" 
+                    className="w-full h-full object-cover"
                   />
                 ) : (
                   <User size={40} className="opacity-80" />
@@ -273,8 +393,8 @@ const ProfilePage = () => {
                 <input
                   type="text"
                   placeholder="Nguyễn"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
                   required
                   className="premium-input block w-full px-5 py-2.5 rounded-full focus:outline-none transition-all text-xs font-medium"
                 />
@@ -285,8 +405,8 @@ const ProfilePage = () => {
                 <input
                   type="text"
                   placeholder="Văn A"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
                   required
                   className="premium-input block w-full px-5 py-2.5 rounded-full focus:outline-none transition-all text-xs font-medium"
                 />
@@ -374,7 +494,7 @@ const ProfilePage = () => {
                     <div className="sm:col-span-1 flex justify-center pb-1">
                       <button
                         type="button"
-                        onClick={() => handleRemoveVehicle(index)}
+                        onClick={() => setVehicleToDelete(index)}
                         className="w-9 h-9 rounded-full bg-red-50 hover:bg-red-100 text-red-500 flex items-center justify-center transition-colors"
                       >
                         <span className="material-symbols-outlined text-[18px]">delete</span>
@@ -403,7 +523,6 @@ const ProfilePage = () => {
               </div>
             </div>
 
-            {/* Notifications */}
             <AnimatePresence mode="wait">
               {error && (
                 <motion.div
@@ -416,8 +535,17 @@ const ProfilePage = () => {
                   <p className="text-[11px] font-bold text-red-600 leading-tight">{error}</p>
                 </motion.div>
               )}
-
             </AnimatePresence>
+
+            {/* Dirty warning notice */}
+            {isDirty() && !success && (
+              <div className="flex items-center gap-3 p-3.5 bg-amber-50 border border-amber-100 rounded-2xl animate-pulse">
+                <AlertCircle className="text-amber-600 shrink-0" size={16} />
+                <p className="text-[11px] font-bold text-amber-800 leading-normal">
+                  Bạn có thay đổi chưa lưu. Vui lòng bấm "LƯU THÔNG TIN" bên dưới để hoàn tất và lưu các thông tin đã cập nhật.
+                </p>
+              </div>
+            )}
 
             {/* Save Button */}
             <button
@@ -431,6 +559,122 @@ const ProfilePage = () => {
           </form>
         </motion.div>
       </main>
+
+      {/* Premium Confirm Delete Vehicle Modal */}
+      <AnimatePresence>
+        {vehicleToDelete !== null && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center">
+            {/* Background overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setVehicleToDelete(null)}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            />
+
+            {/* Modal Content */}
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ type: "spring", duration: 0.3 }}
+              className="relative bg-white rounded-[2rem] p-8 max-w-sm w-full mx-4 shadow-2xl border border-slate-100 text-center z-10"
+            >
+              <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4 text-red-500">
+                <span className="material-symbols-outlined text-[24px]">warning</span>
+              </div>
+              <h3 className="text-base font-extrabold text-slate-950 mb-2">
+                Xác nhận xóa xe?
+              </h3>
+              <p className="text-xs text-slate-500 mb-6 leading-relaxed">
+                Bạn có chắc chắn muốn xóa xe {vehicles[vehicleToDelete]?.plate ? `biển số ${vehicles[vehicleToDelete].plate}` : `này`} khỏi tài khoản? Hành động này không thể hoàn tác.
+              </p>
+              <div className="flex gap-3 justify-center">
+                <button
+                  type="button"
+                  onClick={() => setVehicleToDelete(null)}
+                  className="px-4.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-full text-xs transition-colors"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (vehicleToDelete !== null) {
+                      handleRemoveVehicle(vehicleToDelete);
+                      setVehicleToDelete(null);
+                    }
+                  }}
+                  className="px-5 py-2.5 bg-red-500 hover:bg-red-600 text-white font-bold rounded-full text-xs transition-colors shadow-md shadow-red-500/10"
+                >
+                  Xác nhận xóa
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Premium Confirm Unsaved Changes Modal */}
+      <AnimatePresence>
+        {pendingUrl !== null && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center">
+            {/* Background overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setPendingUrl(null)}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            />
+
+            {/* Modal Content */}
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ type: "spring", duration: 0.3 }}
+              className="relative bg-white rounded-[2rem] p-8 max-w-sm w-full mx-4 shadow-2xl border border-slate-100 text-center z-10"
+            >
+              <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-4 text-amber-500">
+                <span className="material-symbols-outlined text-[24px]">warning_amber</span>
+              </div>
+              <h3 className="text-base font-extrabold text-slate-950 mb-2">
+                Thay đổi chưa được lưu!
+              </h3>
+              <p className="text-xs text-slate-500 mb-6 leading-relaxed">
+                Bạn đã thay đổi thông tin nhưng chưa lưu lại. Bạn có chắc chắn muốn rời đi và hủy bỏ các thay đổi này?
+              </p>
+              <div className="flex gap-3 justify-center">
+                <button
+                  type="button"
+                  onClick={() => setPendingUrl(null)}
+                  className="px-4.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-full text-xs transition-colors"
+                >
+                  Ở lại
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const destination = pendingUrl;
+                    setPendingUrl(null);
+                    if (destination === 'logout') {
+                      clearSession();
+                      navigate('/');
+                    } else {
+                      navigate(destination);
+                    }
+                  }}
+                  className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-full text-xs transition-colors shadow-md shadow-amber-500/10"
+                >
+                  Rời đi & Hủy lưu
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
