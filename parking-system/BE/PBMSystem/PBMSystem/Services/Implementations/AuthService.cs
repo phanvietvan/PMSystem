@@ -77,7 +77,7 @@ public class AuthService : IAuthService
         // ── Generate and send ─────────────────────────────────────────────────
         var otp = GenerateOtp();
         pending.OtpCode = otp;
-        pending.OtpExpiry = DateTime.UtcNow.AddMinutes(5);
+        pending.OtpExpiry = DateTime.UtcNow.AddMinutes(1);
         pending.OtpLastSentAt = DateTime.UtcNow;
         _userRepo.Update(pending);
         await _userRepo.SaveChangesAsync();
@@ -153,7 +153,7 @@ public class AuthService : IAuthService
         // ── Generate and send ─────────────────────────────────────────────────
         var otp = GenerateOtp();
         user.OtpCode = otp;
-        user.OtpExpiry = DateTime.UtcNow.AddMinutes(5);
+        user.OtpExpiry = DateTime.UtcNow.AddMinutes(1);
         user.OtpLastSentAt = DateTime.UtcNow;
         _userRepo.Update(user);
         await _userRepo.SaveChangesAsync();
@@ -430,6 +430,11 @@ public class AuthService : IAuthService
         if (user is null)
             return ApiResponse<UserResponse>.Fail("User not found.");
 
+        if (!TryValidateLicensePlates(request.LicensePlate, out var plateError))
+        {
+            return ApiResponse<UserResponse>.Fail(plateError);
+        }
+
         user.FirstName = request.FirstName.Trim();
         user.LastName = request.LastName.Trim();
         user.PhoneNumber = request.PhoneNumber.Trim();
@@ -472,6 +477,11 @@ public class AuthService : IAuthService
         var user = await _userRepo.GetByIdAsync(targetUserId);
         if (user is null)
             return ApiResponse<UserResponse>.Fail("User not found.");
+
+        if (!TryValidateLicensePlates(request.LicensePlate, out var plateError))
+        {
+            return ApiResponse<UserResponse>.Fail(plateError);
+        }
 
         user.FirstName = request.FirstName.Trim();
         user.LastName = request.LastName.Trim();
@@ -701,6 +711,69 @@ public class AuthService : IAuthService
         }
 
         errorMessage = string.Empty;
+        return true;
+    }
+
+    private static bool TryValidateLicensePlates(string? licensePlate, out string errorMessage)
+    {
+        errorMessage = string.Empty;
+        if (string.IsNullOrWhiteSpace(licensePlate))
+            return true;
+
+        var regex = new System.Text.RegularExpressions.Regex(
+            @"^[0-9]{2}[A-Z]{1}[A-Z0-9]{0,1}[-. ]?(?:[0-9]{4,5}|[0-9]{3}\.[0-9]{2})$", 
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        // Try to parse as JSON array of vehicles
+        if (licensePlate.Trim().StartsWith("["))
+        {
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(licensePlate);
+                var root = doc.RootElement;
+                if (root.ValueKind == System.Text.Json.JsonValueKind.Array)
+                {
+                    var index = 1;
+                    foreach (var element in root.EnumerateArray())
+                    {
+                        if (element.TryGetProperty("plate", out var plateProp))
+                        {
+                            var plate = plateProp.GetString()?.Trim();
+                            if (string.IsNullOrWhiteSpace(plate))
+                            {
+                                errorMessage = $"Biển số xe của phương tiện thứ {index} không được để trống.";
+                                return false;
+                            }
+                            if (!regex.IsMatch(plate))
+                            {
+                                errorMessage = $"Biển số xe của phương tiện thứ {index} ({plate}) không đúng định dạng biển số Việt Nam.";
+                                return false;
+                            }
+                        }
+                        else
+                        {
+                            errorMessage = $"Không tìm thấy thông tin biển số xe cho phương tiện thứ {index}.";
+                            return false;
+                        }
+                        index++;
+                    }
+                    return true;
+                }
+            }
+            catch
+            {
+                // Fallback to flat string check if JSON parsing fails
+            }
+        }
+
+        // Single flat string check
+        var flatPlate = licensePlate.Trim();
+        if (!regex.IsMatch(flatPlate))
+        {
+            errorMessage = $"Biển số xe '{flatPlate}' không đúng định dạng biển số Việt Nam (ví dụ: 29A-12345, 30F-9999, 59G1-123.45).";
+            return false;
+        }
+
         return true;
     }
 }

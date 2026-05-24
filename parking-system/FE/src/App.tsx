@@ -11,6 +11,7 @@ import ActiveSessionPage from './pages/ActiveSessionPage';
 import ContactPage from './pages/ContactPage';
 import ProfilePage from './pages/ProfilePage';
 import LoginPage from './pages/auth/LoginPage';
+import PricingPage from './pages/PricingPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import AdminDashboard from './pages/AdminDashboard';
@@ -65,6 +66,7 @@ function App() {
           <Route path="/admin/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />
 
           <Route path="/" element={<LandingPage />} />
+          <Route path="/pricing" element={<PricingPage />} />
           <Route path="/status" element={<ProtectedRoute><ParkingStatus /></ProtectedRoute>} />
           <Route path="/reserve" element={<ProtectedRoute><ReservationPage /></ProtectedRoute>} />
           <Route path="/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />

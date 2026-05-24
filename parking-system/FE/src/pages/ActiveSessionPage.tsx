@@ -39,6 +39,14 @@ const SessionQr = ({ qr }: SessionQrProps) => {
   );
 };
 
+const getLevelFromSlot = (slot: string | null | undefined): string => {
+  if (!slot) return '1';
+  const prefix = slot.charAt(0).toUpperCase();
+  if (['C', 'D'].includes(prefix)) return '2';
+  if (['E', 'F'].includes(prefix)) return '3';
+  return '1';
+};
+
 interface SessionData {
   qr: string;
   licensePlate: string;
@@ -51,6 +59,7 @@ interface SessionData {
   exitTime?: string | null;
   exitLicensePlate?: string;
   isPlateMatched?: boolean;
+  parkingLotName?: string;
 }
 
 const ActiveSessionPage = () => {
@@ -72,30 +81,44 @@ const ActiveSessionPage = () => {
           const allResp = await api.get('/ParkingSessions');
           if (allResp.data && Array.isArray(allResp.data)) {
             // Filter sessions belonging to the user
-            const mySessions = allResp.data.filter((s: any) => s.userId === user.id || (s.licensePlate && user.licensePlate && s.licensePlate.replace(/[^a-zA-Z0-9]/g, '') === user.licensePlate.replace(/[^a-zA-Z0-9]/g, '')));
+            const mySessions = allResp.data.filter((s: any) => {
+              const sUserId = s.userId || s.UserId;
+              const sLicensePlate = s.licensePlate || s.LicensePlate;
+              return sUserId === user.id || (sLicensePlate && user.licensePlate && sLicensePlate.replace(/[^a-zA-Z0-9]/g, '') === user.licensePlate.replace(/[^a-zA-Z0-9]/g, ''));
+            });
             
             for (const s of mySessions) {
-              const diffMs = s.exitTime && s.entryTime ? new Date(s.exitTime).getTime() - new Date(s.entryTime).getTime() : 0;
-              const isCompleted = s.status === 'Completed';
+              const sExitTime = s.exitTime || s.ExitTime;
+              const sEntryTime = s.entryTime || s.EntryTime;
+              const sStatus = s.status || s.Status;
+              const sQrCode = s.qrCode || s.QrCode;
+              const sParkingSlot = s.parkingSlot || s.ParkingSlot;
+              const sIsCheckedIn = s.isCheckedIn ?? s.IsCheckedIn;
+              const sParkingLotName = s.parkingLotName || s.ParkingLotName;
+              const sLicensePlate = s.licensePlate || s.LicensePlate;
+
+              const diffMs = sExitTime && sEntryTime ? new Date(sExitTime).getTime() - new Date(sEntryTime).getTime() : 0;
+              const isCompleted = sStatus === 'Completed';
               
               // Sync active QR to localStorage
-              if (!isCompleted && s.qrCode) {
+              if (!isCompleted && sQrCode) {
                 const { addActiveQr } = await import('../utils/auth');
-                addActiveQr(s.qrCode);
+                addActiveQr(sQrCode);
               }
 
               results.push({
-                qr: s.qrCode,
-                licensePlate: parseLicensePlate(s.licensePlate),
-                slot: s.parkingSlot || 'A3',
-                level: localStorage.getItem('selectedLevel') || '1',
+                qr: sQrCode,
+                licensePlate: parseLicensePlate(sLicensePlate),
+                slot: sParkingSlot || 'A3',
+                level: getLevelFromSlot(sParkingSlot),
                 seconds: isCompleted ? Math.max(0, Math.floor(diffMs / 1000)) : 0,
-                entryTime: s.entryTime || null,
-                isCheckedIn: s.isCheckedIn || false,
+                entryTime: sEntryTime || null,
+                isCheckedIn: sIsCheckedIn || false,
                 isCompleted: isCompleted,
-                exitTime: s.exitTime,
-                exitLicensePlate: s.exitLicensePlate,
-                isPlateMatched: s.isPlateMatched
+                exitTime: sExitTime,
+                exitLicensePlate: s.exitLicensePlate || s.ExitLicensePlate,
+                isPlateMatched: s.isPlateMatched ?? s.IsPlateMatched,
+                parkingLotName: sParkingLotName
               });
             }
           }
@@ -108,15 +131,22 @@ const ActiveSessionPage = () => {
                 const resp = await api.get(`/ParkingSessions/verify/${qr}`);
                 if (resp.data && resp.data.session) {
                   const s = resp.data.session;
+                  const sLicensePlate = s.licensePlate || s.LicensePlate;
+                  const sParkingSlot = s.parkingSlot || s.ParkingSlot;
+                  const sEntryTime = s.entryTime || s.EntryTime;
+                  const sIsCheckedIn = s.isCheckedIn ?? s.IsCheckedIn;
+                  const sParkingLotName = s.parkingLotName || s.ParkingLotName;
+
                   results.push({
                     qr,
-                    licensePlate: parseLicensePlate(s.licensePlate),
-                    slot: s.parkingSlot || 'A3',
-                    level: localStorage.getItem('selectedLevel') || '1',
+                    licensePlate: parseLicensePlate(sLicensePlate),
+                    slot: sParkingSlot || 'A3',
+                    level: getLevelFromSlot(sParkingSlot),
                     seconds: 0,
-                    entryTime: s.entryTime || null,
-                    isCheckedIn: s.isCheckedIn || false,
-                    isCompleted: false
+                    entryTime: sEntryTime || null,
+                    isCheckedIn: sIsCheckedIn || false,
+                    isCompleted: false,
+                    parkingLotName: sParkingLotName
                   });
                 } else {
                   removeActiveQr(qr);
@@ -124,6 +154,42 @@ const ActiveSessionPage = () => {
               } catch (e) {
                 removeActiveQr(qr);
               }
+            }
+          }
+        }
+
+        // Unified check: always inspect localStorage active QRs to ensure no active sessions are missed!
+        const localQrs = getActiveQrs();
+        if (localQrs.length > 0) {
+          for (const qr of localQrs) {
+            if (results.some(r => r.qr === qr)) continue;
+
+            try {
+              const resp = await api.get(`/ParkingSessions/verify/${qr}`);
+              if (resp.data && resp.data.session) {
+                const s = resp.data.session;
+                const sLicensePlate = s.licensePlate || s.LicensePlate;
+                const sParkingSlot = s.parkingSlot || s.ParkingSlot;
+                const sEntryTime = s.entryTime || s.EntryTime;
+                const sIsCheckedIn = s.isCheckedIn ?? s.IsCheckedIn;
+                const sParkingLotName = s.parkingLotName || s.ParkingLotName;
+
+                results.push({
+                  qr,
+                  licensePlate: parseLicensePlate(sLicensePlate),
+                  slot: sParkingSlot || 'A3',
+                  level: getLevelFromSlot(sParkingSlot),
+                  seconds: 0,
+                  entryTime: sEntryTime || null,
+                  isCheckedIn: sIsCheckedIn || false,
+                  isCompleted: false,
+                  parkingLotName: sParkingLotName
+                });
+              } else {
+                removeActiveQr(qr);
+              }
+            } catch (e) {
+              console.error("Failed to verify local active QR:", qr, e);
             }
           }
         }
@@ -208,7 +274,8 @@ const ActiveSessionPage = () => {
                 exitTime: exitT,
                 seconds: secs,
                 exitLicensePlate: foundCompleted.exitLicensePlate,
-                isPlateMatched: foundCompleted.isPlateMatched
+                isPlateMatched: foundCompleted.isPlateMatched,
+                parkingLotName: foundCompleted.parkingLotName || item.parkingLotName
               };
             }
             return item;
@@ -350,6 +417,7 @@ const ActiveSessionPage = () => {
                           <div>
                             <p className="text-sm font-bold text-on-surface">{formatDateTime(session.entryTime)}</p>
                             <p className="text-xs text-on-surface-variant font-medium mt-1">Biển số: <strong className="text-on-surface font-extrabold">{session.licensePlate}</strong></p>
+                            <p className="text-xs text-on-surface-variant font-medium">Tòa nhà: <strong className="text-on-surface font-extrabold">{session.parkingLotName || 'Landmark 81 - Bãi đỗ A1'}</strong></p>
                             <p className="text-xs text-on-surface-variant font-medium">Vị trí: <strong className="text-primary font-extrabold">Ô {session.slot}</strong></p>
                           </div>
                         </div>
@@ -362,6 +430,7 @@ const ActiveSessionPage = () => {
                           <div>
                             <p className="text-sm font-bold text-on-surface">{formatDateTime(session.exitTime)}</p>
                             <p className="text-xs text-on-surface-variant font-medium mt-1">Biển số ra: <strong className="text-on-surface font-extrabold">{session.exitLicensePlate ? parseLicensePlate(session.exitLicensePlate) : session.licensePlate}</strong></p>
+                            <p className="text-xs text-on-surface-variant font-medium">Tòa nhà: <strong className="text-on-surface font-extrabold">{session.parkingLotName || 'Landmark 81 - Bãi đỗ A1'}</strong></p>
                             <p className="text-xs text-on-surface-variant font-medium">Bãi đỗ: <strong className="text-on-surface font-extrabold">Khu vực {session.level}</strong></p>
                           </div>
                         </div>
@@ -440,14 +509,30 @@ const ActiveSessionPage = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-8 border-y border-outline-variant/10 py-8">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 border-y border-outline-variant/10 py-8 text-left">
                      <div>
                        <p className="text-[10px] font-black text-outline uppercase tracking-widest mb-1">Vị trí đỗ</p>
-                       <p className="text-xl font-black text-on-surface">Ô {session.slot}</p>
+                       <p className="text-base font-black text-on-surface">Ô {session.slot}</p>
                      </div>
                      <div>
                        <p className="text-[10px] font-black text-outline uppercase tracking-widest mb-1">Biển số xe</p>
-                       <p className="text-xl font-black text-on-surface tracking-tight">{session.licensePlate}</p>
+                       <p className="text-base font-black text-on-surface tracking-tight">{session.licensePlate}</p>
+                     </div>
+                     <div>
+                       <p className="text-[10px] font-black text-outline uppercase tracking-widest mb-1">Bãi đỗ</p>
+                       <p className="text-base font-black text-on-surface">Khu vực {session.level}</p>
+                     </div>
+                     <div className="col-span-2 sm:col-span-2">
+                       <p className="text-[10px] font-black text-outline uppercase tracking-widest mb-1">Tòa nhà</p>
+                       <p className="text-base font-black text-primary truncate" title={session.parkingLotName || 'Landmark 81 - Bãi đỗ A1'}>
+                         {session.parkingLotName || 'Landmark 81 - Bãi đỗ A1'}
+                       </p>
+                     </div>
+                     <div className="col-span-2 sm:col-span-1">
+                       <p className="text-[10px] font-black text-outline uppercase tracking-widest mb-1">Thời gian vào</p>
+                       <p className="text-xs font-bold text-on-surface">
+                         {session.entryTime ? formatDateTime(session.entryTime) : 'Đang chờ vào bốt...'}
+                       </p>
                      </div>
                   </div>
 

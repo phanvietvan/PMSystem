@@ -57,13 +57,16 @@ public class GoogleLoginRequest
 
 public class UpdateProfileRequest
 {
-    [Required, MinLength(2), MaxLength(50)]
+    [Required(ErrorMessage = "Tên không được để trống."), MinLength(2, ErrorMessage = "Tên phải chứa ít nhất 2 ký tự."), MaxLength(50, ErrorMessage = "Tên không được vượt quá 50 ký tự.")]
+    [RegularExpression(@"^[\p{L}\s]+$", ErrorMessage = "Tên chỉ được chứa chữ cái và khoảng trắng.")]
     public string FirstName { get; set; } = string.Empty;
 
-    [Required, MinLength(2), MaxLength(50)]
+    [Required(ErrorMessage = "Họ không được để trống."), MinLength(2, ErrorMessage = "Họ phải chứa ít nhất 2 ký tự."), MaxLength(50, ErrorMessage = "Họ không được vượt quá 50 ký tự.")]
+    [RegularExpression(@"^[\p{L}\s]+$", ErrorMessage = "Họ chỉ được chứa chữ cái và khoảng trắng.")]
     public string LastName { get; set; } = string.Empty;
 
-    [Required]
+    [Required(ErrorMessage = "Số điện thoại không được để trống.")]
+    [RegularExpression(@"^(0|\+84|84)(3|5|7|8|9)[0-9]{8}$", ErrorMessage = "Số điện thoại không đúng định dạng Việt Nam.")]
     public string PhoneNumber { get; set; } = string.Empty;
 
     [Required]
@@ -75,12 +78,15 @@ public class UpdateProfileRequest
 
 public class AdminUpdateUserRequest
 {
-    [Required, MinLength(2), MaxLength(50)]
+    [Required(ErrorMessage = "Tên không được để trống."), MinLength(2, ErrorMessage = "Tên phải chứa ít nhất 2 ký tự."), MaxLength(50, ErrorMessage = "Tên không được vượt quá 50 ký tự.")]
+    [RegularExpression(@"^[\p{L}\s]+$", ErrorMessage = "Tên chỉ được chứa chữ cái và khoảng trắng.")]
     public string FirstName { get; set; } = string.Empty;
 
-    [Required, MinLength(2), MaxLength(50)]
+    [Required(ErrorMessage = "Họ không được để trống."), MinLength(2, ErrorMessage = "Họ phải chứa ít nhất 2 ký tự."), MaxLength(50, ErrorMessage = "Họ không được vượt quá 50 ký tự.")]
+    [RegularExpression(@"^[\p{L}\s]+$", ErrorMessage = "Họ chỉ được chứa chữ cái và khoảng trắng.")]
     public string LastName { get; set; } = string.Empty;
 
+    [RegularExpression(@"^(0|\+84|84)(3|5|7|8|9)[0-9]{8}$", ErrorMessage = "Số điện thoại không đúng định dạng Việt Nam.")]
     public string? PhoneNumber { get; set; }
     public string? Address { get; set; }
     public string? LicensePlate { get; set; }
@@ -117,8 +123,13 @@ public class VerifyRegisterOtpRequest
     [Required, MinLength(8)]
     public string Password { get; set; } = string.Empty;
 
-    public string? FirstName { get; set; }
-    public string? LastName { get; set; }
+    [Required(ErrorMessage = "Tên không được để trống."), MinLength(2, ErrorMessage = "Tên phải chứa ít nhất 2 ký tự."), MaxLength(50, ErrorMessage = "Tên không được vượt quá 50 ký tự.")]
+    [RegularExpression(@"^[\p{L}\s]+$", ErrorMessage = "Tên chỉ được chứa chữ cái và khoảng trắng.")]
+    public string FirstName { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Họ không được để trống."), MinLength(2, ErrorMessage = "Họ phải chứa ít nhất 2 ký tự."), MaxLength(50, ErrorMessage = "Họ không được vượt quá 50 ký tự.")]
+    [RegularExpression(@"^[\p{L}\s]+$", ErrorMessage = "Họ chỉ được chứa chữ cái và khoảng trắng.")]
+    public string LastName { get; set; } = string.Empty;
 }
 
 // ── Requests — Forgot / Reset Password ───────────────────────────────────────
