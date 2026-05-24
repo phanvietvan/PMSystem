@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, Layers, Sparkles } from 'lucide-react';
+import { ArrowRight, Layers, Sparkles, ChevronDown } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 import { hasActiveSessions, addActiveQr } from '../utils/auth';
@@ -50,9 +50,23 @@ const ParkingStatus: React.FC = () => {
   const [slotStatusMap, setSlotStatusMap] = useState<Record<string, SlotStatus>>({});
   const floors = [1, 2, 3];
 
-  const selectedParking = location.state?.selectedParking ||
+  const parkingLots = [
+    { id: 1, name: "Landmark 81 - Bãi đỗ A1", floor: "Tầng 1", block: "Block A" },
+    { id: 2, name: "Bitexco Financial - Bãi đỗ B2", floor: "Tầng 2", block: "Block B" },
+    { id: 3, name: "Vincom Center - Bãi đỗ V3", floor: "Hầm B3", block: "Block V" },
+    { id: 4, name: "Saigon Centre - Bãi đỗ S1", floor: "Tầng 4", block: "Block S" },
+    { id: 5, name: "Lotte Mart Q7 - Bãi đỗ L1", floor: "Hầm B1", block: "Block L" },
+    { id: 6, name: "Crescent Mall Q7 - Bãi đỗ C1", floor: "Tầng G", block: "Block C" },
+    { id: 7, name: "Sân bay Tân Sơn Nhất - Block A", floor: "Ga quốc tế", block: "Khu vực A" }
+  ];
+
+  const [selectedParking, setSelectedParking] = useState(
+    location.state?.selectedParking ||
     JSON.parse(localStorage.getItem('selectedParking') || 'null') ||
-    { name: 'Landmark 81 - Bãi đỗ A1', floor: 'Tầng 1', block: 'Block A' };
+    parkingLots[0]
+  );
+  
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   useEffect(() => {
     if (selectedParking.floor?.includes('Tầng')) {
@@ -146,6 +160,45 @@ const ParkingStatus: React.FC = () => {
         {/* ── Sidebar (Glassmorphic, static height) ── */}
         <aside className="w-72 shrink-0 h-full bg-white/70 backdrop-blur-xl border-r border-slate-100 px-6 py-6 flex flex-col justify-between overflow-y-auto">
           <div className="flex flex-col gap-6">
+            
+            {/* Building selector */}
+            <div className="relative">
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-3">Tòa nhà</p>
+              <div 
+                className="w-full flex items-center justify-between px-4 py-3 rounded-2xl bg-white border border-slate-200 text-[10px] font-black text-slate-900 cursor-pointer shadow-sm hover:shadow-md transition-all"
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              >
+                <span className="truncate pr-2">{selectedParking.name}</span>
+                <ChevronDown className={`w-4 h-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+              </div>
+              
+              <AnimatePresence>
+                {isDropdownOpen && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 5 }}
+                    className="absolute top-full left-0 right-0 mt-2 bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-100 py-2 z-[9999] max-h-60 overflow-y-auto"
+                  >
+                    {parkingLots.map((lot) => (
+                      <div 
+                        key={lot.id}
+                        className={`px-4 py-3 hover:bg-blue-50 text-[10px] font-bold cursor-pointer transition-colors ${selectedParking.name === lot.name ? 'text-blue-600 bg-blue-50/50' : 'text-slate-700'}`}
+                        onClick={() => {
+                          setSelectedParking(lot);
+                          localStorage.setItem('selectedParking', JSON.stringify(lot));
+                          setIsDropdownOpen(false);
+                          setSelectedSlot(null); // Clear selected slot when changing building
+                        }}
+                      >
+                        {lot.name}
+                      </div>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
             {/* Floor selector */}
             <div>
               <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-3">Chọn tầng</p>

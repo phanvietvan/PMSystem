@@ -24,6 +24,14 @@ const SuccessPage = () => {
     if (raw) parkingInfo = JSON.parse(raw);
   } catch(e) {}
 
+  let displayFloor = parkingInfo.floor;
+  if (selectedSlot && selectedSlot !== 'Auto') {
+    const prefix = selectedSlot.charAt(0).toUpperCase();
+    if (prefix === 'A' || prefix === 'B') displayFloor = 'Tầng 1';
+    else if (prefix === 'C' || prefix === 'D') displayFloor = 'Tầng 2';
+    else if (prefix === 'E' || prefix === 'F') displayFloor = 'Tầng 3';
+  }
+
   const resDate = localStorage.getItem('reservationDate') ? new Date(localStorage.getItem('reservationDate')!).toLocaleDateString('vi-VN') : new Date().toLocaleDateString('vi-VN');
   const resTime = localStorage.getItem('reservationStartTime') || new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 
@@ -147,7 +155,7 @@ const SuccessPage = () => {
                 <div className="p-4 bg-surface-container rounded-2xl border border-outline-variant/10">
                   <span className="text-[8px] font-black text-outline uppercase tracking-widest block mb-1">Vị trí</span>
                   <p className="text-[13px] font-black text-on-surface leading-tight truncate" title={parkingInfo.name}>{parkingInfo.name}</p>
-                  <p className="text-[10px] text-on-surface-variant font-bold mt-0.5">{parkingInfo.floor} • Slot {selectedSlot}</p>
+                  <p className="text-[10px] text-on-surface-variant font-bold mt-0.5">{displayFloor} • Slot {selectedSlot}</p>
                 </div>
                 <div className="p-4 bg-surface-container rounded-2xl border border-outline-variant/10">
                   <span className="text-[8px] font-black text-outline uppercase tracking-widest block mb-1">Thời gian</span>
