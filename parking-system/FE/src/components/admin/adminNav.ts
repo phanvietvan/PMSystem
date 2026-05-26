@@ -5,6 +5,7 @@ import {
   BarChart3,
   Users,
   Settings,
+  ShieldAlert,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -20,6 +21,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { name: 'Live Monitoring', icon: MapIcon, path: '/admin/monitoring' },
   { name: 'Reports', icon: BarChart3, path: '/admin/reports' },
   { name: 'User Management', icon: Users, path: '/admin/users' },
+  { name: 'Blacklist & Notifs', icon: ShieldAlert, path: '/admin/blacklist' },
   { name: 'Settings', icon: Settings, path: '/admin/settings' },
 ];
 

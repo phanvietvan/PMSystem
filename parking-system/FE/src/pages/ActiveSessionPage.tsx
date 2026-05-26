@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ShieldCheck, Info, Zap } from 'lucide-react';
+import { ShieldCheck, Info, Zap, History } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 import { parseLicensePlate, getActiveQrs, removeActiveQr } from '../utils/auth';
@@ -194,8 +194,8 @@ const ActiveSessionPage = () => {
         }
 
         if (results.length === 0) {
+          setSessions([]);
           setLoading(false);
-          navigate('/reserve');
           return;
         }
 
@@ -210,8 +210,9 @@ const ActiveSessionPage = () => {
         setSessions(results);
         setLoading(false);
       } catch (e) {
+        console.error("Error fetching sessions history:", e);
+        setSessions([]);
         setLoading(false);
-        navigate('/reserve');
       }
     };
 
@@ -389,7 +390,30 @@ const ActiveSessionPage = () => {
         )}
 
         <div className="space-y-6">
-          {sessions.map((session, idx) => {
+          {sessions.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-white border border-slate-100 rounded-[3rem] p-12 text-center space-y-6 shadow-xl shadow-blue-500/5"
+            >
+              <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto border border-blue-100/50 shadow-inner">
+                <History className="w-10 h-10" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-bold text-slate-800">Chưa có lịch sử gửi xe</h3>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed font-medium">
+                  Tài khoản của bạn hiện tại chưa ghi nhận bất kỳ lịch sử đỗ xe hoặc phiên gửi xe đang hoạt động nào trong hệ thống.
+                </p>
+              </div>
+              <button
+                onClick={() => navigate('/reserve')}
+                className="px-8 py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs uppercase tracking-widest rounded-full transition-all shadow-md shadow-blue-200 hover:shadow-lg hover:shadow-blue-300 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer inline-flex items-center gap-2"
+              >
+                Đặt chỗ gửi xe ngay
+              </button>
+            </motion.div>
+          ) : (
+            sessions.map((session, idx) => {
             if (session.isCompleted) {
               return (
                 <motion.div
@@ -606,7 +630,7 @@ const ActiveSessionPage = () => {
                 </div>
               </motion.div>
             );
-          })}
+          }))}
 
           <div className="bg-surface-container-low p-6 rounded-3xl border border-outline-variant/10 flex items-start gap-4">
              <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-primary shadow-sm flex-shrink-0">

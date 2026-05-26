@@ -8,4 +8,13 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  server: {
+    proxy: {
+      '/parkingstaff': {
+        target: 'https://localhost:5174',
+        changeOrigin: true,
+        secure: false, // Accept self-signed certificates
+      }
+    }
+  }
 })
