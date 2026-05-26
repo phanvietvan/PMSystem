@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { User, LogOut, ChevronDown, Car } from 'lucide-react';
+import { User, LogOut, ChevronDown, Car, AlertTriangle } from 'lucide-react';
 import BrandLogo from '../brand/BrandLogo';
 import api from '../../services/api';
 import { isAdmin, syncCurrentUserFromApi, clearSession } from '../../utils/auth';
@@ -174,6 +174,15 @@ const Navbar = () => {
                       >
                         <Car size={15} className="opacity-70" />
                         <span>Lịch sử gửi xe</span>
+                      </Link>
+
+                      <Link
+                        to="/report-incident"
+                        onClick={() => setIsDropdownOpen(false)}
+                        className="flex items-center gap-3 px-3.5 py-2.5 text-xs font-semibold text-slate-700 hover:bg-rose-50/50 hover:text-rose-600 transition-colors duration-200 rounded-xl"
+                      >
+                        <AlertTriangle size={15} className="opacity-70 text-rose-500" />
+                        <span>Báo cáo sự cố</span>
                       </Link>
 
                       <button

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import AdminLayout from '../components/admin/AdminLayout';
 import api from '../services/api';
+import { parseLicensePlate } from '../utils/auth';
 
 const PARKING_LOTS = [
   { id: 1, name: "Landmark 81 - Bãi đỗ A1", floor: "Tầng 1", block: "Block A", capacity: 24 },
@@ -350,7 +351,7 @@ const AdminMonitoring = () => {
                                {session && (
                                   <foreignObject x={coords.centerX - 75} y={coords.isRow1 ? coords.y - 45 : coords.y + 80} width="150" height="40" className="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
                                      <div className="bg-slate-900 text-white text-[10px] font-medium px-3 py-1.5 rounded-lg text-center shadow-xl truncate">
-                                        {session.licensePlate}<br/>
+                                        {parseLicensePlate(session.licensePlate)}<br/>
                                         <span className="text-slate-400">{session.user ? `${session.user.firstName || ''} ${session.user.lastName || ''}` : 'Khách'}</span>
                                      </div>
                                   </foreignObject>

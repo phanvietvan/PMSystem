@@ -135,26 +135,26 @@ const LoginPage = () => {
 
       {/* Login Section */}
       <section className="flex flex-col items-center justify-center w-full lg:w-[45%] p-8 md:p-16 relative z-20">
-        <div className="w-full max-w-[460px] glass-panel p-10 md:p-12 rounded-[2.5rem] glow-border">
+        <div className="w-full max-w-[460px] bg-white/80 border border-slate-200/40 backdrop-blur-md p-10 md:p-12 rounded-[2.5rem] shadow-soft">
           {/* Welcome Header */}
           <div className="mb-10 text-center">
-            <h2 className="text-4xl font-display font-extrabold text-on-surface tracking-tight mb-3">Chào mừng trở lại</h2>
-            <p className="text-on-surface-variant font-medium">Chưa có tài khoản? <Link to="/register" className="text-primary hover:text-primary-container transition-all font-bold underline underline-offset-4 decoration-primary/30">Đăng ký ngay</Link></p>
+            <h2 className="text-3xl font-display font-extrabold text-slate-900 tracking-tight mb-3">Chào mừng trở lại</h2>
+            <p className="text-slate-500 font-medium text-sm">Chưa có tài khoản? <Link to="/register" className="text-blue-600 hover:text-blue-700 transition-colors font-bold underline underline-offset-4 decoration-blue-500/30">Đăng ký ngay</Link></p>
           </div>
 
           {/* Form Wrapper */}
           <div className="w-full">
             {/* Form Fields */}
-            <form onSubmit={handleLogin} className="space-y-7">
+            <form onSubmit={handleLogin} className="space-y-6">
               {/* Email Input */}
               <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/70 ml-1" htmlFor="email">Email or Username</label>
+                <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-1 block" htmlFor="email">Email or Username</label>
                 <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-4.5 flex items-center pointer-events-none text-outline group-focus-within:text-primary transition-colors">
+                  <div className="absolute inset-y-0 left-0 pl-4.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-600 transition-colors">
                     <span className="material-symbols-outlined text-[20px]">person</span>
                   </div>
                   <input
-                    className="premium-input block w-full pl-12 pr-4 py-3 rounded-full border border-outline-variant focus:outline-none transition-all text-sm font-medium"
+                    className="block w-full pl-12 pr-4 py-3 rounded-full border border-slate-200/80 bg-slate-50/40 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all text-sm font-medium focus:outline-none"
                     id="email"
                     type="text"
                     placeholder="Enter your email or username"
@@ -168,14 +168,14 @@ const LoginPage = () => {
               {/* Password Input */}
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/70 ml-1" htmlFor="password">Password</label>
+                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-1 block" htmlFor="password">Password</label>
                 </div>
                 <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-4.5 flex items-center pointer-events-none text-outline group-focus-within:text-primary transition-colors">
+                  <div className="absolute inset-y-0 left-0 pl-4.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-600 transition-colors">
                     <span className="material-symbols-outlined text-[20px]">lock</span>
                   </div>
                   <input
-                    className="premium-input block w-full pl-12 pr-12 py-3 rounded-full border border-outline-variant focus:outline-none transition-all text-sm font-medium"
+                    className="block w-full pl-12 pr-12 py-3 rounded-full border border-slate-200/80 bg-slate-50/40 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all text-sm font-medium focus:outline-none"
                     id="password"
                     type="password"
                     placeholder="••••••••"
@@ -183,12 +183,12 @@ const LoginPage = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                   />
-                  <div className="absolute inset-y-0 right-0 pr-4.5 flex items-center cursor-pointer text-outline hover:text-primary transition-colors">
+                  <div className="absolute inset-y-0 right-0 pr-4.5 flex items-center cursor-pointer text-slate-400 hover:text-blue-600 transition-colors">
                     <span className="material-symbols-outlined text-[20px]">visibility</span>
                   </div>
                 </div>
                 <div className="text-right mt-1.5">
-                  <Link to="/forgot-password" className="text-xs font-bold text-primary hover:text-primary-container transition-colors">Quên mật khẩu?</Link>
+                  <Link to="/forgot-password" className="text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors">Quên mật khẩu?</Link>
                 </div>
               </div>
 
@@ -202,7 +202,7 @@ const LoginPage = () => {
 
               {/* Submit Button */}
               <button
-                className={`group relative overflow-hidden w-full py-3 bg-primary hover:bg-primary-container text-white font-semibold rounded-full transition-all duration-300 shadow-md shadow-primary/10 hover:shadow-lg hover:shadow-primary/20 transform hover:-translate-y-0.5 active:scale-[0.98] text-sm ${loading ? 'opacity-80 cursor-wait' : ''}`}
+                className={`group relative overflow-hidden w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-full transition-all duration-300 shadow-md shadow-blue-500/10 hover:shadow-lg hover:shadow-blue-500/20 active:scale-[0.98] text-[10px] uppercase tracking-widest cursor-pointer ${loading ? 'opacity-80 cursor-wait' : ''}`}
                 type="submit"
                 disabled={loading}
               >
@@ -212,18 +212,18 @@ const LoginPage = () => {
 
               {/* Divider */}
               <div className="relative flex py-1 items-center">
-                <div className="flex-grow border-t border-outline-variant/30"></div>
-                <span className="flex-shrink mx-4 text-[10px] font-bold uppercase tracking-[0.15em] text-on-surface-variant/40">Hoặc đăng nhập bằng</span>
-                <div className="flex-grow border-t border-outline-variant/30"></div>
+                <div className="flex-grow border-t border-slate-200/40"></div>
+                <span className="flex-shrink mx-4 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400/80">Hoặc đăng nhập bằng</span>
+                <div className="flex-grow border-t border-slate-200/40"></div>
               </div>
 
               {/* Google Sign In Button */}
               <button
                 type="button"
                 onClick={() => loginGoogle()}
-                className="group relative overflow-hidden w-full py-3 bg-white hover:bg-slate-50 text-slate-700 font-semibold rounded-full border border-slate-200/80 shadow-sm transition-all duration-300 flex items-center justify-center gap-2.5 transform hover:-translate-y-0.5 active:scale-[0.98] text-sm"
+                className="group relative overflow-hidden w-full py-4 bg-white hover:bg-slate-50 text-slate-700 font-extrabold rounded-full border border-slate-200/80 shadow-sm transition-all duration-300 flex items-center justify-center gap-2.5 active:scale-[0.98] text-[10px] uppercase tracking-widest cursor-pointer"
               >
-                <svg className="w-4.5 h-4.5 relative z-10 transition-transform duration-300 group-hover:scale-110" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 relative z-10 transition-transform duration-300 group-hover:scale-110" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                   <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
                   <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />

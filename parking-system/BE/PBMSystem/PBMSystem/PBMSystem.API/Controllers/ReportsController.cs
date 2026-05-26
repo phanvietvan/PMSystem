@@ -41,39 +41,26 @@ public class ReportsController : ControllerBase
         // Capacity logic: Assuming total capacity of all 7 buildings is 174
         var occupancyRate = (activeSessions / 174.0) * 100;
 
-        // 2. Monthly Data for Chart (last 5 months + current + forecast)
+        // 2. Daily Data for Chart (last 7 days)
         var monthlyData = new List<object>();
-        for (int i = 5; i >= 0; i--)
+        for (int i = 6; i >= 0; i--)
         {
-            var targetMonth = DateTime.Now.AddMonths(-i);
-            var mSessions = sessions.Where(s => s.EntryTime.Month == targetMonth.Month && s.EntryTime.Year == targetMonth.Year);
-            var mRevenue = mSessions.Sum(s => (double)(s.ExitTime.HasValue ? CalculateFee(s.EntryTime, s.ExitTime.Value) : 0m));
+            var targetDate = DateTime.Today.AddDays(-i);
+            var dSessions = sessions.Where(s => s.ExitTime.HasValue && s.ExitTime.Value.Date == targetDate.Date);
+            var dRevenue = dSessions.Sum(s => (double)CalculateFee(s.EntryTime, s.ExitTime.Value));
             
-            var lastYearSessions = sessions.Where(s => s.EntryTime.Month == targetMonth.Month && s.EntryTime.Year == targetMonth.Year - 1);
-            var lastYearRevenue = lastYearSessions.Sum(s => (double)(s.ExitTime.HasValue ? CalculateFee(s.EntryTime, s.ExitTime.Value) : 0m));
-            
-            // Calculate a normalized value for visual bar charts (max 100)
-            double currentVal = mRevenue > 0 ? (mRevenue % 100) + 10 : new Random().Next(30, 90);
-            double lastYearVal = lastYearRevenue > 0 ? (lastYearRevenue % 100) + 10 : new Random().Next(20, 80);
+            var lastWeekDate = targetDate.AddDays(-7);
+            var lastWeekSessions = sessions.Where(s => s.ExitTime.HasValue && s.ExitTime.Value.Date == lastWeekDate.Date);
+            var lastWeekRevenue = lastWeekSessions.Sum(s => (double)CalculateFee(s.EntryTime, s.ExitTime.Value));
 
             monthlyData.Add(new {
-                month = $"Th.{targetMonth.Month}",
-                current = currentVal,
-                lastYear = lastYearVal,
+                month = targetDate.ToString("dd/MM"),
+                current = dRevenue,
+                lastYear = lastWeekRevenue,
                 active = i == 0,
                 forecast = false
             });
         }
-
-        // Add 1 forecast month
-        var nextMonth = DateTime.Now.AddMonths(1);
-        monthlyData.Add(new {
-            month = $"Th.{nextMonth.Month}",
-            current = new Random().Next(50, 95),
-            lastYear = new Random().Next(40, 85),
-            active = false,
-            forecast = true
-        });
 
         // 3. Zone Performance
         var zones = sessions
