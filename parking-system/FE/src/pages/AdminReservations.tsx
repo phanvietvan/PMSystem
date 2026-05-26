@@ -22,6 +22,7 @@ const AdminReservations = () => {
   const [loading, setLoading] = useState(true);
   const [selectedReservation, setSelectedReservation] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const fetchReservations = async () => {
@@ -57,6 +58,47 @@ const AdminReservations = () => {
     const d = new Date(dateString);
     return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')} - ${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
   };
+
+  const exportToCSV = () => {
+    const headers = ['Mã QR', 'Khách hàng', 'Biển số', 'Loại xe', 'Vị trí đỗ', 'Giờ vào', 'Giờ ra', 'Trạng thái', 'Thành tiền'];
+    const rows = filteredReservations.map(r => {
+      const userName = r.user ? `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim() || 'Khách hàng' : 'Khách vãng lai';
+      let statusLabel = 'Đang đỗ';
+      if (r.status === 'Completed') statusLabel = 'Hoàn tất';
+      else if (!r.isCheckedIn) statusLabel = 'Chờ vào';
+
+      return [
+        r.qrCode || `#${r.id?.substring(0, 8).toUpperCase()}`,
+        userName,
+        r.licensePlate || 'N/A',
+        r.vehicleType || 'Không rõ',
+        `${r.parkingLotName || 'Chưa phân bổ'} - Slot ${r.parkingSlot || 'Auto'}`,
+        r.entryTime ? new Date(r.entryTime).toLocaleString() : '--:--',
+        r.exitTime ? new Date(r.exitTime).toLocaleString() : '--:--',
+        statusLabel,
+        r.totalFee || 0
+      ].map(v => `"${v}"`).join(',');
+    });
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `reservations_${new Date().getTime()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const filteredReservations = reservations.filter(r => {
+    if (!searchQuery) return true;
+    const term = searchQuery.toLowerCase();
+    const qr = (r.qrCode || '').toLowerCase();
+    const plate = (r.licensePlate || '').toLowerCase();
+    const userName = r.user ? `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim().toLowerCase() : 'khách vãng lai';
+    return qr.includes(term) || plate.includes(term) || userName.includes(term);
+  });
 
   // Tính toán thống kê theo thời gian thực (Real-time Stats)
   const totalReservations = reservations.length;
@@ -107,14 +149,19 @@ const AdminReservations = () => {
             <div className="p-8 border-b border-slate-100/60 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div className="flex items-center gap-4 bg-slate-50/50 px-4 py-2.5 rounded-xl border border-slate-100/60 w-full sm:w-80 focus-within:bg-white focus-within:border-blue-200 focus-within:shadow-[0_0_0_4px_rgba(59,130,246,0.1)] transition-all">
                 <Search className="text-slate-400 w-4 h-4" />
-                <input className="bg-transparent border-none focus:ring-0 text-sm text-slate-900 w-full p-0" placeholder="Tìm theo mã hoặc biển số..." />
+                <input 
+                  className="bg-transparent border-none focus:ring-0 text-sm text-slate-900 w-full p-0" 
+                  placeholder="Tìm theo mã hoặc biển số..." 
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                />
               </div>
               <div className="flex items-center gap-3 w-full sm:w-auto">
                  <button className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all">
                     <Filter className="w-4 h-4" />
                     Bộ lọc
                  </button>
-                 <button className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all">
+                 <button onClick={exportToCSV} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all">
                     <FileDown className="w-4 h-4" />
                     Xuất File
                  </button>
@@ -136,7 +183,9 @@ const AdminReservations = () => {
                 <tbody className="divide-y divide-slate-100">
                   {loading ? (
                     <tr><td colSpan={6} className="text-center py-10 text-slate-500">Đang tải dữ liệu...</td></tr>
-                  ) : reservations.map((row, i) => {
+                  ) : filteredReservations.length === 0 ? (
+                    <tr><td colSpan={6} className="text-center py-10 text-slate-500">Không tìm thấy kết quả phù hợp</td></tr>
+                  ) : filteredReservations.map((row, i) => {
                     const userName = row.user ? `${row.user.firstName || ''} ${row.user.lastName || ''}`.trim() || 'Khách hàng' : 'Khách vãng lai';
                     const userInitials = row.user ? getUserInitials({ firstName: row.user.firstName, lastName: row.user.lastName, username: userName } as any) : 'KV';
                     

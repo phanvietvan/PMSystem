@@ -47,28 +47,36 @@ const ParkingStatus: React.FC = () => {
   const [showActiveSessionWarning, setShowActiveSessionWarning] = useState(false);
   const [slotStatusMap, setSlotStatusMap] = useState<Record<string, SlotStatus>>({});
 
-  const parkingLots = (() => {
-    const custom = localStorage.getItem('customParkingLots');
-    if (custom) {
+  const defaultLots = [
+    { id: 1, name: "Landmark 81 - Bãi đỗ A1", floor: "Tầng 1", block: "Block A" },
+    { id: 2, name: "Bitexco Financial - Bãi đỗ B2", floor: "Tầng 2", block: "Block B" },
+    { id: 3, name: "Vincom Center - Bãi đỗ V3", floor: "Hầm B3", block: "Block V" },
+    { id: 4, name: "Saigon Centre - Bãi đỗ S1", floor: "Tầng 4", block: "Block S" },
+    { id: 5, name: "Lotte Mart Q7 - Bãi đỗ L1", floor: "Hầm B1", block: "Block L" },
+    { id: 6, name: "Crescent Mall Q7 - Bãi đỗ C1", floor: "Tầng G", block: "Block C" },
+    { id: 7, name: "Sân bay Tân Sơn Nhất - Block A", floor: "Ga quốc tế", block: "Khu vực A" }
+  ];
+
+  const [parkingLots, setParkingLots] = useState<any[]>(defaultLots);
+
+  useEffect(() => {
+    const loadLots = async () => {
       try {
-        return JSON.parse(custom);
-      } catch (e) {}
-    }
-    return [
-      { id: 1, name: "Landmark 81 - Bãi đỗ A1", floor: "Tầng 1", block: "Block A" },
-      { id: 2, name: "Bitexco Financial - Bãi đỗ B2", floor: "Tầng 2", block: "Block B" },
-      { id: 3, name: "Vincom Center - Bãi đỗ V3", floor: "Hầm B3", block: "Block V" },
-      { id: 4, name: "Saigon Centre - Bãi đỗ S1", floor: "Tầng 4", block: "Block S" },
-      { id: 5, name: "Lotte Mart Q7 - Bãi đỗ L1", floor: "Hầm B1", block: "Block L" },
-      { id: 6, name: "Crescent Mall Q7 - Bãi đỗ C1", floor: "Tầng G", block: "Block C" },
-      { id: 7, name: "Sân bay Tân Sơn Nhất - Block A", floor: "Ga quốc tế", block: "Khu vực A" }
-    ];
-  })();
+        const response = await api.get('/ParkingLots');
+        if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+          setParkingLots(response.data);
+        }
+      } catch (e) {
+        console.error('Error fetching parking lots:', e);
+      }
+    };
+    loadLots();
+  }, []);
 
   const [selectedParking, setSelectedParking] = useState(
     location.state?.selectedParking ||
     JSON.parse(localStorage.getItem('selectedParking') || 'null') ||
-    parkingLots[0]
+    defaultLots[0]
   );
   
   const floors = selectedParking.floors || [1, 2, 3];

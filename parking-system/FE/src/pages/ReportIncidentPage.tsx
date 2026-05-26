@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { AlertTriangle, Send, Check, MapPin, Layers } from 'lucide-react';
 import Navbar from '../components/layout/Navbar';
+import api from '../services/api';
 
 interface Incident {
   id: string;
@@ -31,14 +32,17 @@ const ReportIncidentPage = () => {
   const [branches, setBranches] = useState<any[]>([]);
   const [myIncidents, setMyIncidents] = useState<Incident[]>([]);
 
-  const loadMyIncidents = () => {
+  const loadMyIncidents = async () => {
     const reporterName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username || user.email : 'Khách vãng lai';
-    const existing = localStorage.getItem('systemIncidents');
-    if (existing) {
-      try {
-        const all: Incident[] = JSON.parse(existing);
-        setMyIncidents(all.filter(inc => inc.reporter === reporterName));
-      } catch (e) {}
+    try {
+      const response = await api.get('/Incidents');
+      if (response.data) {
+        const allIncidents: Incident[] = response.data;
+        setMyIncidents(allIncidents.filter(inc => inc.reporter === reporterName));
+      }
+    } catch (error) {
+      console.error('Error loading incidents:', error);
+      setMyIncidents([]);
     }
   };
 
@@ -56,18 +60,24 @@ const ReportIncidentPage = () => {
       } catch (e) {}
     }
 
-    const custom = localStorage.getItem('customParkingLots');
-    if (custom) {
+    const loadBranches = async () => {
       try {
-        setBranches(JSON.parse(custom));
-      } catch (e) {}
-    } else {
+        const response = await api.get('/ParkingLots');
+        if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+          setBranches(response.data);
+          return;
+        }
+      } catch (e) {
+        console.error('Error fetching parking lots:', e);
+      }
+      // Fallback
       setBranches([
         { id: 1, name: "Landmark 81 - Bãi đỗ A1", floors: [1, 2, 3] },
         { id: 2, name: "Bitexco Financial - Bãi đỗ B2", floors: [1, 2, 3] },
         { id: 3, name: "Vincom Center - Bãi đỗ V3", floors: [1, 2, 3] }
       ]);
-    }
+    };
+    loadBranches();
   }, []);
 
   // Update default floor based on selected branch
@@ -78,15 +88,14 @@ const ReportIncidentPage = () => {
     }
   }, [branch, branches]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !description.trim()) return;
 
     const reporterName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username || user.email : 'Khách vãng lai';
     const reporterRole = user ? user.role || 'Khách hàng' : 'Khách hàng';
 
-    const newIncident: Incident = {
-      id: `#INC-${Math.floor(1000 + Math.random() * 9000)}`,
+    const newIncidentPayload = {
       type,
       title,
       description,
@@ -94,33 +103,34 @@ const ReportIncidentPage = () => {
       floor,
       urgency,
       reporter: reporterName,
-      role: reporterRole,
-      createdAt: new Date().toLocaleDateString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-      status: 'Chờ xử lý'
+      role: reporterRole
     };
 
-    // Save to localStorage
-    const existing = localStorage.getItem('systemIncidents');
-    let list: Incident[] = [];
-    if (existing) {
-      try {
-        list = JSON.parse(existing);
-      } catch (e) {}
+    try {
+      await api.post('/Incidents', newIncidentPayload);
+      setIsSubmitted(true);
+      setTitle('');
+      setDescription('');
+      
+      await loadMyIncidents();
+      
+      setTimeout(() => {
+        setIsSubmitted(false);
+      }, 5000);
+      setIsSubmitted(true);
+      setTitle('');
+      setDescription('');
+      
+      // Reload incidents from API
+      await loadMyIncidents();
+      
+      setTimeout(() => {
+        setIsSubmitted(false);
+      }, 5000);
+    } catch (error) {
+      console.error('Error submitting incident to database:', error);
+      alert('Không thể gửi báo cáo sự cố lúc này. Vui lòng thử lại sau.');
     }
-    list = [newIncident, ...list];
-    localStorage.setItem('systemIncidents', JSON.stringify(list));
-
-    setIsSubmitted(true);
-    setTitle('');
-    setDescription('');
-    
-    // Refresh history
-    setMyIncidents(list.filter(inc => inc.reporter === reporterName));
-    
-    // Clear submission state after 5 seconds
-    setTimeout(() => {
-      setIsSubmitted(false);
-    }, 5000);
   };
 
   return (
@@ -302,7 +312,9 @@ const ReportIncidentPage = () => {
                 <div key={inc.id} className="p-5 rounded-2xl border border-slate-100 hover:border-blue-200/50 bg-slate-50/50 hover:bg-blue-50/10 transition-all duration-300">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{inc.id}</span>
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        {inc.id.startsWith('#') ? inc.id : '#INC-' + inc.id.substring(0, 4).toUpperCase()}
+                      </span>
                       <span className={`px-2.5 py-0.5 rounded-md text-[9px] font-black uppercase ${
                         inc.urgency === 'Khẩn cấp' ? 'bg-rose-100 text-rose-600 animate-pulse' :
                         inc.urgency === 'Cao' ? 'bg-amber-100 text-amber-600' :
@@ -316,7 +328,11 @@ const ReportIncidentPage = () => {
                         {inc.status}
                       </span>
                     </div>
-                    <span className="text-[10px] text-slate-400 font-bold">{inc.createdAt}</span>
+                    <span className="text-[10px] text-slate-400 font-bold">
+                      {inc.createdAt.includes('T') || inc.createdAt.includes('-') 
+                        ? new Date(inc.createdAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) 
+                        : inc.createdAt}
+                    </span>
                   </div>
                   
                   <h4 className="text-xs font-bold text-slate-850 mt-2.5 leading-snug">{inc.title}</h4>

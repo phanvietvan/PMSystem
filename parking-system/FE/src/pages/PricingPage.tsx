@@ -38,6 +38,17 @@ const PricingPage = () => {
 
     const fetchPricing = async () => {
       try {
+        // Try PricingConfigs DB API first
+        const response = await api.get('/PricingConfigs');
+        if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+          const mapped = response.data.map((c: any) => ({ type: c.type, price: c.price, sub: c.sub }));
+          setPrices(mapped);
+          localStorage.setItem('parking_pricing', JSON.stringify(mapped));
+          return;
+        }
+      } catch (e) {}
+      // Fallback to legacy endpoint
+      try {
         const response = await api.get('/ParkingSessions/pricing');
         if (response.data && Array.isArray(response.data)) {
           setPrices(response.data);
@@ -49,8 +60,20 @@ const PricingPage = () => {
     };
     fetchPricing();
 
-    const savedRegs = localStorage.getItem('parking_regulations');
-    if (savedRegs) setRegulations(JSON.parse(savedRegs));
+    const fetchRegulations = async () => {
+      try {
+        const response = await api.get('/Regulations');
+        if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+          const mapped = response.data.map((r: any) => r.content);
+          setRegulations(mapped);
+          localStorage.setItem('parking_regulations', JSON.stringify(mapped));
+          return;
+        }
+      } catch (e) {}
+      const savedRegs = localStorage.getItem('parking_regulations');
+      if (savedRegs) setRegulations(JSON.parse(savedRegs));
+    };
+    fetchRegulations();
   }, []);
 
   // Fresh design properties for each vehicle card
