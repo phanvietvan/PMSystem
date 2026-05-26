@@ -99,6 +99,40 @@ using (var scope = app.Services.CreateScope())
     // For MongoDB: ensure the database and collections are created
     await db.Database.EnsureCreatedAsync();
 
+    // Ensure all Status fields in MongoDB ParkingSessions are strings, not integers
+    try
+    {
+        var client = new MongoDB.Driver.MongoClient(mongoUri);
+        var database = client.GetDatabase("pbmsystem_dev");
+        var collection = database.GetCollection<MongoDB.Bson.BsonDocument>("ParkingSessions");
+
+        // Update Status = 1 -> "Active"
+        await collection.UpdateManyAsync(
+            MongoDB.Driver.Builders<MongoDB.Bson.BsonDocument>.Filter.Eq("Status", 1),
+            MongoDB.Driver.Builders<MongoDB.Bson.BsonDocument>.Update.Set("Status", "Active")
+        );
+        await collection.UpdateManyAsync(
+            MongoDB.Driver.Builders<MongoDB.Bson.BsonDocument>.Filter.Eq("status", 1),
+            MongoDB.Driver.Builders<MongoDB.Bson.BsonDocument>.Update.Set("status", "Active")
+        );
+
+        // Update Status = 2 -> "Completed"
+        await collection.UpdateManyAsync(
+            MongoDB.Driver.Builders<MongoDB.Bson.BsonDocument>.Filter.Eq("Status", 2),
+            MongoDB.Driver.Builders<MongoDB.Bson.BsonDocument>.Update.Set("Status", "Completed")
+        );
+        await collection.UpdateManyAsync(
+            MongoDB.Driver.Builders<MongoDB.Bson.BsonDocument>.Filter.Eq("status", 2),
+            MongoDB.Driver.Builders<MongoDB.Bson.BsonDocument>.Update.Set("status", "Completed")
+        );
+
+        Console.WriteLine("Successfully migrated MongoDB ParkingSessions status fields from Int32 to String.");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error running MongoDB migration: {ex.Message}");
+    }
+
     // Seed default users if none exist in the database
     if (!await db.Users.AnyAsync())
     {
