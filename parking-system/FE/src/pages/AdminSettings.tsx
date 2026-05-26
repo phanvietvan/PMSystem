@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import AdminLayout from '../components/admin/AdminLayout';
+import api from '../services/api';
 
 const AdminSettings = () => {
   const [searchParams] = useSearchParams();
@@ -19,6 +20,48 @@ const AdminSettings = () => {
     const tab = searchParams.get('tab');
     if (tab) setActiveTab(tab);
   }, [searchParams]);
+
+  useEffect(() => {
+    const fetchPricing = async () => {
+      try {
+        // Try new PricingConfigs API first
+        const response = await api.get('/PricingConfigs');
+        if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+          const mapped = response.data.map((c: any) => ({ type: c.type, price: c.price, sub: c.sub }));
+          setPrices(mapped);
+          localStorage.setItem('parking_pricing', JSON.stringify(mapped));
+          return;
+        }
+      } catch (e) {}
+      // Fallback to legacy pricing endpoint
+      try {
+        const response = await api.get('/ParkingSessions/pricing');
+        if (response.data && Array.isArray(response.data)) {
+          setPrices(response.data);
+          localStorage.setItem('parking_pricing', JSON.stringify(response.data));
+        }
+      } catch (e) {
+        console.error('Error fetching pricing from backend', e);
+      }
+    };
+
+    const fetchRegulations = async () => {
+      try {
+        const response = await api.get('/Regulations');
+        if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+          const mapped = response.data.map((r: any) => r.content);
+          setRegulations(mapped);
+          localStorage.setItem('parking_regulations', JSON.stringify(mapped));
+        }
+      } catch (e) {
+        console.error('Error fetching regulations from backend', e);
+      }
+    };
+
+    fetchPricing();
+    fetchRegulations();
+  }, []);
+
   const [showToast, setShowToast] = useState(false);
 
   // Pricing State & Handlers
@@ -37,7 +80,16 @@ const AdminSettings = () => {
     setPrices(updated);
   };
 
-  const handleSavePricing = () => {
+  const handleSavePricing = async () => {
+    try {
+      await api.post('/PricingConfigs', prices);
+    } catch (e) {
+      console.error('Error saving pricing to backend', e);
+    }
+    // Also update legacy pricing endpoint
+    try {
+      await api.post('/ParkingSessions/pricing', prices);
+    } catch (e) {}
     localStorage.setItem('parking_pricing', JSON.stringify(prices));
     setShowToast(true);
     setTimeout(() => setShowToast(false), 3000);
@@ -62,7 +114,12 @@ const AdminSettings = () => {
     setRegulations(updated);
   };
 
-  const handleSaveRegulations = () => {
+  const handleSaveRegulations = async () => {
+    try {
+      await api.post('/Regulations', regulations);
+    } catch (e) {
+      console.error('Error saving regulations to backend', e);
+    }
     localStorage.setItem('parking_regulations', JSON.stringify(regulations));
     setShowToast(true);
     setTimeout(() => setShowToast(false), 3000);

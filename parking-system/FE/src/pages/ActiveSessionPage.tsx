@@ -60,6 +60,7 @@ interface SessionData {
   exitLicensePlate?: string;
   isPlateMatched?: boolean;
   parkingLotName?: string;
+  vehicleType?: string;
 }
 
 const ActiveSessionPage = () => {
@@ -77,15 +78,10 @@ const ActiveSessionPage = () => {
         const results: SessionData[] = [];
 
         if (token && user) {
-          // Fetch all sessions to get history
-          const allResp = await api.get('/ParkingSessions');
+          // Fetch history sessions for the user directly
+          const allResp = await api.get('/ParkingSessions/history');
           if (allResp.data && Array.isArray(allResp.data)) {
-            // Filter sessions belonging to the user
-            const mySessions = allResp.data.filter((s: any) => {
-              const sUserId = s.userId || s.UserId;
-              const sLicensePlate = s.licensePlate || s.LicensePlate;
-              return sUserId === user.id || (sLicensePlate && user.licensePlate && sLicensePlate.replace(/[^a-zA-Z0-9]/g, '') === user.licensePlate.replace(/[^a-zA-Z0-9]/g, ''));
-            });
+            const mySessions = allResp.data;
             
             for (const s of mySessions) {
               const sExitTime = s.exitTime || s.ExitTime;
@@ -118,7 +114,8 @@ const ActiveSessionPage = () => {
                 exitTime: sExitTime,
                 exitLicensePlate: s.exitLicensePlate || s.ExitLicensePlate,
                 isPlateMatched: s.isPlateMatched ?? s.IsPlateMatched,
-                parkingLotName: sParkingLotName
+                parkingLotName: sParkingLotName,
+                vehicleType: s.vehicleType || s.VehicleType || 'car'
               });
             }
           }
@@ -146,7 +143,8 @@ const ActiveSessionPage = () => {
                     entryTime: sEntryTime || null,
                     isCheckedIn: sIsCheckedIn || false,
                     isCompleted: false,
-                    parkingLotName: sParkingLotName
+                    parkingLotName: sParkingLotName,
+                    vehicleType: s.vehicleType || s.VehicleType || 'car'
                   });
                 } else {
                   removeActiveQr(qr);
@@ -183,7 +181,8 @@ const ActiveSessionPage = () => {
                   entryTime: sEntryTime || null,
                   isCheckedIn: sIsCheckedIn || false,
                   isCompleted: false,
-                  parkingLotName: sParkingLotName
+                  parkingLotName: sParkingLotName,
+                  vehicleType: s.vehicleType || s.VehicleType || 'car'
                 });
               } else {
                 removeActiveQr(qr);
@@ -275,7 +274,8 @@ const ActiveSessionPage = () => {
                 seconds: secs,
                 exitLicensePlate: foundCompleted.exitLicensePlate,
                 isPlateMatched: foundCompleted.isPlateMatched,
-                parkingLotName: foundCompleted.parkingLotName || item.parkingLotName
+                parkingLotName: foundCompleted.parkingLotName || item.parkingLotName,
+                vehicleType: foundCompleted.vehicleType || foundCompleted.VehicleType || item.vehicleType
               };
             }
             return item;
@@ -313,16 +313,48 @@ const ActiveSessionPage = () => {
     return `${hours}:${minutes}:${seconds} - ${day}/${month}/${year}`;
   };
 
-  const calculateFee = (entryStr: string | null | undefined, exitStr: string | null | undefined) => {
+  const calculateFee = (entryStr: string | null | undefined, exitStr: string | null | undefined, vehicleType: string | null | undefined) => {
     if (!entryStr || !exitStr) return 10000;
     const entry = new Date(entryStr);
     const exit = new Date(exitStr);
     const elapsedMinutes = Math.ceil((exit.getTime() - entry.getTime()) / (60 * 1000));
-    let fee = 10000;
-    if (elapsedMinutes > 60) {
-      fee += (elapsedMinutes - 60) * 500;
+    
+    let baseRate = 10000;
+    let isHourly = true;
+
+    const savedPricing = localStorage.getItem('parking_pricing');
+    if (savedPricing) {
+      try {
+        const parsed = JSON.parse(savedPricing);
+        const vType = (vehicleType || 'car').toLowerCase();
+        let matched = null;
+        if (vType === 'bike') {
+          matched = parsed[0];
+        } else if (vType === 'car') {
+          matched = parsed[1];
+        } else if (vType === 'suv') {
+          matched = parsed[2];
+        }
+
+        if (matched) {
+          const cleanPriceStr = matched.price.replace(/[.,]/g, '');
+          const parsedPrice = parseFloat(cleanPriceStr);
+          if (!isNaN(parsedPrice)) {
+            baseRate = parsedPrice;
+          }
+          isHourly = matched.sub.toLowerCase().includes('giờ') || matched.sub.toLowerCase().includes('hour');
+        }
+      } catch (e) {
+        console.error('Error parsing pricing in calculateFee', e);
+      }
     }
-    return fee;
+
+    if (isHourly) {
+      const hours = Math.max(1, Math.ceil(elapsedMinutes / 60));
+      return baseRate * hours;
+    } else {
+      return baseRate;
+    }
   };
 
   const formatCurrency = (amount: number) => {
@@ -450,7 +482,7 @@ const ActiveSessionPage = () => {
                       <div className="text-left sm:text-right">
                         <p className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">Số tiền đã trả</p>
                         <p className="text-2xl font-black text-emerald-600">
-                          {formatCurrency(calculateFee(session.entryTime, session.exitTime))}
+                          {formatCurrency(calculateFee(session.entryTime, session.exitTime, session.vehicleType))}
                         </p>
                       </div>
                     </div>

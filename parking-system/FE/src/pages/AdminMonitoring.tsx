@@ -3,47 +3,58 @@ import {
   LayoutDashboard,
   Building,
   Car,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
-  Map,
   ChevronDown,
 } from 'lucide-react';
 import AdminLayout from '../components/admin/AdminLayout';
 import api from '../services/api';
+import { parseLicensePlate } from '../utils/auth';
 
-const PARKING_LOTS = [
+const DEFAULT_LOTS = [
   { id: 1, name: "Landmark 81 - Bãi đỗ A1", floor: "Tầng 1", block: "Block A", capacity: 24 },
   { id: 2, name: "Bitexco Financial - Bãi đỗ B2", floor: "Tầng 2", block: "Block B", capacity: 24 },
-  { id: 3, name: "Vincom Center - Bãi đỗ V3", floor: "Hầm B3", block: "Block V", capacity: 18 },
-  { id: 4, name: "Saigon Centre - Bãi đỗ S1", floor: "Tầng 4", block: "Block S", capacity: 18 },
-  { id: 5, name: "Lotte Mart Q7 - Bãi đỗ L1", floor: "Hầm B1", block: "Block L", capacity: 30 },
-  { id: 6, name: "Crescent Mall Q7 - Bãi đỗ C1", floor: "Tầng G", block: "Block C", capacity: 20 },
-  { id: 7, name: "Sân bay Tân Sơn Nhất - Block A", floor: "Ga quốc tế", block: "Khu vực A", capacity: 40 }
+  { id: 3, name: "Vincom Center - Bãi đỗ V3", floor: "Hầm B3", block: "Block V", capacity: 18 }
 ];
 
 const AdminMonitoring = () => {
   const [activeSessions, setActiveSessions] = useState<any[]>([]);
-  const [selectedLot, setSelectedLot] = useState(PARKING_LOTS[0]);
+  const [parkingLots, setParkingLots] = useState<any[]>(DEFAULT_LOTS);
+  const [selectedLot, setSelectedLot] = useState(DEFAULT_LOTS[0]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [selectedLevel, setSelectedLevel] = useState(1);
 
   useEffect(() => {
-    const fetchActiveSessions = async () => {
+    const fetchData = async () => {
       try {
-        const response = await api.get('/ParkingSessions');
-        if (response.data) {
-          const sessions = Array.isArray(response.data) ? response.data : (response.data.data || []);
+        const [sessionsRes, lotsRes] = await Promise.all([
+          api.get('/ParkingSessions'),
+          api.get('/ParkingLots')
+        ]);
+        
+        if (lotsRes.data && Array.isArray(lotsRes.data) && lotsRes.data.length > 0) {
+          const lots = lotsRes.data.map(l => ({ ...l, capacity: l.capacity || 24 }));
+          setParkingLots(lots);
+          setSelectedLot(prev => lots.find(l => l.id === prev.id) || lots[0]);
+        }
+
+        if (sessionsRes.data) {
+          const sessions = Array.isArray(sessionsRes.data) ? sessionsRes.data : (sessionsRes.data.data || []);
           const active = sessions.filter((s: any) => s.status === 'Active');
           setActiveSessions(active);
         }
       } catch (error) {
-        console.error("Error fetching sessions:", error);
+        console.error("Error fetching monitoring data:", error);
       }
     };
     
-    fetchActiveSessions();
-    const interval = setInterval(fetchActiveSessions, 5000);
+    fetchData();
+    const interval = setInterval(() => {
+      api.get('/ParkingSessions').then(res => {
+         if (res.data) {
+           const sessions = Array.isArray(res.data) ? res.data : (res.data.data || []);
+           setActiveSessions(sessions.filter((s: any) => s.status === 'Active'));
+         }
+      });
+    }, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -52,16 +63,6 @@ const AdminMonitoring = () => {
     const occupied = sessions.filter(s => s.isCheckedIn).length;
     const reserved = sessions.filter(s => !s.isCheckedIn).length;
     return { occupied, reserved, total: sessions.length };
-  };
-
-  // Generate standard slots for UI (e.g., A1, A2...)
-  const getSlotsForLot = (lot: any) => {
-    const slots = [];
-    const prefix = lot.block.split(' ')[1] || 'A';
-    for (let i = 1; i <= lot.capacity; i++) {
-      slots.push(`${prefix}${i}`);
-    }
-    return slots;
   };
 
   const currentLotStats = getLotStats(selectedLot.name);
@@ -133,7 +134,7 @@ const AdminMonitoring = () => {
                 <div className="absolute top-full right-0 mt-3 w-[360px] bg-white rounded-3xl shadow-2xl border border-slate-100 z-50 p-2 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-200">
                   <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-3 py-3">Chọn Tòa nhà để giám sát</h3>
                   <div className="max-h-[60vh] overflow-y-auto custom-scrollbar pr-1 space-y-1">
-                    {PARKING_LOTS.map(lot => {
+                    {parkingLots.map(lot => {
                       const stats = getLotStats(lot.name);
                       const isSelected = selectedLot.id === lot.id;
                       
@@ -350,7 +351,7 @@ const AdminMonitoring = () => {
                                {session && (
                                   <foreignObject x={coords.centerX - 75} y={coords.isRow1 ? coords.y - 45 : coords.y + 80} width="150" height="40" className="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
                                      <div className="bg-slate-900 text-white text-[10px] font-medium px-3 py-1.5 rounded-lg text-center shadow-xl truncate">
-                                        {session.licensePlate}<br/>
+                                        {parseLicensePlate(session.licensePlate)}<br/>
                                         <span className="text-slate-400">{session.user ? `${session.user.firstName || ''} ${session.user.lastName || ''}` : 'Khách'}</span>
                                      </div>
                                   </foreignObject>

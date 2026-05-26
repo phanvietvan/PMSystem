@@ -13,7 +13,7 @@ const ReservationPage = () => {
   const fromStatus = location.state?.fromStatus || false;
   const [, setUser] = useState<any>(null);
 
-  const parkingLots = [
+  const defaultLots = [
     { id: 1, name: "Landmark 81 - Bãi đỗ A1", latitude: "10.7949", longitude: "106.7218", floor: "Tầng 1", block: "Block A" },
     { id: 2, name: "Bitexco Financial - Bãi đỗ B2", latitude: "10.7717", longitude: "106.7044", floor: "Tầng 2", block: "Block B" },
     { id: 3, name: "Vincom Center - Bãi đỗ V3", latitude: "10.7781", longitude: "106.7020", floor: "Hầm B3", block: "Block V" },
@@ -22,6 +22,22 @@ const ReservationPage = () => {
     { id: 6, name: "Crescent Mall Q7 - Bãi đỗ C1", latitude: "10.7287", longitude: "106.7169", floor: "Tầng G", block: "Block C" },
     { id: 7, name: "Sân bay Tân Sơn Nhất - Block A", latitude: "10.8160", longitude: "106.6630", floor: "Ga quốc tế", block: "Khu vực A" }
   ];
+
+  const [parkingLots, setParkingLots] = useState<any[]>(defaultLots);
+
+  useEffect(() => {
+    const loadLots = async () => {
+      try {
+        const response = await api.get('/ParkingLots');
+        if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+          setParkingLots(response.data);
+        }
+      } catch (e) {
+        console.error('Error fetching parking lots:', e);
+      }
+    };
+    loadLots();
+  }, []);
 
   const today = new Date().toISOString().split('T')[0];
   const currentTime = new Date().toTimeString().slice(0, 5);
@@ -32,15 +48,7 @@ const ReservationPage = () => {
     if (storedParking) {
       try {
         const parsed = JSON.parse(storedParking);
-        const matched = [
-          { id: 1, name: "Landmark 81 - Bãi đỗ A1" },
-          { id: 2, name: "Bitexco Financial - Bãi đỗ B2" },
-          { id: 3, name: "Vincom Center - Bãi đỗ V3" },
-          { id: 4, name: "Saigon Centre - Bãi đỗ S1" },
-          { id: 5, name: "Lotte Mart Q7 - Bãi đỗ L1" },
-          { id: 6, name: "Crescent Mall Q7 - Bãi đỗ C1" },
-          { id: 7, name: "Sân bay Tân Sơn Nhất - Block A" }
-        ].find(p => p.name === parsed.name);
+        const matched = parkingLots.find((p: any) => p.name === parsed.name);
         if (matched) initialParkingLotId = matched.id;
       } catch (e) {}
     }
@@ -56,7 +64,7 @@ const ReservationPage = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isVehicleDropdownOpen, setIsVehicleDropdownOpen] = useState(false);
 
-  const selectedParking = parkingLots.find(p => p.id === formData.parkingLotId) || parkingLots[0];
+  const selectedParking = parkingLots.find((p: any) => p.id === formData.parkingLotId) || parkingLots[0];
 
   const [isSlotSelected, setIsSlotSelected] = useState(fromStatus);
   const [currentSlot, setCurrentSlot] = useState(() => localStorage.getItem('selectedSlot') || '');
@@ -115,7 +123,7 @@ const ReservationPage = () => {
             setActivePlates(normalizedActive);
 
             // Auto-select the first available (non-active in current building) vehicle
-            const currentLotName = parkingLots.find(p => p.id === formData.parkingLotId)?.name || parkingLots[0].name;
+            const currentLotName = parkingLots.find((p: any) => p.id === formData.parkingLotId)?.name || parkingLots[0].name;
             const firstAvailable = parsedVehicles.find(v => {
               const norm = v.plate.replace(/[-. ]/g, '').toUpperCase();
               return !normalizedActive.some(a => a.plate === norm && a.parkingLotName === currentLotName);
@@ -395,7 +403,7 @@ const ReservationPage = () => {
                         transition={{ duration: 0.2, ease: "easeOut" }}
                         className="absolute z-[2500] left-0 right-0 mt-2 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-100/90 max-h-56 overflow-y-auto divide-y divide-slate-50 scrollbar-thin overflow-hidden p-1.5"
                       >
-                        {parkingLots.map(lot => (
+                        {parkingLots.map((lot: any) => (
                           <div
                             key={lot.id}
                             onClick={() => {

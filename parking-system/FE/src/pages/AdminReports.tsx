@@ -4,6 +4,7 @@ import {
   Leaf,
   ShieldCheck,
   MoreVertical,
+  FileDown
 } from 'lucide-react';
 import AdminLayout from '../components/admin/AdminLayout';
 import api from '../services/api';
@@ -55,10 +56,40 @@ const AdminReports = () => {
   ];
 
 
+  const maxVal = Math.max(
+    ...monthlyData.map(d => Math.max(d.current || 0, d.lastYear || 0)),
+    10000
+  );
+
+  const exportReportToCSV = () => {
+    const headers = ['Khu vực', 'Lượt xe', 'Doanh thu'];
+    const rows = zones.map(z => `"${z.name}","${z.count}","${z.revenue}"`);
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `report_zones_${new Date().getTime()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <AdminLayout>
       {/* Page Content */}
         <div className="p-10 space-y-8">
+           {/* Header with Export */}
+           <div className="flex justify-between items-center">
+             <div>
+               <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Báo cáo Doanh thu</h2>
+               <p className="text-sm text-slate-500 font-medium">Phân tích hiệu suất kinh doanh và dự báo xu hướng.</p>
+             </div>
+             <button onClick={exportReportToCSV} className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20">
+               <FileDown className="w-4 h-4" />
+               Xuất Báo Cáo
+             </button>
+           </div>
            {/* Summary Cards */}
            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
@@ -91,26 +122,26 @@ const AdminReports = () => {
               {/* Bar Chart Comparison */}
               <div className="col-span-12 lg:col-span-8 bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
                  <div className="flex justify-between items-center mb-10">
-                    <h3 className="text-lg font-black text-slate-900 tracking-tight">So sánh Doanh thu Hàng tháng</h3>
+                    <h3 className="text-lg font-black text-slate-900 tracking-tight">Doanh thu Hàng ngày (7 ngày gần nhất)</h3>
                     <div className="flex items-center gap-6">
                        <div className="flex items-center gap-2">
                           <div className="w-2.5 h-2.5 bg-blue-600 rounded-full"></div>
-                          <span className="text-[10px] font-black text-slate-400 uppercase">Hiện tại</span>
+                          <span className="text-[10px] font-black text-slate-400 uppercase">Tuần này</span>
                        </div>
                        <div className="flex items-center gap-2">
                           <div className="w-2.5 h-2.5 bg-slate-200 rounded-full"></div>
-                          <span className="text-[10px] font-black text-slate-400 uppercase">Năm ngoái</span>
+                          <span className="text-[10px] font-black text-slate-400 uppercase">Tuần trước</span>
                        </div>
                     </div>
                  </div>
                  <div className="h-64 flex items-end justify-between px-2 gap-4">
                     {monthlyData.map((d, i) => (
-                       <div key={i} className={`flex-1 flex flex-col items-center group ${d.forecast ? 'opacity-30' : ''}`}>
-                          <div className="w-full flex items-end gap-1.5 h-full">
-                             <div className="flex-1 bg-slate-100 rounded-t-lg transition-all" style={{ height: `${d.lastYear}%` }}></div>
-                             <div className={`flex-1 bg-blue-600 rounded-t-lg transition-all group-hover:scale-y-105 origin-bottom`} style={{ height: `${d.current}%` }}></div>
+                       <div key={i} className={`flex-1 h-full flex flex-col justify-end items-center group ${d.forecast ? 'opacity-30' : ''}`} title={`Tuần này: ${(d.current || 0).toLocaleString('vi-VN')} ₫\nTuần trước: ${(d.lastYear || 0).toLocaleString('vi-VN')} ₫`}>
+                          <div className="w-full flex-1 flex items-end gap-1.5 min-h-0">
+                             <div className="flex-1 bg-slate-100 rounded-t-lg transition-all" style={{ height: `${((d.lastYear || 0) / maxVal) * 100}%` }}></div>
+                             <div className={`flex-1 bg-blue-600 rounded-t-lg transition-all group-hover:scale-y-105 origin-bottom`} style={{ height: `${((d.current || 0) / maxVal) * 100}%` }}></div>
                           </div>
-                          <span className={`mt-4 text-[10px] font-black ${d.active ? 'text-blue-600' : 'text-slate-400'}`}>{d.month}</span>
+                          <span className={`mt-4 text-[10px] font-black shrink-0 ${d.active ? 'text-blue-600' : 'text-slate-400'}`}>{d.month}</span>
                        </div>
                     ))}
                  </div>

@@ -51,6 +51,8 @@ export function getRoleLabel(user?: StoredUser | null): string {
 export function clearSession(): void {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
+  localStorage.removeItem('activeSessionQrs');
+  localStorage.removeItem('activeSessionQr');
   window.dispatchEvent(new Event('user-login'));
 }
 
@@ -136,5 +138,6 @@ export function removeActiveQr(qr: string): void {
 
 /** Check if user has any active sessions */
 export function hasActiveSessions(): boolean {
+  if (!localStorage.getItem('token')) return false;
   return getActiveQrs().length > 0;
 }
