@@ -25,13 +25,15 @@ import {
   FileCheck,
   Plus,
   Download,
-  Printer
+  Printer,
+  ScanFace
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Lottie from 'lottie-react';
 import jsQR from 'jsqr';
 import Tesseract from 'tesseract.js';
 import WelcomeAnimation from './Welcome.json';
+import NotificationPanel from './components/common/NotificationPanel';
 import BrandLogo from './components/brand/BrandLogo';
 
 import QRCode from 'qrcode';
@@ -50,6 +52,7 @@ const FALLBACK_CAR_CAPTURES = [
 const App = () => {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [hasCameraAccess, setHasCameraAccess] = useState(false);
   const [manualInput, setManualInput] = useState('');
   const [capacity, setCapacity] = useState(140);
@@ -137,6 +140,19 @@ const App = () => {
     }
   };
 
+  // Ref to hold the latest handler functions to avoid stale closures in useEffect
+  const handlersRef = useRef({
+    handleOcrAndScan: () => {},
+    confirmPass: () => {}
+  });
+
+  useEffect(() => {
+    handlersRef.current = {
+      handleOcrAndScan: () => handleOcrAndScan(),
+      confirmPass: () => confirmPass()
+    };
+  });
+
   const playWarningSound = () => {
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -167,7 +183,7 @@ const App = () => {
       if (e.code === 'Space') {
         e.preventDefault();
         if (gateState === 'SCANNING') {
-          handleOcrAndScan();
+          handlersRef.current.handleOcrAndScan();
         }
       }
       if (e.key === 'F4') {
@@ -181,7 +197,7 @@ const App = () => {
       if (e.key === 'F8') {
         e.preventDefault();
         if (gateState === 'COMPARING' && scannedResult) {
-          confirmPass();
+          handlersRef.current.confirmPass();
         }
       }
       if (e.key === 'Escape') {
@@ -501,6 +517,43 @@ const App = () => {
     const isQrScan = inputCleanRaw.startsWith('QR_') || inputCleanRaw.startsWith('QR');
     const inputClean = isQrScan ? inputCleanRaw : formatPlateNumber(inputCleanRaw);
 
+    // Hàm kiểm tra Blacklist cho biển số cuối cùng (sau khi quét QR/nhập tay)
+    const checkBlacklistForPlate = async (plateToCheck: string) => {
+      if (!plateToCheck) return false;
+      try {
+        const token = localStorage.getItem('token');
+        const blRes = await fetch(`${API_BASE_URL}/Blacklist?t=${new Date().getTime()}`);
+        if (blRes.ok) {
+          const blData = await blRes.json();
+          // Hàm chuẩn hoá biển số: xoá khoảng trắng, dấu gạch ngang, chấm...
+          const normalizePlate = (p: string) => (p || '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
+          
+          const blacklisted = blData.find((b: any) => normalizePlate(b.plateNumber) === normalizePlate(plateToCheck));
+          if (blacklisted) {
+            playWarningSound();
+            showAlert(`🚫 TỪ CHỐI PHỤC VỤ! Xe ${blacklisted.plateNumber} nằm trong Danh Sách Đen. Lý do: ${blacklisted.reason}`);
+            
+            fetch(`${API_BASE_URL}/Notifications/push`, {
+              method: 'POST',
+              headers: { 
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+              },
+              body: JSON.stringify({
+                role: 'admin',
+                title: 'Cảnh báo xe Blacklist cố vào bãi',
+                message: `Biển số ${blacklisted.plateNumber} bị từ chối phục vụ. Lý do: ${blacklisted.reason}`
+              })
+            }).catch(e => console.error(e));
+            return true;
+          }
+        }
+      } catch (err) {
+        console.error("Lỗi khi kiểm tra blacklist", err);
+      }
+      return false;
+    };
+
     const livePhoto = captureFrame() || FALLBACK_CAR_CAPTURES[Math.floor(Math.random() * FALLBACK_CAR_CAPTURES.length)];
     const fallbackEntryPhoto = FALLBACK_CAR_CAPTURES[1];
 
@@ -560,6 +613,11 @@ const App = () => {
         } catch (e) {
           console.warn("QR verification check failed on entry:", e);
         }
+      }
+
+      // 1. Kiểm tra Blacklist trước khi cho phép xử lý tiếp (áp dụng cho cả QR code vì lúc này đã có biển số)
+      if (entryPlate && await checkBlacklistForPlate(entryPlate)) {
+        return;
       }
 
       const payload = {
@@ -670,6 +728,11 @@ const App = () => {
             console.warn("QR verification check failed:", e);
           }
         }
+      }
+
+      // Kiểm tra Blacklist khi ra cổng
+      if (entryPlate && await checkBlacklistForPlate(entryPlate)) {
+        return;
       }
 
       const payload = {
@@ -852,8 +915,8 @@ const App = () => {
   return (
     <div className="bg-slate-50 text-slate-800 h-screen w-full overflow-hidden selection:bg-blue-600/10 font-['Plus_Jakarta_Sans',sans-serif] flex flex-col">
       {/* Sleek, Premium Light Header */}
-      <header className="shrink-0 h-20 bg-white/70 backdrop-blur-md border-b border-slate-200/50 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">
+      <header className="shrink-0 h-20 bg-white/80 backdrop-blur-md border-b border-slate-100 z-50 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+        <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
           <BrandLogo size="md" />
 
           {/* Desktop Links */}
@@ -879,6 +942,24 @@ const App = () => {
             >
               D
             </a>
+
+            <div className="relative">
+              <button 
+                onClick={() => setIsNotifOpen(!isNotifOpen)}
+                className="w-10 h-10 flex items-center justify-center bg-white hover:bg-blue-50/80 text-slate-500 hover:text-blue-600 rounded-full transition-all duration-300 ease-out border border-slate-200 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_15px_rgba(37,99,235,0.12)] hover:-translate-y-0.5 relative group active:scale-95"
+              >
+                <Bell size={18} className="transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:rotate-12 group-hover:scale-110 group-active:rotate-0" />
+                <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white transition-transform duration-300 group-hover:scale-125"></span>
+              </button>
+              {isNotifOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setIsNotifOpen(false)} />
+                  <div className="absolute right-0 top-12 z-50">
+                    <NotificationPanel role="staff" onClose={() => setIsNotifOpen(false)} />
+                  </div>
+                </>
+              )}
+            </div>
             
             {currentUser && (
               <div className="relative">
@@ -1070,14 +1151,15 @@ const App = () => {
 
               {gateState === 'COMPARING' && scannedResult && (
                 /* Stage 2: Dual image split comparison and countdown */
-                <div className="flex-1 flex flex-col bg-white text-slate-800 animate-scale-up">
+                <div className="flex-1 flex flex-col bg-white/95 backdrop-blur-3xl text-slate-800 animate-scale-up relative before:absolute before:inset-0 before:bg-gradient-to-br before:from-blue-50/80 before:via-white/50 before:to-transparent before:-z-10 z-10 overflow-hidden">
+                  <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600 opacity-90 shadow-[0_2px_15px_rgba(59,130,246,0.5)] z-20"></div>
                   
                   {/* Countdown progress / manual override indicator */}
                   {isCountdownActive ? (
-                    <div className="bg-blue-50 border-b border-blue-100 px-6 py-3 flex justify-between items-center text-xs font-semibold text-blue-800">
+                    <div className="bg-blue-50/80 backdrop-blur-md border-b border-blue-100/50 px-6 py-3 flex justify-between items-center text-xs font-semibold text-blue-800 relative z-10">
                       <span className="flex items-center gap-2">
                         <span className="w-2.5 h-2.5 bg-blue-600 rounded-full animate-ping" />
-                        Tự động duyệt và cho xe qua sau <strong>{countdown} giây</strong>...
+                        Tự động duyệt và cho xe qua sau <strong className="font-black text-blue-700">{countdown} giây</strong>...
                       </span>
                       <button 
                         onClick={() => {
@@ -1085,301 +1167,284 @@ const App = () => {
                           if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
                           playWarningSound();
                         }}
-                        className="bg-slate-900 hover:bg-slate-800 text-white px-3 py-1.5 rounded-lg text-[9px] uppercase font-bold tracking-wider cursor-pointer"
+                        className="bg-slate-900 hover:bg-slate-800 text-white px-3 py-1.5 rounded-lg text-[9px] uppercase font-bold tracking-wider cursor-pointer shadow-md transition-all active:scale-95"
                       >
                         [ESC] DỪNG TỰ ĐỘNG
                       </button>
                     </div>
                   ) : (
-                    <div className="bg-amber-50 border-b border-amber-100 px-6 py-3 flex justify-between items-center text-xs font-semibold text-amber-800">
+                    <div className="bg-amber-50/80 backdrop-blur-md border-b border-amber-100/50 px-6 py-3 flex justify-between items-center text-xs font-semibold text-amber-800 relative z-10">
                       <span className="flex items-center gap-1.5">
-                        <AlertTriangle size={15} className="text-amber-600" />
+                        <AlertTriangle size={15} className="text-amber-600 drop-shadow-sm" />
                         Đã tạm dừng tự động. Vui lòng bấm xác nhận bên dưới.
                       </span>
                     </div>
                   )}
 
-                  <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                    <div>
-                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">ĐỐI CHIẾU THÔNG TIN XE</h4>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Xác thực khớp hình dạng xe & biển số</p>
+                  <div className="px-6 py-4 border-b border-slate-100/80 flex items-center justify-between relative z-10">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-[1.25rem] bg-gradient-to-br from-blue-50 to-blue-100/80 flex items-center justify-center text-blue-600 shadow-[inset_0_2px_5px_rgba(255,255,255,1)] border border-blue-200/50">
+                        <ScanFace size={18} className="drop-shadow-sm" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest drop-shadow-sm">ĐỐI CHIẾU THÔNG TIN XE</h4>
+                        <p className="text-[10px] text-blue-500 font-bold uppercase tracking-widest mt-0.5">Xác thực khớp hình dạng xe & biển số</p>
+                      </div>
                     </div>
-
-                    <span className={`text-[10px] font-black px-3.5 py-1 rounded-full uppercase border ${
+                    <span className={`text-[10px] font-black px-4 py-1.5 rounded-xl uppercase border shadow-sm ${
                       scannedResult.type === 'ENTRY' 
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        : 'bg-amber-50 text-amber-700 border-amber-200'
+                        ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white border-blue-400'
+                        : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-blue-500'
                     }`}>
                       {scannedResult.type === 'ENTRY' ? 'Lối Vào • Entry' : 'Lối Ra • Exit'}
                     </span>
                   </div>
 
-                  {/* Spacious Split Screen Display */}
                   {scannedResult.type === 'ENTRY' ? (
-                    // ENTRY CONFIRMATION PANEL with editable input box
-                    <div className="flex-1 p-5 grid grid-cols-1 md:grid-cols-2 gap-5 items-stretch bg-slate-50/50">
+                    // ENTRY CONFIRMATION PANEL
+                    <div className="flex-1 p-5 grid grid-cols-1 md:grid-cols-12 gap-5 items-stretch relative z-10 bg-transparent">
                       {/* Left: Captured camera photo */}
-                      <div className="flex flex-col gap-1.5">
-                        <span className="text-[10px] font-extrabold tracking-wider text-emerald-600 uppercase flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                          ẢNH CHỤP CAMERA CỔNG VÀO
-                        </span>
-                        <div className="flex-1 min-h-[220px] rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 relative shadow-sm">
-                          <img src={scannedResult.capturedPhoto} alt="Gate Capture" className="w-full h-full object-cover" />
-                          <div className="absolute bottom-2.5 left-2.5 bg-slate-900/80 backdrop-blur px-2.5 py-1 rounded text-[8px] font-bold text-slate-200 uppercase tracking-widest">
-                            {scannedResult.time} • Camera lối vào A1
+                      <div className="md:col-span-5 flex flex-col gap-4">
+                        <div className="bg-white/60 border border-slate-200/80 rounded-[1rem] p-3 flex flex-col gap-3 shadow-[0_2px_10px_rgba(0,0,0,0.02)] h-full">
+                          <div className="flex items-center justify-between px-1">
+                            <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-1.5">
+                              <Camera size={14} className="text-blue-500 drop-shadow-sm" /> Ảnh Nhận Diện
+                            </span>
+                          </div>
+                          <div className="rounded-xl overflow-hidden border-2 border-white relative bg-slate-100 group shadow-[0_4px_15px_rgba(0,0,0,0.05)] ring-1 ring-slate-200/50 flex-1 min-h-[220px]">
+                            <img src={scannedResult.capturedPhoto} alt="Gate Capture" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                            <div className="absolute bottom-2 left-2 bg-blue-600/80 backdrop-blur-md px-2.5 py-1 rounded-lg text-[8px] text-white font-black tracking-widest shadow-lg border border-white/20">CAMERA VÀO</div>
                           </div>
                         </div>
                       </div>
 
                       {/* Right: Large Editable Plate Field */}
-                      <div className="flex flex-col justify-center space-y-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
-                        <div>
-                          <label className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block mb-1.5">
-                            BIỂN SỐ NHẬN DIỆN (NHÂN VIÊN CÓ THỂ SỬA)
-                          </label>
+                      <div className="md:col-span-7 flex flex-col gap-3">
+                        <div className="shrink-0 bg-gradient-to-b from-white to-slate-50/50 py-3.5 px-4 rounded-[1.25rem] border border-slate-200/60 shadow-[0_4px_20px_-5px_rgba(0,0,0,0.05)] text-center relative overflow-hidden group">
+                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-blue-50/30 to-transparent -translate-x-full group-hover:animate-[shine_1.5s_infinite]"></div>
+                          <span className="text-[9px] text-blue-500 font-extrabold uppercase tracking-[0.25em] block mb-2 drop-shadow-sm">BIỂN SỐ NHẬN DIỆN (CÓ THỂ SỬA)</span>
                           <input 
                             type="text" 
-                            className="w-full text-3xl font-mono font-black text-slate-900 text-center tracking-widest bg-slate-50 border-2 border-emerald-500 focus:border-indigo-600 focus:bg-white px-4 py-3.5 rounded-2xl shadow-sm outline-none transition-all uppercase"
+                            className="w-full text-[32px] font-mono font-black text-slate-800 text-center tracking-[0.2em] bg-transparent outline-none uppercase leading-none"
                             value={scannedResult.plate}
                             onChange={(e) => setScannedResult({ ...scannedResult, plate: e.target.value.toUpperCase() })}
                           />
-                          <span className="text-[10px] text-slate-400 font-semibold block mt-2 text-center">
-                            💡 Nhân viên bấm trực tiếp vào ô trên để chỉnh sửa biển số nếu AI nhận dạng chưa đúng.
-                          </span>
                         </div>
 
-                        <div className="flex gap-3">
-                          <div className="flex-1 bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-center">
-                            <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider block">LOẠI VÉ KHỞI TẠO</span>
-                            <span className="text-xs font-black text-slate-700 mt-1 block uppercase truncate" title={scannedResult.ticketType.split(' • ')[0]}>{scannedResult.ticketType.split(' • ')[0]}</span>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-white/80 py-2 px-3 rounded-[1rem] border border-slate-200/60 shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex items-center justify-between">
+                            <span className="text-[8px] text-slate-400 font-extrabold uppercase shrink-0 pr-2">Vé:</span>
+                            <span className="text-[11px] font-black text-blue-700 tracking-widest truncate">{scannedResult.ticketType.split(' • ')[0]}</span>
                           </div>
+
                           {(scannedResult.parkingLotName || scannedResult.parkingSlot) && (
-                            <div className="flex-[2] bg-blue-50/80 p-4 rounded-xl border border-blue-200 flex items-center justify-between">
-                              <div className="flex flex-col min-w-0 flex-1 pr-3">
-                                <span className="text-[9px] text-blue-500 font-extrabold uppercase tracking-wider block">Tòa nhà / Bãi đỗ</span>
-                                <span className="text-[13px] font-black text-blue-900 mt-1 block uppercase truncate" title={scannedResult.parkingLotName}>{scannedResult.parkingLotName}</span>
+                            <div className="bg-gradient-to-r from-blue-50/80 to-blue-100/40 px-3 py-2 rounded-[1rem] border border-blue-200/80 flex items-center justify-between shadow-[0_2px_10px_rgba(59,130,246,0.05)]">
+                              <span className="text-[8px] text-blue-500 font-extrabold uppercase shrink-0 pr-2">Bãi đỗ:</span>
+                              <span className="text-[11px] font-black text-blue-900 truncate tracking-widest">{scannedResult.parkingLotName}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {(scannedResult.parkingLotName || scannedResult.parkingSlot) && (
+                          <div className="bg-gradient-to-r from-blue-50/80 to-blue-100/40 p-3 rounded-[1rem] border border-blue-200/80 flex items-center justify-between shadow-[0_4px_15px_rgba(59,130,246,0.05)] shrink-0">
+                            <span className="text-[8px] text-blue-500 font-extrabold uppercase shrink-0">Vị trí đỗ:</span>
+                            <span className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-3 py-1 rounded-lg text-[11px] font-black shadow-[0_4px_10px_rgba(59,130,246,0.3)] whitespace-nowrap">Slot {scannedResult.parkingSlot}</span>
+                          </div>
+                        )}
+
+                        {scannedResult.reservationDate && (
+                          <div className="bg-white/60 border border-slate-200/80 rounded-[1rem] p-3 shadow-[0_2px_10px_rgba(0,0,0,0.02)] shrink-0">
+                            <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-1.5 mb-2 px-1">
+                              <Clock size={14} className="text-blue-500 drop-shadow-sm" /> Lịch đặt trước
+                            </span>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="bg-blue-50/50 py-2 px-2 rounded-xl border border-blue-100/50 text-center flex flex-col justify-center h-[46px]">
+                                <span className="text-[8px] text-blue-500 font-extrabold uppercase tracking-[0.15em] block mb-0.5">Ngày đặt</span>
+                                <span className="text-[11px] font-black text-blue-900 block tracking-widest">{new Date(scannedResult.reservationDate).toLocaleDateString('vi-VN')}</span>
                               </div>
+                              <div className="bg-blue-50/50 py-2 px-2 rounded-xl border border-blue-100/50 text-center flex flex-col justify-center h-[46px]">
+                                <span className="text-[8px] text-blue-500 font-extrabold uppercase tracking-[0.15em] block mb-0.5">Giờ đặt</span>
+                                <span className="text-[11px] font-black text-blue-900 block tracking-widest">{scannedResult.reservationStartTime}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {scannedResult.userInfo && (
+                          <div className="bg-white/60 border border-slate-200/80 rounded-[1rem] p-3 shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex flex-col gap-2 h-full min-h-0">
+                            <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-1.5 px-1">
+                              <User size={14} className="text-blue-500 drop-shadow-sm" /> Khách hàng
+                            </span>
+                            <div className="bg-white rounded-xl p-2.5 border border-slate-100/80 flex flex-col gap-1.5 shadow-[inset_0_2px_5px_rgba(0,0,0,0.01)] flex-1 justify-center min-h-0 overflow-y-auto custom-scrollbar">
+                              <div className="flex justify-between items-center gap-2">
+                                <span className="text-[8px] text-slate-400 font-extrabold uppercase tracking-[0.15em] block shrink-0">Tên:</span>
+                                <span className="text-[10px] font-bold text-slate-800 block truncate text-right">{`${scannedResult.userInfo.lastName || scannedResult.userInfo.LastName || ''} ${scannedResult.userInfo.firstName || scannedResult.userInfo.FirstName || ''}`.trim() || scannedResult.userInfo.username || scannedResult.userInfo.Username || 'N/A'}</span>
+                              </div>
+                              <div className="flex justify-between items-center gap-2">
+                                <span className="text-[8px] text-slate-400 font-extrabold uppercase tracking-[0.15em] block shrink-0">SĐT:</span>
+                                <span className="text-[10px] font-bold text-slate-800 block text-right">{scannedResult.userInfo.phoneNumber || scannedResult.userInfo.PhoneNumber || 'N/A'}</span>
+                              </div>
+                              <div className="flex justify-between items-center gap-2 border-t border-slate-100 pt-1.5">
+                                <span className="text-[8px] text-slate-400 font-extrabold uppercase tracking-[0.15em] block shrink-0">Email:</span>
+                                <span className="text-[10px] font-bold text-slate-800 block truncate text-right">{scannedResult.userInfo.email || scannedResult.userInfo.Email || 'N/A'}</span>
+                              </div>
+                              <div className="flex justify-between items-center gap-2 border-t border-slate-100 pt-1.5">
+                                <span className="text-[8px] text-slate-400 font-extrabold uppercase tracking-[0.15em] block shrink-0">Mã QR đặt chỗ:</span>
+                                <span className="text-[9px] font-mono font-black text-blue-700 block text-right">{scannedResult.qrCode}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    // EXIT COMPARISON PANEL
+                    <div className="flex-1 p-5 grid grid-cols-1 md:grid-cols-12 gap-5 items-stretch relative z-10 bg-transparent">
+                      {/* Left: Photos Comparison */}
+                      <div className="md:col-span-5 flex flex-col gap-4">
+                        <div className="bg-white/60 border border-slate-200/80 rounded-[1rem] p-3 flex flex-col gap-3 shadow-[0_2px_10px_rgba(0,0,0,0.02)] h-full">
+                          <div className="flex items-center justify-between px-1">
+                            <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-1.5">
+                              <Camera size={14} className="text-blue-500 drop-shadow-sm" /> Ảnh đối chiếu
+                            </span>
+                          </div>
+                          
+                          <div className="flex flex-col gap-3 h-full">
+                            {/* Gate Capture */}
+                            <div className="rounded-xl overflow-hidden border-2 border-white relative bg-slate-100 group shadow-[0_4px_15px_rgba(0,0,0,0.05)] ring-1 ring-slate-200/50 flex-1 min-h-[150px]">
+                              <img src={scannedResult.capturedPhoto} alt="Gate Capture" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                              <div className="absolute bottom-2 left-2 bg-blue-600/80 backdrop-blur-md px-2.5 py-1 rounded-lg text-[8px] text-white font-black tracking-widest shadow-lg border border-white/20">ẢNH HIỆN TẠI</div>
+                            </div>
+                            
+                            {/* Registered Photo */}
+                            <div className="rounded-xl overflow-hidden border-2 border-white relative bg-slate-100 group shadow-[0_4px_15px_rgba(0,0,0,0.05)] ring-1 ring-slate-200/50 flex-1 min-h-[150px]">
+                              {scannedResult.registeredPhoto ? (
+                                <img src={scannedResult.registeredPhoto} alt="Entry Capture" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                              ) : (
+                                <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 text-slate-400 gap-1.5 p-4 text-center">
+                                  <span className="material-symbols-outlined text-[32px] text-slate-300">image_not_supported</span>
+                                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider block">ẢNH VÀO LỖI</span>
+                                </div>
+                              )}
+                              <div className="absolute bottom-2 left-2 bg-slate-900/70 backdrop-blur-md px-2.5 py-1 rounded-lg text-[8px] text-white font-black tracking-widest shadow-lg border border-white/10">ẢNH LÚC VÀO</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right: Plate Verification & Details */}
+                      <div className="md:col-span-7 flex flex-col gap-3">
+                        <div className="shrink-0 bg-gradient-to-b from-white to-slate-50/50 py-3.5 px-4 rounded-[1.25rem] border border-slate-200/60 shadow-[0_4px_20px_-5px_rgba(0,0,0,0.05)] text-center relative overflow-hidden group">
+                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-blue-50/30 to-transparent -translate-x-full group-hover:animate-[shine_1.5s_infinite]"></div>
+                          <span className="text-[9px] text-blue-500 font-extrabold uppercase tracking-[0.25em] block mb-2 drop-shadow-sm">BIỂN SỐ XE RA (CÓ THỂ SỬA)</span>
+                          <input 
+                            type="text" 
+                            className="w-full text-[32px] font-mono font-black text-slate-800 text-center tracking-[0.2em] bg-transparent outline-none uppercase leading-none"
+                            value={scannedResult.exitPlate || ''}
+                            onChange={(e) => setScannedResult({ ...scannedResult, exitPlate: e.target.value.toUpperCase() })}
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="py-2 px-3 rounded-[1rem] border border-slate-200/60 bg-white/80 shadow-[0_2px_10px_rgba(0,0,0,0.02)] text-center flex flex-col justify-center">
+                            <span className="text-[8px] font-extrabold uppercase tracking-[0.15em] block mb-0.5 text-slate-400">Biển số lúc vào</span>
+                            <span className="text-[12px] font-mono font-black block tracking-widest text-slate-700">{scannedResult.plate}</span>
+                          </div>
+                          
+                          <div className={`py-2 px-3 rounded-[1rem] border shadow-[0_2px_10px_rgba(0,0,0,0.02)] text-center flex flex-col justify-center transition-colors
+                            ${(scannedResult.plate || '').replace(/[^A-Z0-9]/g, "") === (scannedResult.exitPlate || '').replace(/[^A-Z0-9]/g, "")
+                              ? 'bg-gradient-to-br from-blue-50 to-blue-100/50 border-blue-200/60 text-blue-700'
+                              : 'bg-red-50 border-red-200 text-red-700 animate-pulse'}`}
+                          >
+                            <span className="text-[8px] font-extrabold uppercase tracking-[0.15em] block mb-0.5">Kết quả đối chiếu</span>
+                            <span className="text-[11px] font-black block tracking-widest">
+                              {(scannedResult.plate || '').replace(/[^A-Z0-9]/g, "") === (scannedResult.exitPlate || '').replace(/[^A-Z0-9]/g, "")
+                                ? '✅ TRÙNG KHỚP'
+                                : '❌ KHÔNG KHỚP'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {(scannedResult.parkingLotName || scannedResult.parkingSlot) && (
+                          <div className="bg-gradient-to-r from-blue-50/80 to-blue-100/40 p-3 rounded-[1rem] border border-blue-200/80 flex items-center justify-between shadow-[0_4px_15px_rgba(59,130,246,0.05)] shrink-0">
+                            <div className="flex flex-col min-w-0 flex-1 pr-3 text-left">
+                              <span className="text-[8px] text-blue-500 font-extrabold uppercase tracking-[0.15em] block mb-0.5">Tòa nhà / Bãi đỗ</span>
+                              <span className="text-[12px] font-black text-blue-900 block uppercase truncate drop-shadow-sm" title={scannedResult.parkingLotName}>
+                                {scannedResult.parkingLotName || 'Khu Vực Vãng Lai'}
+                              </span>
+                            </div>
+                            {scannedResult.parkingSlot && (
                               <div className="flex flex-col items-end shrink-0">
-                                <span className="text-[9px] text-blue-500 font-extrabold uppercase tracking-wider block">Vị trí</span>
-                                <span className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-black shadow-sm mt-1 whitespace-nowrap">Slot {scannedResult.parkingSlot}</span>
+                                <span className="text-[8px] text-blue-500 font-extrabold uppercase tracking-[0.15em] block mb-0.5">Vị trí đỗ (Ô)</span>
+                                <span className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-3 py-1 rounded-lg text-[11px] font-black shadow-[0_4px_10px_rgba(59,130,246,0.3)] whitespace-nowrap">
+                                  Slot {scannedResult.parkingSlot}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="bg-white/60 border border-slate-200/80 rounded-[1rem] p-3 shadow-[0_2px_10px_rgba(0,0,0,0.02)] shrink-0">
+                          <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-1.5 mb-2 px-1">
+                            <Clock size={14} className="text-blue-500 drop-shadow-sm" /> Thông tin lịch trình
+                          </span>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="bg-white py-2 px-2 rounded-xl border border-slate-100 text-center flex flex-col justify-center shadow-[0_2px_8px_rgba(0,0,0,0.03)] h-[56px]">
+                              <span className="text-[8px] text-slate-400 font-extrabold uppercase tracking-[0.15em] block mb-0.5">Thời gian vào</span>
+                              <span className="text-[12px] font-mono font-black text-slate-800 block leading-none">{scannedResult.entryTime || 'N/A'}</span>
+                            </div>
+                            <div className="bg-white py-2 px-2 rounded-xl border border-slate-100 text-center flex flex-col justify-center shadow-[0_2px_8px_rgba(0,0,0,0.03)] h-[56px]">
+                              <span className="text-[8px] text-slate-400 font-extrabold uppercase tracking-[0.15em] block mb-0.5">Thời gian ra</span>
+                              <span className="text-[12px] font-mono font-black text-slate-800 block leading-none">{scannedResult.time || 'N/A'}</span>
+                            </div>
+                          </div>
+                          
+                          {scannedResult.reservationDate && (
+                            <div className="grid grid-cols-2 gap-2 mt-2">
+                              <div className="bg-blue-50/50 py-2 px-2 rounded-xl border border-blue-100/50 text-center flex flex-col justify-center h-[46px]">
+                                <span className="text-[8px] text-blue-500 font-extrabold uppercase tracking-[0.15em] block mb-0.5">Ngày đặt</span>
+                                <span className="text-[11px] font-black text-blue-900 block tracking-widest">{new Date(scannedResult.reservationDate).toLocaleDateString('vi-VN')}</span>
+                              </div>
+                              <div className="bg-blue-50/50 py-2 px-2 rounded-xl border border-blue-100/50 text-center flex flex-col justify-center h-[46px]">
+                                <span className="text-[8px] text-blue-500 font-extrabold uppercase tracking-[0.15em] block mb-0.5">Giờ đặt</span>
+                                <span className="text-[11px] font-black text-blue-900 block tracking-widest">{scannedResult.reservationStartTime}</span>
                               </div>
                             </div>
                           )}
                         </div>
 
                         {scannedResult.userInfo && (
-                          <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100/70 flex flex-col gap-3 text-left">
-                            <span className="text-[9px] text-blue-600 font-black uppercase tracking-widest block">THÔNG TIN KHÁCH HÀNG ĐẶT TRƯỚC</span>
-                            
-                            <div className="grid grid-cols-2 gap-3">
-                              <div>
-                                <span className="text-[8px] text-slate-400 font-extrabold block uppercase tracking-wider">Chủ tài khoản</span>
-                                <span className="text-xs font-black text-slate-800 uppercase tracking-wide">
-                                  {`${scannedResult.userInfo.lastName || scannedResult.userInfo.LastName || ''} ${scannedResult.userInfo.firstName || scannedResult.userInfo.FirstName || ''}`.trim() || scannedResult.userInfo.username || scannedResult.userInfo.Username || 'N/A'}
-                                </span>
+                          <div className="bg-white/60 border border-slate-200/80 rounded-[1rem] p-3 shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex flex-col gap-2 h-full min-h-0">
+                            <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-1.5 px-1">
+                              <User size={14} className="text-blue-500 drop-shadow-sm" /> Khách hàng
+                            </span>
+                            <div className="bg-white rounded-xl p-2.5 border border-slate-100/80 flex flex-col gap-1.5 shadow-[inset_0_2px_5px_rgba(0,0,0,0.01)] flex-1 justify-center min-h-0 overflow-y-auto custom-scrollbar">
+                              <div className="flex justify-between items-center gap-2">
+                                <span className="text-[8px] text-slate-400 font-extrabold uppercase tracking-[0.15em] block shrink-0">Tên:</span>
+                                <span className="text-[10px] font-bold text-slate-800 block truncate text-right">{`${scannedResult.userInfo.lastName || scannedResult.userInfo.LastName || ''} ${scannedResult.userInfo.firstName || scannedResult.userInfo.FirstName || ''}`.trim() || scannedResult.userInfo.username || scannedResult.userInfo.Username || 'N/A'}</span>
                               </div>
-                              <div>
-                                <span className="text-[8px] text-slate-400 font-extrabold block uppercase tracking-wider">Số điện thoại</span>
-                                <span className="text-xs font-mono font-black text-slate-700">
-                                  {scannedResult.userInfo.phoneNumber || scannedResult.userInfo.PhoneNumber || 'N/A'}
-                                </span>
+                              <div className="flex justify-between items-center gap-2">
+                                <span className="text-[8px] text-slate-400 font-extrabold uppercase tracking-[0.15em] block shrink-0">SĐT:</span>
+                                <span className="text-[10px] font-bold text-slate-800 block text-right">{scannedResult.userInfo.phoneNumber || scannedResult.userInfo.PhoneNumber || 'N/A'}</span>
                               </div>
-                              <div className="col-span-2">
-                                <span className="text-[8px] text-slate-400 font-extrabold block uppercase tracking-wider">Email liên hệ</span>
-                                <span className="text-xs font-mono font-bold text-slate-600">
-                                  {scannedResult.userInfo.email || scannedResult.userInfo.Email || 'N/A'}
-                                </span>
+                              <div className="flex justify-between items-center gap-2 border-t border-slate-100 pt-1.5">
+                                <span className="text-[8px] text-slate-400 font-extrabold uppercase tracking-[0.15em] block shrink-0">Email:</span>
+                                <span className="text-[10px] font-bold text-slate-800 block truncate text-right">{scannedResult.userInfo.email || scannedResult.userInfo.Email || 'N/A'}</span>
                               </div>
-                              {scannedResult.userInfo.address && (
-                                <div className="col-span-2">
-                                  <span className="text-[8px] text-slate-400 font-extrabold block uppercase tracking-wider">Địa chỉ</span>
-                                  <span className="text-xs text-slate-600 font-semibold">
-                                    {scannedResult.userInfo.address}
-                                  </span>
-                                </div>
-                              )}
-                              <div className="col-span-2">
-                                <span className="text-[8px] text-slate-400 font-extrabold block uppercase tracking-wider">Mã đặt chỗ (QR Code)</span>
-                                <span className="text-xs font-mono font-black text-blue-700 bg-blue-100/60 px-2.5 py-1 rounded border border-blue-200/50 inline-block tracking-wider">
-                                  {scannedResult.qrCode}
-                                </span>
+                              <div className="flex justify-between items-center gap-2 border-t border-slate-100 pt-1.5">
+                                <span className="text-[8px] text-slate-400 font-extrabold uppercase tracking-[0.15em] block shrink-0">Mã QR đặt chỗ:</span>
+                                <span className="text-[9px] font-mono font-black text-blue-700 block text-right">{scannedResult.qrCode}</span>
                               </div>
                             </div>
                           </div>
                         )}
-                      </div>
-                    </div>
-                  ) : (
-                    // EXIT COMPARISON PANEL (Same premium design system)
-                    <div className="flex-1 p-5 grid grid-cols-1 md:grid-cols-2 gap-5 items-stretch bg-slate-50/50">
-                      {/* Left: Photos Comparison (stacked vertically, beautiful and compact) */}
-                      <div className="flex flex-col gap-4">
-                        <div className="flex flex-col gap-1.5">
-                          <span className="text-[10px] font-extrabold tracking-wider text-emerald-600 uppercase flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            ẢNH CHỤP HIỆN TẠI (LỐI SOÁT)
+
+                        <div className="shrink-0 bg-gradient-to-br from-blue-50 to-blue-100/50 py-2.5 px-4 rounded-[1.25rem] border border-blue-200/60 flex items-center justify-between shadow-[0_4px_15px_rgba(59,130,246,0.05)] mt-auto">
+                          <span className="text-[9px] text-blue-500 font-extrabold uppercase tracking-[0.15em]">Phí thanh toán ({scannedResult.ticketType.split(' • ')[0]})</span>
+                          <span className="text-[16px] font-black text-blue-800 tracking-wider drop-shadow-sm">
+                            {(scannedResult.fee || 10000).toLocaleString()}đ
                           </span>
-                          <div className="h-[180px] rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 relative shadow-sm">
-                            <img src={scannedResult.capturedPhoto} alt="Gate Capture" className="w-full h-full object-cover" />
-                            <div className="absolute bottom-2.5 left-2.5 bg-slate-900/80 backdrop-blur px-2.5 py-1 rounded text-[8px] font-bold text-slate-200 uppercase tracking-widest">
-                              {scannedResult.time} • Camera lối soát
-                            </div>
-                          </div>
                         </div>
-
-                        <div className="flex flex-col gap-1.5">
-                          <span className="text-[10px] font-extrabold tracking-wider text-blue-600 uppercase flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                            ẢNH ĐỐI CHIẾU TRONG MONGODB
-                          </span>
-                          <div className="h-[180px] rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 relative shadow-sm">
-                            {scannedResult.registeredPhoto ? (
-                              <>
-                                <img src={scannedResult.registeredPhoto} alt="Entry Capture" className="w-full h-full object-cover" />
-                                <div className="absolute bottom-2.5 left-2.5 bg-slate-900/80 backdrop-blur px-2.5 py-1 rounded text-[8px] font-bold text-slate-200 uppercase tracking-widest">
-                                  Ảnh lưu lúc xe vào
-                                </div>
-                              </>
-                            ) : (
-                              <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 text-slate-400 gap-1.5 p-4 text-center">
-                                <span className="material-symbols-outlined text-[32px] text-slate-300">image_not_supported</span>
-                                <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider block">
-                                  ẢNH VÀO: KHÔNG KHẢ DỤNG
-                                </span>
-                                <span className="text-[8px] text-slate-400 block leading-tight">
-                                  (Xe chưa qua cổng vào hoặc chưa chụp được ảnh)
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Right: Plate Verification, computed fee, and User Details */}
-                      <div className="flex flex-col space-y-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm justify-between">
-                        {/* Plate comparison input */}
-                        <div className="space-y-3">
-                          <div>
-                            <label className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block mb-1">
-                              BIỂN SỐ XE RA (LỐI SOÁT)
-                            </label>
-                            <input 
-                              type="text" 
-                              className="w-full text-3xl font-mono font-black text-slate-900 text-center tracking-widest bg-slate-50 border-2 border-indigo-500 focus:border-indigo-600 focus:bg-white px-4 py-2.5 rounded-2xl shadow-sm outline-none transition-all uppercase"
-                              value={scannedResult.exitPlate || ''}
-                              onChange={(e) => setScannedResult({ ...scannedResult, exitPlate: e.target.value.toUpperCase() })}
-                            />
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-3.5">
-                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                              <span className="text-[8px] text-slate-400 font-extrabold uppercase tracking-wider block">Biển số lúc vào</span>
-                              <span className="text-sm font-mono font-black text-slate-700 block mt-1 tracking-wider">{scannedResult.plate}</span>
-                            </div>
-
-                            {/* Comparison Result Badge */}
-                            <div className={`p-3 rounded-xl border flex flex-col justify-center items-center text-center
-                              ${(scannedResult.plate || '').replace(/[^A-Z0-9]/g, "") === (scannedResult.exitPlate || '').replace(/[^A-Z0-9]/g, "")
-                                ? 'bg-emerald-50 border-emerald-100 text-emerald-800'
-                                : 'bg-red-50 border-red-100 text-red-800 animate-pulse'}`}
-                            >
-                              <span className="text-[8px] font-extrabold uppercase tracking-wider block">Kết quả đối chiếu</span>
-                              <span className="text-[10px] font-black mt-1">
-                                {(scannedResult.plate || '').replace(/[^A-Z0-9]/g, "") === (scannedResult.exitPlate || '').replace(/[^A-Z0-9]/g, "")
-                                  ? '✅ TRÙNG KHỚP'
-                                  : '❌ KHÔNG KHỚP'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Location Details for Reservation */}
-                        {(scannedResult.parkingLotName || scannedResult.parkingSlot) && (
-                          <div className="bg-blue-50/80 p-3 rounded-xl border border-blue-200 flex items-center justify-between mb-2">
-                            <div className="flex flex-col min-w-0 flex-1 pr-3">
-                                <span className="text-[9px] text-blue-500 font-extrabold uppercase tracking-wider block">Tòa nhà / Bãi đỗ</span>
-                                <span className="text-[13px] font-black text-blue-900 mt-0.5 truncate" title={scannedResult.parkingLotName}>{scannedResult.parkingLotName}</span>
-                            </div>
-                            <div className="flex flex-col items-end shrink-0">
-                                <span className="text-[9px] text-blue-500 font-extrabold uppercase tracking-wider block">Vị trí</span>
-                                <div className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-black mt-0.5 shadow-sm whitespace-nowrap">
-                                    Slot {scannedResult.parkingSlot}
-                                </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Ticket details & fee */}
-                        <div className="grid grid-cols-4 gap-2.5">
-                          <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-left">
-                            <span className="text-[8px] text-slate-400 font-extrabold uppercase tracking-wider block">Loại vé</span>
-                            <span className="text-[10px] font-bold text-blue-700 block mt-1 truncate" title={scannedResult.ticketType.split(' • ')[0]}>{scannedResult.ticketType.split(' • ')[0]}</span>
-                          </div>
-
-                          <div className="bg-slate-50 p-2 rounded-xl border border-slate-200 text-center flex flex-col justify-center">
-                            <span className="text-[8px] text-slate-400 font-extrabold uppercase tracking-wider block">THỜI GIAN VÀO</span>
-                            <span className="text-[9.5px] font-mono font-black text-slate-800 block mt-0.5 leading-snug whitespace-pre-line">{scannedResult.entryTime?.replace(', ', '\n')?.replace(' ', '\n') || 'N/A'}</span>
-                          </div>
-
-                          <div className="bg-slate-50 p-2 rounded-xl border border-slate-200 text-center flex flex-col justify-center">
-                            <span className="text-[8px] text-slate-400 font-extrabold uppercase tracking-wider block">THỜI GIAN RA</span>
-                            <span className="text-[9.5px] font-mono font-black text-slate-800 block mt-0.5 leading-snug whitespace-pre-line">{scannedResult.time?.replace(', ', '\n')?.replace(' ', '\n') || 'N/A'}</span>
-                          </div>
-
-                          <div className="bg-amber-50 p-2.5 rounded-xl border border-amber-100 text-center">
-                            <span className="text-[8px] text-amber-600 font-extrabold uppercase tracking-wider block">PHÍ DỊCH VỤ</span>
-                            <span className="text-xs font-black text-amber-800 mt-1 block">{(scannedResult.fee || 10000).toLocaleString()}đ</span>
-                          </div>
-                        </div>
-
-                        {/* Reservation Details if applicable */}
-                        {scannedResult.reservationDate && (
-                          <div className="grid grid-cols-2 gap-2.5 mt-2.5">
-                            <div className="bg-indigo-50/70 p-2.5 rounded-xl border border-indigo-100/70 text-left flex items-center justify-between">
-                              <span className="text-[8px] text-indigo-500 font-extrabold uppercase tracking-wider block">NGÀY ĐẶT CHỖ</span>
-                              <span className="text-[10px] font-bold text-indigo-800 block">{new Date(scannedResult.reservationDate).toLocaleDateString('vi-VN')}</span>
-                            </div>
-                            <div className="bg-indigo-50/70 p-2.5 rounded-xl border border-indigo-100/70 text-left flex items-center justify-between">
-                              <span className="text-[8px] text-indigo-500 font-extrabold uppercase tracking-wider block">GIỜ BẮT ĐẦU</span>
-                              <span className="text-[10px] font-bold text-indigo-800 block">{scannedResult.reservationStartTime}</span>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Customer Information Card (same as entry) */}
-                        {scannedResult.userInfo && (
-                          <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100/70 flex flex-col gap-2.5 text-left">
-                            <span className="text-[9px] text-blue-600 font-black uppercase tracking-widest block">THÔNG TIN KHÁCH HÀNG ĐĂNG KÝ</span>
-                            
-                            <div className="grid grid-cols-2 gap-2.5">
-                              <div>
-                                <span className="text-[8px] text-slate-400 font-extrabold block uppercase tracking-wider">Chủ tài khoản</span>
-                                <span className="text-[11px] font-black text-slate-800 uppercase tracking-wide">
-                                  {`${scannedResult.userInfo.lastName || scannedResult.userInfo.LastName || ''} ${scannedResult.userInfo.firstName || scannedResult.userInfo.FirstName || ''}`.trim() || scannedResult.userInfo.username || scannedResult.userInfo.Username || 'N/A'}
-                                </span>
-                              </div>
-                              <div>
-                                <span className="text-[8px] text-slate-400 font-extrabold block uppercase tracking-wider">Số điện thoại</span>
-                                <span className="text-[11px] font-mono font-black text-slate-700">
-                                  {scannedResult.userInfo.phoneNumber || scannedResult.userInfo.PhoneNumber || 'N/A'}
-                                </span>
-                              </div>
-                              <div className="col-span-2">
-                                <span className="text-[8px] text-slate-400 font-extrabold block uppercase tracking-wider">Email liên hệ</span>
-                                <span className="text-[11px] font-mono font-bold text-slate-600 truncate block">
-                                  {scannedResult.userInfo.email || scannedResult.userInfo.Email || 'N/A'}
-                                </span>
-                              </div>
-                              <div className="col-span-2">
-                                <span className="text-[8px] text-slate-400 font-extrabold block uppercase tracking-wider">Mã đặt chỗ (QR Code)</span>
-                                <span className="text-[10px] font-mono font-black text-blue-700 bg-blue-100/60 px-2.5 py-0.5 rounded border border-blue-200/50 inline-block tracking-wider">
-                                  {scannedResult.qrCode}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </div>
                   )}
@@ -1518,27 +1583,31 @@ const App = () => {
           <div className="col-span-12 lg:col-span-4 flex flex-col gap-5 h-full overflow-hidden">
             
             {/* Operator Control configurations */}
-            <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex flex-col gap-4">
+            <div className="bg-white/95 backdrop-blur-2xl p-5 md:p-6 rounded-[2rem] border border-white shadow-[0_30px_60px_-15px_rgba(0,0,0,0.08),0_0_40px_rgba(59,130,246,0.05)] flex flex-col gap-4 relative overflow-hidden group/config z-10 before:absolute before:inset-0 before:bg-gradient-to-br before:from-blue-50/50 before:to-transparent before:-z-10">
+              <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600 opacity-90 group-hover/config:opacity-100 transition-opacity duration-500 shadow-[0_2px_15px_rgba(59,130,246,0.5)]"></div>
               
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h3 className="text-xs font-extrabold tracking-wider text-slate-700 uppercase flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-blue-600" />
+              <div className="flex items-center justify-between border-b border-slate-100/80 pb-3">
+                <h3 className="text-[11px] font-black tracking-wider text-slate-800 uppercase flex items-center gap-2">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-gradient-to-r from-blue-400 to-blue-600 shadow-sm"></span>
+                  </span>
                   CẤU HÌNH CỔNG
                 </h3>
-                <span className="text-[10px] font-bold text-slate-400 uppercase">
+                <span className="text-[9px] font-black text-blue-700 bg-blue-50 border border-blue-100/80 px-2.5 py-1.5 rounded-xl uppercase tracking-widest shadow-[0_2px_10px_rgba(59,130,246,0.1)]">
                   Sức chứa: {capacity}/200
                 </span>
               </div>
 
               {/* Segmented Gate Mode switcher */}
-              <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-xl border border-slate-200/50">
+              <div className="grid grid-cols-2 p-1.5 bg-slate-100/80 rounded-full border border-slate-200/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] relative">
                 <button 
                   disabled={gateState !== 'SCANNING'}
                   onClick={() => { playChimeSound(); setGateMode('ENTRY'); }}
-                  className={`py-2 text-xs font-extrabold uppercase rounded-lg transition-all cursor-pointer disabled:opacity-40 ${
+                  className={`py-2.5 text-[10.5px] font-extrabold uppercase rounded-full transition-all duration-300 cursor-pointer disabled:opacity-40 relative z-10 ${
                     gateMode === 'ENTRY' 
-                      ? 'bg-white text-blue-600 shadow-sm border border-slate-200/50' 
-                      : 'text-slate-500 hover:text-slate-800'
+                      ? 'bg-white text-blue-600 shadow-[0_4px_15px_rgba(0,0,0,0.08)] border border-white font-black scale-[0.98]' 
+                      : 'text-slate-500 hover:text-slate-700 hover:bg-white/60'
                   }`}
                 >
                   Xe Vào (ENTRY)
@@ -1546,10 +1615,10 @@ const App = () => {
                 <button 
                   disabled={gateState !== 'SCANNING'}
                   onClick={() => { playChimeSound(); setGateMode('EXIT'); }}
-                  className={`py-2 text-xs font-extrabold uppercase rounded-lg transition-all cursor-pointer disabled:opacity-40 ${
+                  className={`py-2.5 text-[10.5px] font-extrabold uppercase rounded-full transition-all duration-300 cursor-pointer disabled:opacity-40 relative z-10 ${
                     gateMode === 'EXIT' 
-                      ? 'bg-white text-blue-600 shadow-sm border border-slate-200/50' 
-                      : 'text-slate-500 hover:text-slate-800'
+                      ? 'bg-white text-blue-600 shadow-[0_4px_15px_rgba(0,0,0,0.08)] border border-white font-black scale-[0.98]' 
+                      : 'text-slate-500 hover:text-slate-700 hover:bg-white/60'
                   }`}
                 >
                   Xe Ra (EXIT)
@@ -1557,10 +1626,10 @@ const App = () => {
               </div>
 
               {/* Automation Auto-pass toggle switch */}
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-between">
+              <div className="bg-gradient-to-br from-white to-slate-50/50 py-3 px-4.5 rounded-3xl border border-slate-200/80 flex items-center justify-between shadow-[0_4px_20px_-5px_rgba(0,0,0,0.05)] transition-all hover:shadow-[0_8px_25px_-5px_rgba(0,0,0,0.08)] hover:border-blue-200/60 group/toggle">
                 <div>
-                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">DUYỆT TỰ ĐỘNG</span>
-                  <span className="text-xs font-bold text-slate-700 mt-0.5 block">Tự động cho xe qua</span>
+                  <span className="text-[9.5px] font-extrabold text-blue-600 uppercase tracking-widest block mb-0.5">DUYỆT TỰ ĐỘNG</span>
+                  <span className="text-[12px] font-bold text-slate-700 block">Tự động cho xe qua</span>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input 
@@ -1572,12 +1641,12 @@ const App = () => {
                     }} 
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-100 after:border after:rounded-full after:h-5 after:w-5 after:transition-all after:shadow-sm peer-checked:bg-blue-500 shadow-inner group-hover/toggle:shadow-blue-500/20"></div>
                 </label>
               </div>
 
               {/* Control Action triggers */}
-              <div className="grid grid-cols-1 gap-2.5">
+              <div className="grid grid-cols-1 gap-2.5 mt-1">
                 {gateMode === 'ENTRY' && (
                   <button 
                     onClick={() => {
@@ -1586,12 +1655,13 @@ const App = () => {
                       setVisitorPlate('');
                       setGeneratedTicket(null);
                     }}
-                    className="w-full flex items-center justify-between p-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-sm"
+                    className="group/btn relative overflow-hidden w-full flex items-center justify-between p-3.5 rounded-full bg-gradient-to-r from-blue-600 via-blue-500 to-blue-600 bg-[length:200%_auto] hover:bg-[position:100%_0] text-white font-extrabold text-[10.5px] uppercase tracking-[0.2em] transition-all duration-500 cursor-pointer shadow-[0_8px_20px_rgba(59,130,246,0.25)] hover:shadow-[0_12px_25px_rgba(59,130,246,0.35)] hover:-translate-y-0.5 active:scale-[0.98]"
                   >
-                    <span className="flex items-center gap-2">
-                      <QrCode size={14} /> CẤP VÉ VÃNG LAI [F4]
+                    <span className="flex items-center gap-2.5 relative z-10 drop-shadow-sm">
+                      <QrCode size={15} className="text-blue-100" /> CẤP VÉ VÃNG LAI [F4]
                     </span>
-                    <Plus size={14} />
+                    <Plus size={15} className="relative z-10 transition-transform duration-500 group-hover/btn:rotate-90 text-blue-100" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent -translate-x-full group-hover/btn:animate-[shine_1.5s_infinite] pointer-events-none"></div>
                   </button>
                 )}
 
@@ -1600,70 +1670,70 @@ const App = () => {
                     playChimeSound();
                     showAlert("Đã kích hoạt barrier thủ công!");
                   }}
-                  className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 font-bold text-xs text-slate-700 uppercase tracking-wider transition-all cursor-pointer"
+                  className="group/btn relative overflow-hidden w-full flex items-center justify-between p-3.5 rounded-full bg-slate-50 hover:bg-white border border-slate-200/80 font-extrabold text-[10.5px] text-slate-700 uppercase tracking-[0.2em] transition-all cursor-pointer shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] active:scale-[0.98]"
                 >
-                  <span className="flex items-center gap-2">
-                    <Unlock size={14} className="text-slate-400" /> MỞ CỔNG THỦ CÔNG [F8]
+                  <span className="flex items-center gap-2.5 relative z-10">
+                    <Unlock size={15} className="text-blue-400 group-hover/btn:text-blue-500 transition-colors drop-shadow-sm" /> MỞ CỔNG THỦ CÔNG [F8]
                   </span>
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-blue-100/30 to-transparent -translate-x-full group-hover/btn:animate-[shine_1.5s_infinite] pointer-events-none"></div>
                 </button>
               </div>
 
             </div>
 
             {/* MongoDB Real-time audit log feed */}
-            <div className="bg-white p-5 rounded-[1.5rem] border border-slate-200/80 shadow-sm flex-1 flex flex-col min-h-0">
-              <div className="flex justify-between items-center mb-4 shrink-0">
-                <h3 className="text-xs font-black tracking-wider text-slate-800 uppercase flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
-                  NHẬT KÝ THỜI GIAN THỰC
+            <div className="bg-white/95 backdrop-blur-2xl p-5 md:p-6 rounded-[2rem] border border-white shadow-[0_30px_60px_-15px_rgba(0,0,0,0.08),0_0_40px_rgba(59,130,246,0.05)] flex-1 flex flex-col min-h-0 relative overflow-hidden group/logs z-10 before:absolute before:inset-0 before:bg-gradient-to-br before:from-blue-50/50 before:to-transparent before:-z-10">
+              <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-400 to-blue-600 opacity-90 group-hover/logs:opacity-100 transition-opacity duration-500 shadow-[0_2px_15px_rgba(59,130,246,0.5)]"></div>
+              
+              <div className="flex justify-between items-center mb-4 shrink-0 border-b border-slate-100/80 pb-3">
+                <h3 className="text-[11px] font-black tracking-wider text-slate-800 uppercase flex items-center gap-2">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-gradient-to-r from-blue-400 to-blue-600 shadow-sm"></span>
+                  </span>
+                  NHẬT KÝ
                 </h3>
-                <span className="text-[9px] font-black text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100 uppercase tracking-widest shadow-sm">
+                <span className="text-[9px] font-black text-blue-700 bg-blue-50 border border-blue-100/80 px-2.5 py-1.5 rounded-xl uppercase tracking-widest shadow-[0_2px_10px_rgba(59,130,246,0.1)]">
                   Live Mongo
                 </span>
               </div>
 
               {/* MongoDB Log rows */}
-              <div className="space-y-2.5 overflow-y-auto pr-1 flex-1 min-h-0">
+              <div className="space-y-3 overflow-y-auto pr-1 flex-1 min-h-0 custom-scrollbar">
                 {recentLogs.length > 0 ? (
                   recentLogs.map((log, i) => (
                     <div 
                       key={i} 
                       onClick={() => setSelectedLogEntry(log)}
-                      className="group p-2.5 bg-gradient-to-br from-white to-slate-50 hover:from-indigo-50/40 hover:to-white border border-slate-200/80 hover:border-indigo-200 rounded-[1.25rem] flex items-center justify-between transition-all duration-300 cursor-pointer shadow-sm hover:shadow"
+                      className="group p-3 bg-white/60 hover:bg-white backdrop-blur-md border border-white/80 hover:border-blue-200/60 rounded-3xl flex items-center justify-between transition-all duration-300 cursor-pointer shadow-[0_2px_12px_rgba(0,0,0,0.02)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.06)] hover:-translate-y-0.5"
                     >
-                      <div className="flex gap-3 items-center">
+                      <div className="flex gap-3.5 items-center">
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedLogPhoto(log.photo);
                           }}
-                          className="w-11 h-11 rounded-xl overflow-hidden bg-slate-100 border border-slate-200/80 shrink-0 relative hover:scale-105 transition-all cursor-pointer shadow-inner"
+                          className="w-12 h-12 rounded-2xl overflow-hidden bg-slate-100 shrink-0 relative hover:scale-105 transition-transform duration-300 ring-4 ring-white shadow-sm group-hover:ring-blue-50"
                         >
                           <img src={log.photo} alt="Audit Thumb" className="w-full h-full object-cover" />
                         </button>
                         
-                        <div className="flex flex-col justify-center">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <span className="font-mono font-black text-[13px] text-slate-800 group-hover:text-indigo-700 transition-colors tracking-[0.05em] uppercase">{log.plate}</span>
-                            <span className={`text-[7.5px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-[0.1em] border ${
+                        <div className="flex flex-col justify-center gap-0.5">
+                          <div className="flex items-center gap-2.5">
+                            <span className="font-mono font-extrabold text-[12.5px] text-slate-800 group-hover:text-blue-700 transition-colors tracking-widest uppercase">{log.plate}</span>
+                            <span className={`text-[7.5px] font-extrabold px-2 py-1 rounded-lg uppercase tracking-[0.15em] border shadow-sm ${
                               log.owner === 'KHÁCH ĐẶT TRƯỚC' 
-                                ? 'bg-indigo-50 text-indigo-600 border-indigo-100' 
-                                : 'bg-slate-100 text-slate-500 border-slate-200'
+                                ? 'bg-gradient-to-r from-blue-50 to-blue-100/60 text-blue-600 border-blue-100/80' 
+                                : 'bg-slate-50 text-slate-500 border-slate-200/80'
                             }`}>
                               {log.owner === 'KHÁCH ĐẶT TRƯỚC' ? 'ĐẶT TRƯỚC' : 'VÃNG LAI'}
                             </span>
                           </div>
-                          <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{log.time}</span>
+                          <span className="text-[9.5px] text-slate-400 font-bold uppercase tracking-widest">{log.time}</span>
                         </div>
                       </div>
 
-                      <span className={`text-[8px] font-black px-2.5 py-1 rounded-lg uppercase tracking-[0.1em] border shadow-sm ${
-                        log.type === 'ENTRY'
-                          ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                          : log.type === 'EXIT'
-                            ? 'bg-indigo-50/80 text-indigo-600 border-indigo-100'
-                            : 'bg-red-50 text-red-600 border-red-100'
-                      }`}>
+                      <span className={`text-[9px] font-black px-3.5 py-2 rounded-2xl uppercase tracking-[0.2em] border shadow-sm transition-all duration-300 bg-gradient-to-br from-blue-50 to-blue-100/50 text-blue-600 border-blue-200/60 group-hover:shadow-[0_4px_15px_rgba(59,130,246,0.15)]`}>
                         {log.type === 'ENTRY' ? 'XE VÀO' : log.type === 'EXIT' ? 'XE RA' : 'BÁO ĐỘNG'}
                       </span>
                     </div>
@@ -1684,7 +1754,7 @@ const App = () => {
                   <span className="flex items-center gap-1.5 uppercase">
                     <ShieldCheck size={13} className="text-blue-500" /> CƠ SỞ DỮ LIỆU
                   </span>
-                  <span className="font-extrabold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded border border-slate-200/50">MongoDB Local</span>
+                  <span className="font-extrabold text-slate-650 bg-slate-100/80 px-2.5 py-0.5 rounded border border-slate-200/50">MongoDB Local</span>
                 </div>
                 <div className="flex justify-between items-center text-[10px] font-bold text-slate-400">
                   <span className="flex items-center gap-1.5 uppercase">
@@ -1943,143 +2013,157 @@ const App = () => {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full relative p-6 text-slate-800"
+              className="bg-white/95 backdrop-blur-2xl rounded-[2rem] border border-white shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1),0_0_40px_rgba(59,130,246,0.1)] max-w-4xl w-full relative p-5 text-slate-800 overflow-hidden z-10 before:absolute before:inset-0 before:bg-gradient-to-br before:from-blue-50/60 before:to-transparent before:-z-10"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-10 h-10 rounded-[1.25rem] bg-gradient-to-br from-indigo-50 to-indigo-100 flex items-center justify-center text-indigo-600 shadow-inner border border-indigo-200/50">
-                    <FileText size={18} />
+              <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600 opacity-90 shadow-[0_2px_15px_rgba(59,130,246,0.5)]"></div>
+
+              <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100/80 relative">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100/80 flex items-center justify-center text-blue-600 shadow-[inset_0_2px_5px_rgba(255,255,255,1)] border border-blue-200/50 relative group-hover:scale-105 transition-transform">
+                    <FileText size={18} className="drop-shadow-sm" />
+                    <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-gradient-to-r from-blue-400 to-blue-500 shadow-sm border border-white"></span>
+                    </span>
                   </div>
                   <div>
-                    <h3 className="text-xs font-black uppercase tracking-wider text-slate-900">Chi tiết lượt xe {selectedLogEntry.type === 'ENTRY' ? 'vào' : 'ra'}</h3>
-                    <p className="text-[8.5px] text-slate-500 font-bold uppercase tracking-wider">
+                    <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 drop-shadow-sm">Chi tiết lượt xe {selectedLogEntry.type === 'ENTRY' ? 'vào' : 'ra'}</h3>
+                    <p className="text-[9px] text-blue-500 font-bold uppercase tracking-widest mt-0.5">
                       {selectedLogEntry.type === 'EXIT' ? `Vào: ${selectedLogEntry.entryTimeStr} • Ra: ${selectedLogEntry.time}` : selectedLogEntry.time}
                     </p>
                   </div>
                 </div>
-                <button onClick={() => setSelectedLogEntry(null)} className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-800 transition-all flex items-center justify-center text-xs font-black cursor-pointer border border-slate-200/60 shadow-sm hover:shadow">✕</button>
+                <button onClick={() => setSelectedLogEntry(null)} className="w-8 h-8 rounded-full bg-slate-50/50 hover:bg-white text-slate-400 hover:text-slate-800 transition-all flex items-center justify-center text-sm font-black cursor-pointer border border-slate-200/50 shadow-sm hover:shadow-md hover:-translate-y-0.5">✕</button>
               </div>
 
-              <div className="space-y-3">
-                <div className="bg-gradient-to-b from-slate-50 to-white py-3 px-4 rounded-2xl border border-slate-200/80 shadow-sm text-center">
-                  <span className="text-[8.5px] text-slate-400 font-extrabold uppercase tracking-[0.2em] block mb-0.5">Biển số nhận diện</span>
-                  <span className="text-2xl font-mono font-black tracking-[0.15em] text-indigo-950">{selectedLogEntry.plate}</span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div className={`py-2 px-3 rounded-2xl border shadow-sm ${selectedLogEntry.owner === 'KHÁCH ĐẶT TRƯỚC' ? 'bg-indigo-50/50 border-indigo-100 text-center' : 'bg-slate-50/80 border-slate-200/80 text-center'}`}>
-                    <span className={`text-[7.5px] font-extrabold uppercase tracking-[0.1em] block ${selectedLogEntry.owner === 'KHÁCH ĐẶT TRƯỚC' ? 'text-indigo-400' : 'text-slate-400'}`}>Loại khách</span>
-                    <span className={`text-[11px] font-black mt-0.5 block tracking-wide ${selectedLogEntry.owner === 'KHÁCH ĐẶT TRƯỚC' ? 'text-indigo-700' : 'text-slate-700'}`}>{selectedLogEntry.owner}</span>
-                  </div>
-                  <div className="bg-slate-50/80 py-2 px-3 rounded-2xl border border-slate-200/80 shadow-sm text-center">
-                    <span className="text-[7.5px] text-slate-400 font-extrabold uppercase tracking-[0.1em] block">Trạng thái vé</span>
-                    <span className="text-[11px] font-black text-slate-700 mt-0.5 block tracking-wide">{selectedLogEntry.ticketType}</span>
-                  </div>
-                </div>
-
-                {(selectedLogEntry.parkingLotName || selectedLogEntry.parkingSlot) && (
-                  <div className="bg-blue-50/80 p-3.5 rounded-2xl border border-blue-200 flex items-center justify-between shadow-sm">
-                    <div className="flex flex-col min-w-0 flex-1 pr-3 text-left">
-                      <span className="text-[7.5px] text-blue-500 font-extrabold uppercase tracking-[0.1em] block">Tòa nhà / Bãi đỗ</span>
-                      <span className="text-xs font-black text-blue-900 mt-0.5 block uppercase truncate" title={selectedLogEntry.parkingLotName}>
-                        {selectedLogEntry.parkingLotName || 'Khu Vực Vãng Lai'}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-5 relative z-10">
+                {/* Left Column: Photos & QR */}
+                <div className="md:col-span-5 flex flex-col gap-3">
+                  <div className="bg-white/60 border border-slate-200/80 rounded-[1rem] p-3 flex flex-col gap-3 shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
+                    <div className="flex items-center justify-between px-1">
+                      <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-1.5">
+                        <Camera size={14} className="text-blue-500 drop-shadow-sm" /> Ảnh nhận diện
                       </span>
                     </div>
-                    {selectedLogEntry.parkingSlot && (
-                      <div className="flex flex-col items-end shrink-0">
-                        <span className="text-[7.5px] text-blue-500 font-extrabold uppercase tracking-[0.1em] block">Vị trí đỗ (Ô)</span>
-                        <span className="bg-blue-600 text-white px-3 py-1 rounded-xl text-xs font-black shadow-sm mt-0.5 whitespace-nowrap">
-                          Slot {selectedLogEntry.parkingSlot}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {selectedLogEntry.owner === 'KHÁCH ĐẶT TRƯỚC' && selectedLogEntry.customerName && (
-                  <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 border border-slate-200/80 rounded-2xl p-3 shadow-sm flex flex-col gap-2">
-                    <span className="text-[8.5px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 px-1">
-                      <User size={12} className="text-indigo-500" /> Khách hàng đăng ký
-                    </span>
-                    <div className="bg-white/50 rounded-xl p-2.5 border border-slate-100 grid grid-cols-2 gap-y-2 gap-x-2">
-                      <div>
-                        <span className="text-[7.5px] text-slate-400 font-extrabold uppercase tracking-[0.1em] block">Chủ tài khoản</span>
-                        <span className="text-[10px] font-bold text-slate-800 block truncate tracking-wide">{selectedLogEntry.customerName}</span>
-                      </div>
-                      <div>
-                        <span className="text-[7.5px] text-slate-400 font-extrabold uppercase tracking-[0.1em] block">Số điện thoại</span>
-                        <span className="text-[10px] font-bold text-slate-800 block tracking-wide">{selectedLogEntry.customerPhone || 'N/A'}</span>
-                      </div>
-                      <div className="col-span-2 border-t border-slate-200/50 pt-2">
-                        <span className="text-[7.5px] text-slate-400 font-extrabold uppercase tracking-[0.1em] block">Email liên hệ</span>
-                        <span className="text-[10px] font-bold text-slate-800 block truncate tracking-wide">{selectedLogEntry.customerEmail || 'N/A'}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-3 flex flex-col gap-2 shadow-sm">
-                  <span className="text-[8.5px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 px-1">
-                    <Camera size={12} className="text-indigo-500" /> Ảnh chụp nhận diện
-                  </span>
-                  <div className={`grid ${selectedLogEntry.type === 'EXIT' ? 'grid-cols-2 gap-2.5' : 'grid-cols-1'} h-32`}>
-                    {selectedLogEntry.type === 'EXIT' && (
-                      <div className="h-full rounded-[1rem] overflow-hidden border border-slate-200/80 relative bg-slate-100 group shadow-inner">
+                    <div className="flex flex-col gap-3">
+                      {selectedLogEntry.type === 'EXIT' && (
+                        <div className="rounded-xl overflow-hidden border-2 border-white relative bg-slate-100 group shadow-[0_4px_15px_rgba(0,0,0,0.05)] ring-1 ring-slate-200/50 aspect-video">
+                          <img 
+                            src={selectedLogEntry.entryPhoto || FALLBACK_CAR_CAPTURES[1]} 
+                            alt="Entry Photo" 
+                            className="w-full h-full object-cover cursor-pointer group-hover:scale-105 transition-transform duration-500" 
+                            onClick={() => setSelectedLogPhoto(selectedLogEntry.entryPhoto || FALLBACK_CAR_CAPTURES[1])} 
+                          />
+                          <div className="absolute bottom-2 left-2 bg-slate-900/70 backdrop-blur-md px-2.5 py-1 rounded-lg text-[8px] text-white font-black tracking-widest shadow-lg border border-white/10">ẢNH VÀO</div>
+                        </div>
+                      )}
+                      <div className="rounded-xl overflow-hidden border-2 border-white relative bg-slate-100 group shadow-[0_4px_15px_rgba(0,0,0,0.05)] ring-1 ring-slate-200/50 aspect-video">
                         <img 
-                          src={selectedLogEntry.entryPhoto || FALLBACK_CAR_CAPTURES[1]} 
-                          alt="Entry Photo" 
-                          className="w-full h-full object-cover cursor-pointer group-hover:scale-105 transition-transform duration-300" 
-                          onClick={() => setSelectedLogPhoto(selectedLogEntry.entryPhoto || FALLBACK_CAR_CAPTURES[1])} 
+                          src={selectedLogEntry.type === 'EXIT' ? (selectedLogEntry.exitPhoto || selectedLogEntry.photo) : selectedLogEntry.photo} 
+                          alt="Action Photo" 
+                          className="w-full h-full object-cover cursor-pointer group-hover:scale-105 transition-transform duration-500" 
+                          onClick={() => setSelectedLogPhoto(selectedLogEntry.type === 'EXIT' ? (selectedLogEntry.exitPhoto || selectedLogEntry.photo) : selectedLogEntry.photo)} 
                         />
-                        <div className="absolute bottom-1.5 left-1.5 bg-slate-900/80 backdrop-blur-md px-2 py-1 rounded-lg text-[7px] text-white font-black tracking-widest shadow-sm">ẢNH VÀO</div>
-                      </div>
-                    )}
-                    <div className="h-full rounded-[1rem] overflow-hidden border border-slate-200/80 relative bg-slate-100 group shadow-inner">
-                      <img 
-                        src={selectedLogEntry.type === 'EXIT' ? (selectedLogEntry.exitPhoto || selectedLogEntry.photo) : selectedLogEntry.photo} 
-                        alt="Action Photo" 
-                        className="w-full h-full object-cover cursor-pointer group-hover:scale-105 transition-transform duration-300" 
-                        onClick={() => setSelectedLogPhoto(selectedLogEntry.type === 'EXIT' ? (selectedLogEntry.exitPhoto || selectedLogEntry.photo) : selectedLogEntry.photo)} 
-                      />
-                      <div className="absolute bottom-1.5 left-1.5 bg-slate-900/80 backdrop-blur-md px-2 py-1 rounded-lg text-[7px] text-white font-black tracking-widest shadow-sm">
-                        ẢNH {selectedLogEntry.type === 'EXIT' ? 'RA' : 'VÀO'}
+                        <div className="absolute bottom-2 left-2 bg-blue-600/80 backdrop-blur-md px-2.5 py-1 rounded-lg text-[8px] text-white font-black tracking-widest shadow-lg border border-white/20">
+                          ẢNH {selectedLogEntry.type === 'EXIT' ? 'RA' : 'VÀO'}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-
-                <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-3 shadow-sm">
-                  <span className="text-[8.5px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-2 px-1">
-                    <Clock size={12} className="text-indigo-500" /> Thông tin lịch trình
-                  </span>
-                  <div className={`grid ${selectedLogEntry.type === 'EXIT' ? 'grid-cols-2' : 'grid-cols-1'} gap-2.5`}>
-                    <div className="bg-white py-2 px-2.5 rounded-xl border border-slate-200/80 text-center flex flex-col justify-center shadow-sm">
-                      <span className="text-[7.5px] text-slate-400 font-extrabold uppercase tracking-[0.1em] block">Thời gian vào</span>
-                      <span className="text-[11px] font-mono font-black text-indigo-950 block">{selectedLogEntry.entryTimeStr}</span>
-                      <span className="text-[8px] text-slate-500 font-bold tracking-wide">{selectedLogEntry.entryDateStr}</span>
-                    </div>
-                    {selectedLogEntry.type === 'EXIT' && (
-                      <div className="bg-white py-2 px-2.5 rounded-xl border border-slate-200/80 text-center flex flex-col justify-center shadow-sm">
-                        <span className="text-[7.5px] text-slate-400 font-extrabold uppercase tracking-[0.1em] block">Thời gian ra</span>
-                        <span className="text-[11px] font-mono font-black text-indigo-950 block">{selectedLogEntry.exitTimeStr}</span>
-                        <span className="text-[8px] text-slate-500 font-bold tracking-wide">{selectedLogEntry.exitDateStr}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2.5">
+                  
                   {selectedLogEntry.qrCode && (
-                    <div className="bg-slate-50/80 py-2.5 px-3 rounded-2xl border border-slate-200/80 flex flex-col justify-center shadow-sm text-center">
-                      <span className="text-[7.5px] text-slate-400 font-extrabold uppercase tracking-[0.1em] block mb-0.5">Mã quét (QR)</span>
-                      <span className="text-[9px] font-mono font-black text-indigo-700 break-all bg-indigo-50/80 px-2 py-1 rounded-lg inline-block w-fit mx-auto border border-indigo-100/50">{selectedLogEntry.qrCode}</span>
+                    <div className="bg-white/80 py-2.5 px-3 rounded-[1rem] border border-slate-200/80 flex items-center justify-between shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
+                      <span className="text-[8px] text-slate-400 font-extrabold uppercase tracking-[0.15em]">Mã quét (QR)</span>
+                      <span className="text-[9px] font-mono font-black text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100/80 shadow-sm">{selectedLogEntry.qrCode}</span>
                     </div>
                   )}
+                </div>
+
+                {/* Right Column: Information */}
+                <div className="md:col-span-7 flex flex-col gap-3">
+                  <div className="shrink-0 bg-gradient-to-b from-white to-slate-50/50 py-3.5 px-4 rounded-[1.25rem] border border-slate-200/60 shadow-[0_4px_20px_-5px_rgba(0,0,0,0.05)] text-center relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-blue-50/30 to-transparent -translate-x-full group-hover:animate-[shine_1.5s_infinite]"></div>
+                    <span className="text-[9px] text-blue-500 font-extrabold uppercase tracking-[0.25em] block mb-1 drop-shadow-sm">Biển số nhận diện</span>
+                    <span className="text-[32px] font-mono font-black tracking-[0.2em] text-slate-800 drop-shadow-md leading-none block">{selectedLogEntry.plate}</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className={`py-2 px-3 rounded-[1rem] border shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex flex-col justify-center transition-colors ${selectedLogEntry.owner === 'KHÁCH ĐẶT TRƯỚC' ? 'bg-gradient-to-br from-blue-50 to-blue-100/50 border-blue-200/60 text-center' : 'bg-white/80 border-slate-200/60 text-center'}`}>
+                      <span className={`text-[8px] font-extrabold uppercase tracking-[0.15em] block mb-0.5 ${selectedLogEntry.owner === 'KHÁCH ĐẶT TRƯỚC' ? 'text-blue-500' : 'text-slate-400'}`}>Loại khách</span>
+                      <span className={`text-[11px] font-black block tracking-widest ${selectedLogEntry.owner === 'KHÁCH ĐẶT TRƯỚC' ? 'text-blue-700' : 'text-slate-700'}`}>{selectedLogEntry.owner}</span>
+                    </div>
+                    <div className="bg-white/80 py-2 px-3 rounded-[1rem] border border-slate-200/60 shadow-[0_2px_10px_rgba(0,0,0,0.02)] text-center flex flex-col justify-center">
+                      <span className="text-[8px] text-slate-400 font-extrabold uppercase tracking-[0.15em] block mb-0.5">Trạng thái vé</span>
+                      <span className="text-[11px] font-black text-slate-700 block tracking-widest">{selectedLogEntry.ticketType}</span>
+                    </div>
+                  </div>
+
+                  {(selectedLogEntry.parkingLotName || selectedLogEntry.parkingSlot) && (
+                    <div className="bg-gradient-to-r from-blue-50/80 to-blue-100/40 p-3 rounded-[1rem] border border-blue-200/80 flex items-center justify-between shadow-[0_4px_15px_rgba(59,130,246,0.05)] shrink-0">
+                      <div className="flex flex-col min-w-0 flex-1 pr-3 text-left">
+                        <span className="text-[8px] text-blue-500 font-extrabold uppercase tracking-[0.15em] block mb-0.5">Tòa nhà / Bãi đỗ</span>
+                        <span className="text-[12px] font-black text-blue-900 block uppercase truncate drop-shadow-sm" title={selectedLogEntry.parkingLotName}>
+                          {selectedLogEntry.parkingLotName || 'Khu Vực Vãng Lai'}
+                        </span>
+                      </div>
+                      {selectedLogEntry.parkingSlot && (
+                        <div className="flex flex-col items-end shrink-0">
+                          <span className="text-[8px] text-blue-500 font-extrabold uppercase tracking-[0.15em] block mb-0.5">Vị trí đỗ (Ô)</span>
+                          <span className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-3 py-1 rounded-lg text-[11px] font-black shadow-[0_4px_10px_rgba(59,130,246,0.3)] whitespace-nowrap">
+                            Slot {selectedLogEntry.parkingSlot}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className={`bg-white/60 border border-slate-200/80 rounded-[1rem] p-3 shadow-[0_2px_10px_rgba(0,0,0,0.02)] ${selectedLogEntry.owner === 'KHÁCH ĐẶT TRƯỚC' ? 'shrink-0' : 'flex-1'}`}>
+                    <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-1.5 mb-2 px-1">
+                      <Clock size={14} className="text-blue-500 drop-shadow-sm" /> Thông tin lịch trình
+                    </span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-white py-2 px-2 rounded-xl border border-slate-100 text-center flex flex-col justify-center shadow-[0_2px_8px_rgba(0,0,0,0.03)] h-[56px]">
+                        <span className="text-[8px] text-slate-400 font-extrabold uppercase tracking-[0.15em] block mb-0.5">Thời gian vào</span>
+                        <span className="text-[12px] font-mono font-black text-slate-800 block leading-none">{selectedLogEntry.entryTimeStr}</span>
+                        <span className="text-[8px] text-slate-400 font-bold tracking-widest mt-0.5">{selectedLogEntry.entryDateStr}</span>
+                      </div>
+                      {selectedLogEntry.type === 'EXIT' && (
+                        <div className="bg-white py-2 px-2 rounded-xl border border-slate-100 text-center flex flex-col justify-center shadow-[0_2px_8px_rgba(0,0,0,0.03)] h-[56px]">
+                          <span className="text-[8px] text-slate-400 font-extrabold uppercase tracking-[0.15em] block mb-0.5">Thời gian ra</span>
+                          <span className="text-[12px] font-mono font-black text-slate-800 block leading-none">{selectedLogEntry.exitTimeStr}</span>
+                          <span className="text-[8px] text-slate-400 font-bold tracking-widest mt-0.5">{selectedLogEntry.exitDateStr}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {selectedLogEntry.owner === 'KHÁCH ĐẶT TRƯỚC' && selectedLogEntry.customerName && (
+                    <div className="bg-white/60 border border-slate-200/80 rounded-[1rem] p-3 shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex flex-col gap-2 h-full min-h-0">
+                      <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-1.5 px-1">
+                        <User size={14} className="text-blue-500 drop-shadow-sm" /> Khách hàng
+                      </span>
+                      <div className="bg-white rounded-xl p-2.5 border border-slate-100/80 flex flex-col gap-1.5 shadow-[inset_0_2px_5px_rgba(0,0,0,0.01)] flex-1 justify-center min-h-0 overflow-y-auto custom-scrollbar">
+                        <div className="flex justify-between items-center gap-2">
+                          <span className="text-[8px] text-slate-400 font-extrabold uppercase tracking-[0.15em] block shrink-0">Tên:</span>
+                          <span className="text-[10px] font-bold text-slate-800 block truncate text-right">{selectedLogEntry.customerName}</span>
+                        </div>
+                        <div className="flex justify-between items-center gap-2">
+                          <span className="text-[8px] text-slate-400 font-extrabold uppercase tracking-[0.15em] block shrink-0">SĐT:</span>
+                          <span className="text-[10px] font-bold text-slate-800 block text-right">{selectedLogEntry.customerPhone || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between items-center gap-2 border-t border-slate-100 pt-1.5">
+                          <span className="text-[8px] text-slate-400 font-extrabold uppercase tracking-[0.15em] block shrink-0">Email:</span>
+                          <span className="text-[10px] font-bold text-slate-800 block truncate text-right">{selectedLogEntry.customerEmail || 'N/A'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {selectedLogEntry.type === 'EXIT' && selectedLogEntry.totalFee !== undefined && (
-                    <div className="bg-indigo-50/80 py-2.5 px-3 rounded-2xl border border-indigo-200 flex flex-col justify-center text-center shadow-sm">
-                      <span className="text-[7.5px] text-indigo-500 font-extrabold uppercase tracking-[0.1em] block mb-0.5">Phí thanh toán</span>
-                      <span className="text-[13px] font-black text-indigo-800 tracking-wide">
+                    <div className="shrink-0 bg-gradient-to-br from-blue-50 to-blue-100/50 py-2.5 px-4 rounded-[1.25rem] border border-blue-200/60 flex items-center justify-between shadow-[0_4px_15px_rgba(59,130,246,0.05)] mt-auto">
+                      <span className="text-[9px] text-blue-500 font-extrabold uppercase tracking-[0.15em]">Phí thanh toán</span>
+                      <span className="text-[16px] font-black text-blue-800 tracking-wider drop-shadow-sm">
                         {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(selectedLogEntry.totalFee)}
                       </span>
                     </div>

@@ -244,13 +244,17 @@ public class ParkingSessionsController : ControllerBase
     public async Task<IActionResult> GetHistory()
     {
         var userId = User.GetUserId();
+        var user = await _context.Users.FindAsync(userId);
 
-        var sessions = await _context.ParkingSessions
-            .Where(ps => ps.UserId == userId)
+        var allSessions = await _context.ParkingSessions
             .OrderByDescending(ps => ps.EntryTime)
             .ToListAsync();
 
-        return Ok(sessions);
+        var filteredSessions = allSessions
+            .Where(ps => ps.UserId == userId || (user != null && UserOwnsPlate(user.LicensePlate, ps.LicensePlate)))
+            .ToList();
+
+        return Ok(filteredSessions);
     }
 
     [HttpGet("verify/{qrCode}")]
@@ -271,11 +275,8 @@ public class ParkingSessionsController : ControllerBase
         // Fallback: If UserId is missing in session, try to match by License Plate robustly!
         if (user == null && !string.IsNullOrEmpty(session.LicensePlate))
         {
-            var cleanPlate = session.LicensePlate.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper();
             var allUsers = await _context.Users.ToListAsync();
-            user = allUsers.FirstOrDefault(u => 
-                !string.IsNullOrEmpty(u.LicensePlate) && 
-                u.LicensePlate.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper() == cleanPlate);
+            user = allUsers.FirstOrDefault(u => UserOwnsPlate(u.LicensePlate, session.LicensePlate));
         }
 
         var exitTime = DateTime.UtcNow;
@@ -517,6 +518,48 @@ public class ParkingSessionsController : ControllerBase
         var json = pricing.ToString();
         await System.IO.File.WriteAllTextAsync(path, json);
         return Ok(new { message = "Pricing saved successfully." });
+    }
+
+    private static bool UserOwnsPlate(string? userLicensePlateField, string? sessionPlate)
+    {
+        if (string.IsNullOrWhiteSpace(userLicensePlateField) || string.IsNullOrWhiteSpace(sessionPlate))
+            return false;
+
+        var cleanSessionPlate = sessionPlate.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper();
+
+        var rawLp = userLicensePlateField.Trim();
+        if (rawLp.StartsWith("[") && rawLp.EndsWith("]"))
+        {
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(rawLp);
+                if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+                {
+                    foreach (var item in doc.RootElement.EnumerateArray())
+                    {
+                        if (item.TryGetProperty("plate", out var plateProp) || 
+                            item.TryGetProperty("Plate", out plateProp) || 
+                            item.TryGetProperty("PLATE", out plateProp))
+                        {
+                            var val = plateProp.GetString();
+                            if (!string.IsNullOrEmpty(val))
+                            {
+                                var cleanVal = val.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper();
+                                if (cleanVal == cleanSessionPlate) return true;
+                            }
+                        }
+                    }
+                }
+            }
+            catch {}
+        }
+        else
+        {
+            var cleanVal = rawLp.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper();
+            if (cleanVal == cleanSessionPlate) return true;
+        }
+
+        return false;
     }
 }
 

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { User, LogOut, ChevronDown, Car, AlertTriangle } from 'lucide-react';
+import { User, LogOut, ChevronDown, Car, AlertTriangle, Bell } from 'lucide-react';
+import NotificationPanel from '../common/NotificationPanel';
 import BrandLogo from '../brand/BrandLogo';
 import api from '../../services/api';
 import { isAdmin, syncCurrentUserFromApi, clearSession } from '../../utils/auth';
@@ -12,6 +13,7 @@ const Navbar = () => {
   const currentPath = location.pathname;
   const [user, setUser] = useState<any>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
 
   useEffect(() => {
     const applyStoredUser = () => {
@@ -108,6 +110,23 @@ const Navbar = () => {
                   D
                 </Link>
               )}
+              <div className="relative">
+                <button 
+                  onClick={() => setIsNotifOpen(!isNotifOpen)}
+                  className="w-10 h-10 flex items-center justify-center bg-white hover:bg-blue-50/80 text-slate-500 hover:text-blue-600 rounded-full transition-all duration-300 ease-out border border-slate-200 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_15px_rgba(37,99,235,0.12)] hover:-translate-y-0.5 relative group active:scale-95"
+                >
+                  <Bell size={18} className="transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:rotate-12 group-hover:scale-110 group-active:rotate-0" />
+                  <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white transition-transform duration-300 group-hover:scale-125"></span>
+                </button>
+                {isNotifOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setIsNotifOpen(false)} />
+                    <div className="absolute right-0 top-12 z-50">
+                      <NotificationPanel role="user" onClose={() => setIsNotifOpen(false)} />
+                    </div>
+                  </>
+                )}
+              </div>
               <div className="relative">
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}

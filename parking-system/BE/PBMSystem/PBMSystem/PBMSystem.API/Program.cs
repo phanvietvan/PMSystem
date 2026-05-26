@@ -75,6 +75,9 @@ builder.Services.AddCors(options =>
             "https://localhost:5175", 
             "http://localhost:3000", 
             "https://localhost:3000", 
+            "https://staff.pmsystem.local",
+            "http://admin.pmsystem.local",
+            "https://admin.pmsystem.local",
             "https://parking-building-management-system.vercel.app" 
         };
         var configuredOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>();
