@@ -13,23 +13,31 @@ const ReservationPage = () => {
   const fromStatus = location.state?.fromStatus || false;
   const [, setUser] = useState<any>(null);
 
-  const parkingLots = (() => {
-    const custom = localStorage.getItem('customParkingLots');
-    if (custom) {
+  const defaultLots = [
+    { id: 1, name: "Landmark 81 - Bãi đỗ A1", latitude: "10.7949", longitude: "106.7218", floor: "Tầng 1", block: "Block A" },
+    { id: 2, name: "Bitexco Financial - Bãi đỗ B2", latitude: "10.7717", longitude: "106.7044", floor: "Tầng 2", block: "Block B" },
+    { id: 3, name: "Vincom Center - Bãi đỗ V3", latitude: "10.7781", longitude: "106.7020", floor: "Hầm B3", block: "Block V" },
+    { id: 4, name: "Saigon Centre - Bãi đỗ S1", latitude: "10.7736", longitude: "106.7013", floor: "Tầng 4", block: "Block S" },
+    { id: 5, name: "Lotte Mart Q7 - Bãi đỗ L1", latitude: "10.7482", longitude: "106.7023", floor: "Hầm B1", block: "Block L" },
+    { id: 6, name: "Crescent Mall Q7 - Bãi đỗ C1", latitude: "10.7287", longitude: "106.7169", floor: "Tầng G", block: "Block C" },
+    { id: 7, name: "Sân bay Tân Sơn Nhất - Block A", latitude: "10.8160", longitude: "106.6630", floor: "Ga quốc tế", block: "Khu vực A" }
+  ];
+
+  const [parkingLots, setParkingLots] = useState<any[]>(defaultLots);
+
+  useEffect(() => {
+    const loadLots = async () => {
       try {
-        return JSON.parse(custom);
-      } catch (e) {}
-    }
-    return [
-      { id: 1, name: "Landmark 81 - Bãi đỗ A1", latitude: "10.7949", longitude: "106.7218", floor: "Tầng 1", block: "Block A" },
-      { id: 2, name: "Bitexco Financial - Bãi đỗ B2", latitude: "10.7717", longitude: "106.7044", floor: "Tầng 2", block: "Block B" },
-      { id: 3, name: "Vincom Center - Bãi đỗ V3", latitude: "10.7781", longitude: "106.7020", floor: "Hầm B3", block: "Block V" },
-      { id: 4, name: "Saigon Centre - Bãi đỗ S1", latitude: "10.7736", longitude: "106.7013", floor: "Tầng 4", block: "Block S" },
-      { id: 5, name: "Lotte Mart Q7 - Bãi đỗ L1", latitude: "10.7482", longitude: "106.7023", floor: "Hầm B1", block: "Block L" },
-      { id: 6, name: "Crescent Mall Q7 - Bãi đỗ C1", latitude: "10.7287", longitude: "106.7169", floor: "Tầng G", block: "Block C" },
-      { id: 7, name: "Sân bay Tân Sơn Nhất - Block A", latitude: "10.8160", longitude: "106.6630", floor: "Ga quốc tế", block: "Khu vực A" }
-    ];
-  })();
+        const response = await api.get('/ParkingLots');
+        if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+          setParkingLots(response.data);
+        }
+      } catch (e) {
+        console.error('Error fetching parking lots:', e);
+      }
+    };
+    loadLots();
+  }, []);
 
   const today = new Date().toISOString().split('T')[0];
   const currentTime = new Date().toTimeString().slice(0, 5);

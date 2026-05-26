@@ -239,6 +239,20 @@ public class ParkingSessionsController : ControllerBase
         return Ok(new { hasActiveSession = true, session, fee, durationMinutes });
     }
 
+    [Authorize]
+    [HttpGet("history")]
+    public async Task<IActionResult> GetHistory()
+    {
+        var userId = User.GetUserId();
+
+        var sessions = await _context.ParkingSessions
+            .Where(ps => ps.UserId == userId)
+            .OrderByDescending(ps => ps.EntryTime)
+            .ToListAsync();
+
+        return Ok(sessions);
+    }
+
     [HttpGet("verify/{qrCode}")]
     public async Task<IActionResult> Verify(string qrCode)
     {
@@ -309,9 +323,22 @@ public class ParkingSessionsController : ControllerBase
         session.IsPlateMatched = entryPlateNormalized == exitPlateNormalized;
         session.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
-
         var fee = CalculateFee(session.EntryTime, session.ExitTime.Value, session.VehicleType);
+
+        var payment = new Repositories.Entities.Payment
+        {
+            SessionId = session.Id,
+            UserId = session.UserId,
+            LicensePlate = session.LicensePlate,
+            Amount = fee,
+            TransactionTime = DateTime.UtcNow,
+            PaymentMethod = "Online", // Defaulting to online, could be extended later
+            Status = "Completed",
+            TransactionId = "TXN-" + Guid.NewGuid().ToString().Substring(0, 8).ToUpper()
+        };
+        await _context.Payments.AddAsync(payment);
+
+        await _context.SaveChangesAsync();
 
         return Ok(new
         {

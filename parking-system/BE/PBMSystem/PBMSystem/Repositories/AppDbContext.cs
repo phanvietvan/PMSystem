@@ -20,6 +20,11 @@ public class AppDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<ParkingSession> ParkingSessions => Set<ParkingSession>();
+    public DbSet<Incident> Incidents => Set<Incident>();
+    public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<ParkingLot> ParkingLots => Set<ParkingLot>();
+    public DbSet<PricingConfig> PricingConfigs => Set<PricingConfig>();
+    public DbSet<Regulation> Regulations => Set<Regulation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -28,10 +33,20 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<User>().ToCollection("Users");
         modelBuilder.Entity<RefreshToken>().ToCollection("RefreshTokens");
         modelBuilder.Entity<ParkingSession>().ToCollection("ParkingSessions");
+        modelBuilder.Entity<Incident>().ToCollection("Incidents");
+        modelBuilder.Entity<Payment>().ToCollection("Payments");
+        modelBuilder.Entity<ParkingLot>().ToCollection("ParkingLots");
+        modelBuilder.Entity<PricingConfig>().ToCollection("PricingConfigs");
+        modelBuilder.Entity<Regulation>().ToCollection("Regulations");
 
         // Global query filters for soft-delete
         modelBuilder.Entity<User>().HasQueryFilter(u => !u.IsDeleted);
         modelBuilder.Entity<ParkingSession>().HasQueryFilter(ps => !ps.IsDeleted);
+        modelBuilder.Entity<Incident>().HasQueryFilter(i => !i.IsDeleted);
+        modelBuilder.Entity<Payment>().HasQueryFilter(p => !p.IsDeleted);
+        modelBuilder.Entity<ParkingLot>().HasQueryFilter(pl => !pl.IsDeleted);
+        modelBuilder.Entity<PricingConfig>().HasQueryFilter(pc => !pc.IsDeleted);
+        modelBuilder.Entity<Regulation>().HasQueryFilter(r => !r.IsDeleted);
     }
 
     /// <summary>

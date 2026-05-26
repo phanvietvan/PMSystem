@@ -59,96 +59,63 @@ const AdminDashboard = () => {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   // State for Managing Parking Lots (Branches & Maps)
-  const [parkingLots, setParkingLots] = useState<any[]>(() => {
-    const custom = localStorage.getItem('customParkingLots');
-    if (custom) {
-      try {
-        return JSON.parse(custom);
-      } catch (e) {}
+  const [parkingLots, setParkingLots] = useState<any[]>([]);
+
+  const fetchParkingLots = async () => {
+    try {
+      const response = await api.get('/ParkingLots');
+      if (response.data && Array.isArray(response.data)) {
+        setParkingLots(response.data);
+      } else {
+        setParkingLots([]);
+      }
+    } catch (error) {
+      console.error('Error fetching parking lots:', error);
+      setParkingLots([]);
     }
-    return [
-      { id: 1, name: "Landmark 81 - Bãi đỗ A1", latitude: "10.7949", longitude: "106.7218", floor: "Tầng 1", block: "Block A", floors: [1, 2, 3] },
-      { id: 2, name: "Bitexco Financial - Bãi đỗ B2", latitude: "10.7717", longitude: "106.7044", floor: "Tầng 2", block: "Block B", floors: [1, 2, 3] },
-      { id: 3, name: "Vincom Center - Bãi đỗ V3", latitude: "10.7781", longitude: "106.7020", floor: "Hầm B3", block: "Block V", floors: [1, 2, 3] },
-      { id: 4, name: "Saigon Centre - Bãi đỗ S1", latitude: "10.7736", longitude: "106.7013", floor: "Tầng 4", block: "Block S", floors: [1, 2, 3] },
-      { id: 5, name: "Lotte Mart Q7 - Bãi đỗ L1", latitude: "10.7482", longitude: "106.7023", floor: "Hầm B1", block: "Block L", floors: [1, 2, 3] },
-      { id: 6, name: "Crescent Mall Q7 - Bãi đỗ C1", latitude: "10.7287", longitude: "106.7169", floor: "Tầng G", block: "Block C", floors: [1, 2, 3] },
-      { id: 7, name: "Sân bay Tân Sơn Nhất - Block A", latitude: "10.8160", longitude: "106.6630", floor: "Ga quốc tế", block: "Khu vực A", floors: [1, 2, 3] }
-    ];
-  });
+  };
+
+  useEffect(() => {
+    fetchParkingLots();
+  }, []);
 
   const [incidents, setIncidents] = useState<any[]>([]);
 
-  useEffect(() => {
-    const existing = localStorage.getItem('systemIncidents');
-    if (existing) {
-      try {
-        setIncidents(JSON.parse(existing));
-      } catch (e) {}
-    } else {
-      const defaultIncidents = [
-        {
-          id: '#INC-8342',
-          type: 'Thiết bị hỏng',
-          title: 'Camera AI nhận diện biển số ở cổng vào bị mất kết nối',
-          description: 'Hệ thống camera quét biển số xe ô tô tại cổng vào chính Landmark 81 không hoạt động, cần reset lại server hoặc phần cứng camera.',
-          branch: 'Landmark 81 - Bãi đỗ A1',
-          floor: 'Tầng 1',
-          urgency: 'Khẩn cấp',
-          reporter: 'Lê Minh Quốc (Staff)',
-          role: 'Nhân viên',
-          createdAt: '26/05/2026 09:15',
-          status: 'Chờ xử lý'
-        },
-        {
-          id: '#INC-2391',
-          type: 'Lỗi thanh toán',
-          title: 'Khách hàng gặp lỗi trừ tiền nhưng không nhận được QR vé',
-          description: 'Khách hàng dùng Momo thanh toán đặt chỗ hết 45,000đ, tài khoản Momo đã trừ nhưng hệ thống không trả mã QR kích hoạt cửa vào.',
-          branch: 'Bitexco Financial - Bãi đỗ B2',
-          floor: 'Tầng 2',
-          urgency: 'Cao',
-          reporter: 'Trần Thị Mỹ Linh (Customer)',
-          role: 'Khách hàng',
-          createdAt: '26/05/2026 10:30',
-          status: 'Chờ xử lý'
-        },
-        {
-          id: '#INC-1052',
-          type: 'Xe đỗ sai vị trí',
-          title: 'Xe máy đỗ chắn lối rẽ xe ô tô xuống hầm',
-          description: 'Xe máy mang biển kiểm soát 59X3-123.45 đỗ chắn tại lối rẽ xuống hầm B3 làm ùn tắc xe ô tô ra vào.',
-          branch: 'Vincom Center - Bãi đỗ V3',
-          floor: 'Hầm B3',
-          urgency: 'Bình thường',
-          reporter: 'Nguyễn Văn Hùng (Staff)',
-          role: 'Nhân viên',
-          createdAt: '26/05/2026 11:05',
-          status: 'Chờ xử lý'
-        }
-      ];
-      localStorage.setItem('systemIncidents', JSON.stringify(defaultIncidents));
-      setIncidents(defaultIncidents);
-    }
-  }, []);
-
-  const handleResolveIncident = (id: string) => {
-    const updated = incidents.map(inc => {
-      if (inc.id === id) {
-        return { ...inc, status: 'Đã xử lý' };
+  const fetchIncidents = async () => {
+    try {
+      const response = await api.get('/Incidents');
+      if (response.data) {
+        setIncidents(response.data);
       }
-      return inc;
-    });
-    setIncidents(updated);
-    localStorage.setItem('systemIncidents', JSON.stringify(updated));
-    showToast('Đã đánh dấu sự cố là Đã giải quyết!', 'success');
+    } catch (error) {
+      console.error('Error fetching incidents from db:', error);
+    }
   };
 
-  const handleDeleteIncident = (id: string) => {
-    const updated = incidents.filter(inc => inc.id !== id);
-    setIncidents(updated);
-    localStorage.setItem('systemIncidents', JSON.stringify(updated));
-    showToast('Đã xóa báo cáo sự cố thành công!', 'info');
+  useEffect(() => {
+    fetchIncidents();
+  }, []);
+
+  const handleResolveIncident = async (id: string) => {
+    try {
+      await api.put(`/Incidents/${id}/resolve`);
+      await fetchIncidents();
+      showToast('Đã đánh dấu sự cố là Đã giải quyết!', 'success');
+    } catch (error) {
+      console.error('Error resolving incident in db:', error);
+      showToast('Lỗi khi đánh dấu giải quyết.', 'error');
+    }
+  };
+
+  const handleDeleteIncident = async (id: string) => {
+    try {
+      await api.delete(`/Incidents/${id}`);
+      await fetchIncidents();
+      showToast('Đã xóa báo cáo sự cố thành công!', 'info');
+    } catch (error) {
+      console.error('Error deleting incident in db:', error);
+      showToast('Lỗi khi xóa báo cáo.', 'error');
+    }
   };
 
   const [newLotAddress, setNewLotAddress] = useState('');
@@ -233,23 +200,22 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleAddLot = (e: React.FormEvent) => {
+  const handleAddLot = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newLot.name.trim()) return;
 
-    const nextId = parkingLots.length ? Math.max(...parkingLots.map(p => p.id)) + 1 : 1;
-    const updated = [...parkingLots, { 
-      id: nextId, 
-      ...newLot,
-      floors: [...newLotFloors] 
-    }];
-    setParkingLots(updated);
-    localStorage.setItem('customParkingLots', JSON.stringify(updated));
-    
-    // Auto sync selectedParking if needed
-    const currentSelected = localStorage.getItem('selectedParking');
-    if (!currentSelected) {
-      localStorage.setItem('selectedParking', JSON.stringify(updated[0]));
+    try {
+      await api.post('/ParkingLots', {
+        name: newLot.name,
+        latitude: newLot.latitude,
+        longitude: newLot.longitude,
+        floor: newLot.floor,
+        block: newLot.block,
+        floors: [...newLotFloors]
+      });
+      await fetchParkingLots();
+    } catch (error) {
+      console.error('Error adding parking lot:', error);
     }
     
     setNewLot({
@@ -265,87 +231,48 @@ const AdminDashboard = () => {
     showToast('Thêm chi nhánh mới thành công!', 'success');
   };
 
-  const handleDeleteLot = (id: number) => {
-    const updated = parkingLots.filter(p => p.id !== id);
-    setParkingLots(updated);
-    localStorage.setItem('customParkingLots', JSON.stringify(updated));
-    
-    // Fallback selected parking
-    const currentSelected = localStorage.getItem('selectedParking');
-    if (currentSelected) {
-      try {
-        const parsed = JSON.parse(currentSelected);
-        if (parsed.id === id) {
-          if (updated.length > 0) {
-            localStorage.setItem('selectedParking', JSON.stringify(updated[0]));
-          } else {
-            localStorage.removeItem('selectedParking');
-          }
-        }
-      } catch(e) {}
+  const handleDeleteLot = async (id: any) => {
+    try {
+      await api.delete(`/ParkingLots/${id}`);
+      await fetchParkingLots();
+      showToast('Đã xóa chi nhánh thành công!', 'info');
+    } catch (error) {
+      console.error('Error deleting parking lot:', error);
+      showToast('Xóa chi nhánh thất bại!', 'error');
     }
-    showToast('Đã xóa chi nhánh thành công!', 'info');
   };
 
-  const handleAddFloorToLot = (id: number) => {
-    const updated = parkingLots.map(p => {
-      if (p.id === id) {
-        const currentFloors = p.floors || [1, 2, 3];
-        const nextFloor = currentFloors.length ? Math.max(...currentFloors) + 1 : 1;
-        return {
-          ...p,
-          floors: [...currentFloors, nextFloor]
-        };
-      }
-      return p;
-    });
-    setParkingLots(updated);
-    localStorage.setItem('customParkingLots', JSON.stringify(updated));
+  const handleAddFloorToLot = async (id: any) => {
+    const lot = parkingLots.find(p => p.id === id);
+    if (!lot) return;
+    const currentFloors = lot.floors || [1, 2, 3];
+    const nextFloor = currentFloors.length ? Math.max(...currentFloors) + 1 : 1;
+    const updatedFloors = [...currentFloors, nextFloor];
 
-    // Update selectedParking in localStorage if active
-    const currentSelected = localStorage.getItem('selectedParking');
-    if (currentSelected) {
-      try {
-        const parsed = JSON.parse(currentSelected);
-        if (parsed.id === id) {
-          const matched = updated.find(p => p.id === id);
-          if (matched) {
-            localStorage.setItem('selectedParking', JSON.stringify(matched));
-          }
-        }
-      } catch (e) {}
+    try {
+      await api.put(`/ParkingLots/${id}`, { ...lot, floors: updatedFloors });
+      await fetchParkingLots();
+      showToast('Đã thêm tầng mới thành công!', 'success');
+    } catch (error) {
+      console.error('Error adding floor:', error);
+      showToast('Thêm tầng thất bại!', 'error');
     }
-    showToast('Đã thêm tầng mới thành công!', 'success');
   };
 
-  const handleRemoveFloorFromLot = (id: number, floorToRemove: number) => {
-    const updated = parkingLots.map(p => {
-      if (p.id === id) {
-        const currentFloors = p.floors || [1, 2, 3];
-        return {
-          ...p,
-          floors: currentFloors.filter((f: number) => f !== floorToRemove)
-        };
-      }
-      return p;
-    });
-    setParkingLots(updated);
-    localStorage.setItem('customParkingLots', JSON.stringify(updated));
+  const handleRemoveFloorFromLot = async (id: any, floorToRemove: number) => {
+    const lot = parkingLots.find(p => p.id === id);
+    if (!lot) return;
+    const currentFloors = lot.floors || [1, 2, 3];
+    const updatedFloors = currentFloors.filter((f: number) => f !== floorToRemove);
 
-    // Update selectedParking in localStorage if active
-    const currentSelected = localStorage.getItem('selectedParking');
-    if (currentSelected) {
-      try {
-        const parsed = JSON.parse(currentSelected);
-        if (parsed.id === id) {
-          const matched = updated.find(p => p.id === id);
-          if (matched) {
-            localStorage.setItem('selectedParking', JSON.stringify(matched));
-          }
-        }
-      } catch (e) {}
+    try {
+      await api.put(`/ParkingLots/${id}`, { ...lot, floors: updatedFloors });
+      await fetchParkingLots();
+      showToast('Đã xóa tầng thành công!', 'info');
+    } catch (error) {
+      console.error('Error removing floor:', error);
+      showToast('Xóa tầng thất bại!', 'error');
     }
-    showToast('Đã xóa tầng thành công!', 'info');
   };
 
   // Helper to get short Vietnamese weekday name
@@ -724,15 +651,15 @@ const AdminDashboard = () => {
                 </div>
                 
                 <div className="flex-1 overflow-y-auto max-h-[420px] pr-2 space-y-4 scroll-smooth scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
-                  {parkingLots.map((lot) => (
+                  {parkingLots.map((lot, idx) => (
                     <div 
                       key={lot.id} 
                       className="flex flex-col sm:flex-row sm:items-center justify-between p-5 rounded-2xl border border-slate-100 hover:border-blue-200/80 bg-white hover:bg-blue-50/5 transition-all duration-300 group gap-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 relative z-10"
                     >
                       <div className="flex items-start gap-4.5 min-w-0">
-                        <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-blue-50 to-indigo-50 border border-blue-100 text-blue-600 flex items-center justify-center font-extrabold text-sm shrink-0 shadow-sm relative group-hover:scale-105 transition-transform duration-300">
-                          <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white animate-pulse"></span>
-                          {lot.id}
+                        <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-blue-50 to-indigo-50 border border-blue-100 text-blue-600 flex items-center justify-center font-extrabold text-sm shrink-0 shadow-sm relative group-hover:scale-105 transition-transform duration-300 overflow-hidden">
+                          <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white animate-pulse z-10"></span>
+                          {idx + 1}
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-[13px] font-bold text-slate-800 tracking-tight leading-snug group-hover:text-blue-600 transition-colors">{lot.name}</p>
@@ -824,7 +751,9 @@ const AdminDashboard = () => {
                      <tbody className="divide-y divide-slate-50">
                        {incidents.map((inc) => (
                          <tr key={inc.id} className="group hover:bg-slate-50/50 transition-all duration-200">
-                           <td className="py-5 text-xs font-black text-slate-500">{inc.id}</td>
+                           <td className="py-5 text-xs font-black text-slate-500">
+                             {inc.id.startsWith('#') ? inc.id : '#INC-' + inc.id.substring(0, 4).toUpperCase()}
+                           </td>
                            <td className="py-5 max-w-xs">
                              <div className="min-w-0">
                                <span className={`inline-block px-2 py-0.5 rounded-md text-[9px] font-black uppercase mb-1.5 ${

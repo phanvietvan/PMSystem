@@ -78,15 +78,10 @@ const ActiveSessionPage = () => {
         const results: SessionData[] = [];
 
         if (token && user) {
-          // Fetch all sessions to get history
-          const allResp = await api.get('/ParkingSessions');
+          // Fetch history sessions for the user directly
+          const allResp = await api.get('/ParkingSessions/history');
           if (allResp.data && Array.isArray(allResp.data)) {
-            // Filter sessions belonging to the user
-            const mySessions = allResp.data.filter((s: any) => {
-              const sUserId = s.userId || s.UserId;
-              const sLicensePlate = s.licensePlate || s.LicensePlate;
-              return sUserId === user.id || (sLicensePlate && user.licensePlate && sLicensePlate.replace(/[^a-zA-Z0-9]/g, '') === user.licensePlate.replace(/[^a-zA-Z0-9]/g, ''));
-            });
+            const mySessions = allResp.data;
             
             for (const s of mySessions) {
               const sExitTime = s.exitTime || s.ExitTime;

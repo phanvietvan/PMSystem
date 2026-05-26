@@ -277,7 +277,9 @@ const App = () => {
             entryPhoto: session.entryPhoto,
             exitPhoto: session.exitPhoto,
             qrCode: session.qrCode,
-            totalFee: session.totalFee
+            totalFee: session.totalFee,
+            parkingLotName: session.parkingLotName,
+            parkingSlot: session.parkingSlot
           };
         });
 
@@ -1975,6 +1977,25 @@ const App = () => {
                     <span className="text-[11px] font-black text-slate-700 mt-0.5 block tracking-wide">{selectedLogEntry.ticketType}</span>
                   </div>
                 </div>
+
+                {(selectedLogEntry.parkingLotName || selectedLogEntry.parkingSlot) && (
+                  <div className="bg-blue-50/80 p-3.5 rounded-2xl border border-blue-200 flex items-center justify-between shadow-sm">
+                    <div className="flex flex-col min-w-0 flex-1 pr-3 text-left">
+                      <span className="text-[7.5px] text-blue-500 font-extrabold uppercase tracking-[0.1em] block">Tòa nhà / Bãi đỗ</span>
+                      <span className="text-xs font-black text-blue-900 mt-0.5 block uppercase truncate" title={selectedLogEntry.parkingLotName}>
+                        {selectedLogEntry.parkingLotName || 'Khu Vực Vãng Lai'}
+                      </span>
+                    </div>
+                    {selectedLogEntry.parkingSlot && (
+                      <div className="flex flex-col items-end shrink-0">
+                        <span className="text-[7.5px] text-blue-500 font-extrabold uppercase tracking-[0.1em] block">Vị trí đỗ (Ô)</span>
+                        <span className="bg-blue-600 text-white px-3 py-1 rounded-xl text-xs font-black shadow-sm mt-0.5 whitespace-nowrap">
+                          Slot {selectedLogEntry.parkingSlot}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {selectedLogEntry.owner === 'KHÁCH ĐẶT TRƯỚC' && selectedLogEntry.customerName && (
                   <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 border border-slate-200/80 rounded-2xl p-3 shadow-sm flex flex-col gap-2">
