@@ -3,10 +3,6 @@ import {
   LayoutDashboard,
   Building,
   Car,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
-  Map,
   ChevronDown,
 } from 'lucide-react';
 import AdminLayout from '../components/admin/AdminLayout';
@@ -53,16 +49,6 @@ const AdminMonitoring = () => {
     const occupied = sessions.filter(s => s.isCheckedIn).length;
     const reserved = sessions.filter(s => !s.isCheckedIn).length;
     return { occupied, reserved, total: sessions.length };
-  };
-
-  // Generate standard slots for UI (e.g., A1, A2...)
-  const getSlotsForLot = (lot: any) => {
-    const slots = [];
-    const prefix = lot.block.split(' ')[1] || 'A';
-    for (let i = 1; i <= lot.capacity; i++) {
-      slots.push(`${prefix}${i}`);
-    }
-    return slots;
   };
 
   const currentLotStats = getLotStats(selectedLot.name);

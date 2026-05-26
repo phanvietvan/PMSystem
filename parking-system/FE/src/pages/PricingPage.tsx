@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 import { hasActiveSessions } from '../utils/auth';
+import api from '../services/api';
 
 const PricingPage = () => {
   const navigate = useNavigate();
@@ -34,6 +35,19 @@ const PricingPage = () => {
   useEffect(() => {
     const savedPrices = localStorage.getItem('parking_pricing');
     if (savedPrices) setPrices(JSON.parse(savedPrices));
+
+    const fetchPricing = async () => {
+      try {
+        const response = await api.get('/ParkingSessions/pricing');
+        if (response.data && Array.isArray(response.data)) {
+          setPrices(response.data);
+          localStorage.setItem('parking_pricing', JSON.stringify(response.data));
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    fetchPricing();
 
     const savedRegs = localStorage.getItem('parking_regulations');
     if (savedRegs) setRegulations(JSON.parse(savedRegs));

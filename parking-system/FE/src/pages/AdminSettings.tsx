@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import AdminLayout from '../components/admin/AdminLayout';
+import api from '../services/api';
 
 const AdminSettings = () => {
   const [searchParams] = useSearchParams();
@@ -19,6 +20,22 @@ const AdminSettings = () => {
     const tab = searchParams.get('tab');
     if (tab) setActiveTab(tab);
   }, [searchParams]);
+
+  useEffect(() => {
+    const fetchPricing = async () => {
+      try {
+        const response = await api.get('/ParkingSessions/pricing');
+        if (response.data && Array.isArray(response.data)) {
+          setPrices(response.data);
+          localStorage.setItem('parking_pricing', JSON.stringify(response.data));
+        }
+      } catch (e) {
+        console.error('Error fetching pricing from backend', e);
+      }
+    };
+    fetchPricing();
+  }, []);
+
   const [showToast, setShowToast] = useState(false);
 
   // Pricing State & Handlers
@@ -37,8 +54,13 @@ const AdminSettings = () => {
     setPrices(updated);
   };
 
-  const handleSavePricing = () => {
+  const handleSavePricing = async () => {
     localStorage.setItem('parking_pricing', JSON.stringify(prices));
+    try {
+      await api.post('/ParkingSessions/pricing', prices);
+    } catch (e) {
+      console.error('Error saving pricing to backend', e);
+    }
     setShowToast(true);
     setTimeout(() => setShowToast(false), 3000);
   };

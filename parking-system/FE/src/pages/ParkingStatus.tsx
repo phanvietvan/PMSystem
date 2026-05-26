@@ -190,7 +190,7 @@ const ParkingStatus: React.FC = () => {
                     exit={{ opacity: 0, y: 5 }}
                     className="absolute top-[calc(100%+8px)] left-0 right-0 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200/30 py-2.5 z-[9999] max-h-60 overflow-y-auto"
                   >
-                    {parkingLots.map((lot) => (
+                    {parkingLots.map((lot: any) => (
                       <div 
                         key={lot.id}
                         className={`px-4 py-3 hover:bg-blue-50/70 text-[10px] font-extrabold uppercase tracking-wide cursor-pointer transition-colors flex items-center gap-2 ${
@@ -218,7 +218,7 @@ const ParkingStatus: React.FC = () => {
             <div>
               <p className="text-[10px] font-black uppercase tracking-wide text-slate-400 mb-3 ml-1">Chọn tầng</p>
               <div className="space-y-2">
-                {floors.map((f) => {
+                {floors.map((f: any) => {
                   const active = selectedLevel === f;
                   return (
                     <button
