@@ -132,11 +132,11 @@ const ForgotPasswordPage = () => {
         <BrandLogo size="lg" asLink />
 
         <div className="max-w-2xl opacity-0 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-          <h2 className="text-[72px] font-display font-extrabold leading-[1.05] tracking-tight mb-8 text-on-surface">
+          <h2 className="text-[72px] font-display font-extrabold leading-[1.05] tracking-tight mb-8 text-slate-900">
             Khôi phục<br/>
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-500 to-blue-500">tài khoản của bạn.</span>
           </h2>
-          <p className="text-on-surface-variant text-xl leading-relaxed max-w-lg font-medium">
+          <p className="text-slate-500 text-xl leading-relaxed max-w-lg font-medium">
             Đừng lo lắng, chúng tôi sẽ giúp bạn lấy lại mật khẩu chỉ trong vài phút thông qua quy trình xác thực an toàn.
           </p>
         </div>
@@ -144,15 +144,15 @@ const ForgotPasswordPage = () => {
 
       {/* Form Section */}
       <section className="flex flex-col items-center justify-center w-full lg:w-[45%] p-8 md:p-16 relative z-20">
-        <div className="w-full max-w-[460px] glass-panel p-10 md:p-12 rounded-[2.5rem] glow-border">
+        <div className="w-full max-w-[460px] bg-white/80 border border-slate-200/40 backdrop-blur-md p-10 md:p-12 rounded-[2.5rem] shadow-soft">
           {/* Back Button */}
           {step > 0 ? (
-            <button onClick={() => setStep(step - 1)} className="flex items-center gap-2 text-outline hover:text-primary transition-colors text-xs font-bold uppercase tracking-widest mb-6">
+            <button onClick={() => setStep(step - 1)} className="flex items-center gap-2 text-slate-400 hover:text-slate-700 transition-colors text-[10px] font-extrabold uppercase tracking-widest mb-6 cursor-pointer">
               <span className="material-symbols-outlined text-[18px]">arrow_back</span>
               Quay lại
             </button>
           ) : (
-            <Link to="/login" className="flex items-center gap-2 text-outline hover:text-primary transition-colors text-xs font-bold uppercase tracking-widest mb-6">
+            <Link to="/login" className="flex items-center gap-2 text-slate-400 hover:text-slate-700 transition-colors text-[10px] font-extrabold uppercase tracking-widest mb-6">
               <span className="material-symbols-outlined text-[18px]">arrow_back</span>
               Về trang đăng nhập
             </Link>
@@ -160,8 +160,8 @@ const ForgotPasswordPage = () => {
 
           {/* Welcome Header */}
           <div className="mb-10 text-center">
-            <h2 className="text-4xl font-display font-extrabold text-on-surface tracking-tight mb-3">Quên mật khẩu</h2>
-            <p className="text-on-surface-variant font-medium">Nhập thông tin bên dưới để tiếp tục.</p>
+            <h2 className="text-3xl font-display font-extrabold text-slate-900 tracking-tight mb-3">Quên mật khẩu</h2>
+            <p className="text-slate-500 font-medium text-sm">Nhập thông tin bên dưới để tiếp tục.</p>
           </div>
 
           {/* Form Wrapper */}
@@ -183,18 +183,16 @@ const ForgotPasswordPage = () => {
                 </div>
               )}
 
-
-
               {step === 0 && (
                 <div className="space-y-6 animate-fade-in-up">
-                  <div className="space-y-2.5">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/70 ml-1">Email khôi phục</label>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-1 block">Email khôi phục</label>
                     <div className="relative group">
-                      <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-outline group-focus-within:text-primary transition-colors">
+                      <div className="absolute inset-y-0 left-0 pl-4.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-600 transition-colors">
                         <span className="material-symbols-outlined text-[20px]">mail</span>
                       </div>
                       <input 
-                        className="premium-input block w-full pl-14 pr-5 py-4 rounded-full border border-outline-variant focus:outline-none transition-all text-[15px] font-medium" 
+                        className="block w-full pl-12 pr-4 py-3 rounded-full border border-slate-200/80 bg-slate-50/40 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all text-sm font-medium focus:outline-none" 
                         type="email" 
                         placeholder="email@example.com" 
                         required 
@@ -204,7 +202,7 @@ const ForgotPasswordPage = () => {
                     </div>
                   </div>
                   <button 
-                    className={`w-full py-3.5 bg-primary hover:bg-primary-container text-white font-bold rounded-full transition-all duration-300 shadow-lg shadow-primary/10 tracking-wider uppercase text-xs ${loading ? 'opacity-80 cursor-wait' : ''}`} 
+                    className={`w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-full transition-all duration-300 shadow-md shadow-blue-500/10 hover:shadow-lg hover:shadow-blue-500/20 active:scale-[0.98] text-[10px] uppercase tracking-widest cursor-pointer ${loading ? 'opacity-80 cursor-wait' : ''}`} 
                     type="submit"
                     disabled={loading}
                   >
@@ -215,8 +213,8 @@ const ForgotPasswordPage = () => {
 
               {step === 1 && (
                 <div className="space-y-6 animate-fade-in-up">
-                  <div className="text-center p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30">
-                    <p className="text-xs text-on-surface-variant">Mã OTP đã được gửi. Vui lòng nhập mã để đặt lại mật khẩu.</p>
+                  <div className="text-center p-4 rounded-2xl bg-indigo-50/40 border border-indigo-100/50">
+                    <p className="text-xs text-slate-500">Mã OTP đã được gửi. Vui lòng nhập mã để đặt lại mật khẩu.</p>
                     {devOtpCode && (
                       <p className="text-[11px] font-black text-indigo-600 mt-2 bg-indigo-50 py-1 px-3 rounded-full inline-block">
                         Mã OTP của bạn: {devOtpCode}
@@ -224,13 +222,13 @@ const ForgotPasswordPage = () => {
                     )}
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/70 ml-1">Mã xác thực OTP (6 chữ số)</label>
+                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-1 block">Mã xác thực OTP (6 chữ số)</label>
                     <div className="relative group">
-                      <div className="absolute inset-y-0 left-0 pl-4.5 flex items-center pointer-events-none text-outline group-focus-within:text-primary transition-colors">
+                      <div className="absolute inset-y-0 left-0 pl-4.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-600 transition-colors">
                         <span className="material-symbols-outlined text-[20px]">verified</span>
                       </div>
                       <input 
-                        className="premium-input block w-full pl-12 pr-4 py-3 rounded-full border border-outline-variant focus:outline-none transition-all text-center text-lg font-bold tracking-[0.25em]" 
+                        className="block w-full pl-12 pr-4 py-3 rounded-full border border-slate-200/80 bg-slate-50/40 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all text-center text-lg font-bold tracking-[0.25em] focus:outline-none" 
                         maxLength={6} 
                         required 
                         value={otp} 
@@ -240,7 +238,7 @@ const ForgotPasswordPage = () => {
                     </div>
                   </div>
                   <button 
-                    className={`w-full py-3.5 bg-primary hover:bg-primary-container text-white font-bold rounded-full transition-all duration-300 shadow-lg shadow-primary/10 tracking-wider uppercase text-xs ${loading ? 'opacity-80 cursor-wait' : ''}`} 
+                    className={`w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-full transition-all duration-300 shadow-md shadow-blue-500/10 hover:shadow-lg hover:shadow-blue-500/20 active:scale-[0.98] text-[10px] uppercase tracking-widest cursor-pointer ${loading ? 'opacity-80 cursor-wait' : ''}`} 
                     type="submit"
                     disabled={loading}
                   >
@@ -251,10 +249,10 @@ const ForgotPasswordPage = () => {
 
               {step === 2 && (
                 <div className="space-y-6 animate-fade-in-up">
-                  <div className="space-y-2.5">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/70 ml-1">Mật khẩu mới</label>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-1 block">Mật khẩu mới</label>
                     <input 
-                      className="premium-input block w-full px-5 py-3 rounded-full border border-outline-variant focus:outline-none transition-all text-[15px] font-medium" 
+                      className="block w-full px-5 py-3 rounded-full border border-slate-200/80 bg-slate-50/40 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all text-sm font-medium focus:outline-none" 
                       type="password" 
                       placeholder="••••••••" 
                       required 
@@ -265,7 +263,7 @@ const ForgotPasswordPage = () => {
                   {newPassword && (
                     <div className="space-y-1.5 px-1">
                       <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-[0.1em]">
-                        <span className="text-on-surface-variant/70">Độ mạnh mật khẩu:</span>
+                        <span className="text-slate-400">Độ mạnh mật khẩu:</span>
                         <span className={getPasswordStrength(newPassword).textColor}>
                           {getPasswordStrength(newPassword).label}
                         </span>
@@ -284,15 +282,15 @@ const ForgotPasswordPage = () => {
                           );
                         })}
                       </div>
-                      <p className="text-[10px] text-on-surface-variant/50 leading-relaxed">
+                      <p className="text-[10px] text-slate-400 leading-relaxed">
                         Yêu cầu: dài ít nhất 8 ký tự, gồm chữ hoa, chữ thường, chữ số và ký tự đặc biệt.
                       </p>
                     </div>
                   )}
-                  <div className="space-y-2.5">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/70 ml-1">Xác nhận mật khẩu mới</label>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-1 block">Xác nhận mật khẩu mới</label>
                     <input 
-                      className="premium-input block w-full px-5 py-3 rounded-full border border-outline-variant focus:outline-none transition-all text-[15px] font-medium" 
+                      className="block w-full px-5 py-3 rounded-full border border-slate-200/80 bg-slate-50/40 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all text-sm font-medium focus:outline-none" 
                       type="password" 
                       placeholder="••••••••" 
                       required 
@@ -301,7 +299,7 @@ const ForgotPasswordPage = () => {
                     />
                   </div>
                   <button 
-                    className={`w-full py-3.5 bg-primary hover:bg-primary-container text-white font-bold rounded-full transition-all duration-300 shadow-lg shadow-primary/10 tracking-wider uppercase text-xs ${loading ? 'opacity-80 cursor-wait' : ''}`} 
+                    className={`w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-full transition-all duration-300 shadow-md shadow-blue-500/10 hover:shadow-lg hover:shadow-blue-500/20 active:scale-[0.98] text-[10px] uppercase tracking-widest cursor-pointer ${loading ? 'opacity-80 cursor-wait' : ''}`} 
                     type="submit"
                     disabled={loading}
                   >

@@ -20,6 +20,7 @@ import AdminReservations from './pages/AdminReservations';
 import AdminReports from './pages/AdminReports';
 import AdminUsers from './pages/AdminUsers';
 import AdminSettings from './pages/AdminSettings';
+import ReportIncidentPage from './pages/ReportIncidentPage';
 import AdminRoute from './components/auth/AdminRoute';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import './index.css';
@@ -74,6 +75,7 @@ function App() {
           <Route path="/gate-scan" element={<ProtectedRoute><GateScanPage /></ProtectedRoute>} />
           <Route path="/navigation" element={<ProtectedRoute><NavigationPage /></ProtectedRoute>} />
           <Route path="/active-session" element={<ProtectedRoute><ActiveSessionPage /></ProtectedRoute>} />
+          <Route path="/report-incident" element={<ProtectedRoute><ReportIncidentPage /></ProtectedRoute>} />
           <Route path="/contact" element={<ContactPage />} />
 
           {/* Premium Auth Routes */}

@@ -55,6 +55,11 @@ const AdminReports = () => {
   ];
 
 
+  const maxVal = Math.max(
+    ...monthlyData.map(d => Math.max(d.current || 0, d.lastYear || 0)),
+    10000
+  );
+
   return (
     <AdminLayout>
       {/* Page Content */}
@@ -91,26 +96,26 @@ const AdminReports = () => {
               {/* Bar Chart Comparison */}
               <div className="col-span-12 lg:col-span-8 bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
                  <div className="flex justify-between items-center mb-10">
-                    <h3 className="text-lg font-black text-slate-900 tracking-tight">So sánh Doanh thu Hàng tháng</h3>
+                    <h3 className="text-lg font-black text-slate-900 tracking-tight">Doanh thu Hàng ngày (7 ngày gần nhất)</h3>
                     <div className="flex items-center gap-6">
                        <div className="flex items-center gap-2">
                           <div className="w-2.5 h-2.5 bg-blue-600 rounded-full"></div>
-                          <span className="text-[10px] font-black text-slate-400 uppercase">Hiện tại</span>
+                          <span className="text-[10px] font-black text-slate-400 uppercase">Tuần này</span>
                        </div>
                        <div className="flex items-center gap-2">
                           <div className="w-2.5 h-2.5 bg-slate-200 rounded-full"></div>
-                          <span className="text-[10px] font-black text-slate-400 uppercase">Năm ngoái</span>
+                          <span className="text-[10px] font-black text-slate-400 uppercase">Tuần trước</span>
                        </div>
                     </div>
                  </div>
                  <div className="h-64 flex items-end justify-between px-2 gap-4">
                     {monthlyData.map((d, i) => (
-                       <div key={i} className={`flex-1 flex flex-col items-center group ${d.forecast ? 'opacity-30' : ''}`}>
-                          <div className="w-full flex items-end gap-1.5 h-full">
-                             <div className="flex-1 bg-slate-100 rounded-t-lg transition-all" style={{ height: `${d.lastYear}%` }}></div>
-                             <div className={`flex-1 bg-blue-600 rounded-t-lg transition-all group-hover:scale-y-105 origin-bottom`} style={{ height: `${d.current}%` }}></div>
+                       <div key={i} className={`flex-1 h-full flex flex-col justify-end items-center group ${d.forecast ? 'opacity-30' : ''}`} title={`Tuần này: ${(d.current || 0).toLocaleString('vi-VN')} ₫\nTuần trước: ${(d.lastYear || 0).toLocaleString('vi-VN')} ₫`}>
+                          <div className="w-full flex-1 flex items-end gap-1.5 min-h-0">
+                             <div className="flex-1 bg-slate-100 rounded-t-lg transition-all" style={{ height: `${((d.lastYear || 0) / maxVal) * 100}%` }}></div>
+                             <div className={`flex-1 bg-blue-600 rounded-t-lg transition-all group-hover:scale-y-105 origin-bottom`} style={{ height: `${((d.current || 0) / maxVal) * 100}%` }}></div>
                           </div>
-                          <span className={`mt-4 text-[10px] font-black ${d.active ? 'text-blue-600' : 'text-slate-400'}`}>{d.month}</span>
+                          <span className={`mt-4 text-[10px] font-black shrink-0 ${d.active ? 'text-blue-600' : 'text-slate-400'}`}>{d.month}</span>
                        </div>
                     ))}
                  </div>
