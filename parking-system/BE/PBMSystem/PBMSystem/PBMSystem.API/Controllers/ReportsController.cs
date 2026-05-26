@@ -32,8 +32,8 @@ public class ReportsController : ControllerBase
         var currentMonthSessions = sessions.Where(s => s.EntryTime.Month == currentMonth && s.EntryTime.Year == currentYear).ToList();
         var lastMonthSessions = sessions.Where(s => s.EntryTime.Month == (currentMonth == 1 ? 12 : currentMonth - 1) && s.EntryTime.Year == (currentMonth == 1 ? currentYear - 1 : currentYear)).ToList();
         
-        var currentMonthRevenue = currentMonthSessions.Sum(s => (double)(s.ExitTime.HasValue ? CalculateFee(s.EntryTime, s.ExitTime.Value) : 0m));
-        var lastMonthRevenue = lastMonthSessions.Sum(s => (double)(s.ExitTime.HasValue ? CalculateFee(s.EntryTime, s.ExitTime.Value) : 0m));
+        var currentMonthRevenue = currentMonthSessions.Sum(s => (double)(s.ExitTime.HasValue ? CalculateFee(s.EntryTime, s.ExitTime.Value, s.VehicleType) : 0m));
+        var lastMonthRevenue = lastMonthSessions.Sum(s => (double)(s.ExitTime.HasValue ? CalculateFee(s.EntryTime, s.ExitTime.Value, s.VehicleType) : 0m));
         var growth = lastMonthRevenue == 0 ? 100.0 : ((currentMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100.0;
 
         // Peak Occupancy
@@ -47,11 +47,11 @@ public class ReportsController : ControllerBase
         {
             var targetDate = DateTime.Today.AddDays(-i);
             var dSessions = sessions.Where(s => s.ExitTime.HasValue && s.ExitTime.Value.Date == targetDate.Date);
-            var dRevenue = dSessions.Sum(s => (double)CalculateFee(s.EntryTime, s.ExitTime.Value));
+            var dRevenue = dSessions.Sum(s => (double)CalculateFee(s.EntryTime, s.ExitTime.Value, s.VehicleType));
             
             var lastWeekDate = targetDate.AddDays(-7);
             var lastWeekSessions = sessions.Where(s => s.ExitTime.HasValue && s.ExitTime.Value.Date == lastWeekDate.Date);
-            var lastWeekRevenue = lastWeekSessions.Sum(s => (double)CalculateFee(s.EntryTime, s.ExitTime.Value));
+            var lastWeekRevenue = lastWeekSessions.Sum(s => (double)CalculateFee(s.EntryTime, s.ExitTime.Value, s.VehicleType));
 
             monthlyData.Add(new {
                 month = targetDate.ToString("dd/MM"),
@@ -70,8 +70,8 @@ public class ReportsController : ControllerBase
                 id = GetZoneId(g.Key),
                 name = g.Key,
                 count = g.Count().ToString("N0"),
-                revenueValue = g.Sum(s => (double)(s.ExitTime.HasValue ? CalculateFee(s.EntryTime, s.ExitTime.Value) : 0m)),
-                revenue = FormatRevenue(g.Sum(s => (double)(s.ExitTime.HasValue ? CalculateFee(s.EntryTime, s.ExitTime.Value) : 0m)))
+                revenueValue = g.Sum(s => (double)(s.ExitTime.HasValue ? CalculateFee(s.EntryTime, s.ExitTime.Value, s.VehicleType) : 0m)),
+                revenue = FormatRevenue(g.Sum(s => (double)(s.ExitTime.HasValue ? CalculateFee(s.EntryTime, s.ExitTime.Value, s.VehicleType) : 0m)))
             })
             .OrderByDescending(z => z.revenueValue)
             .Take(4)
@@ -115,10 +115,99 @@ public class ReportsController : ControllerBase
         return amount.ToString("N0") + " ₫";
     }
 
-    private decimal CalculateFee(DateTime entry, DateTime exit)
+    private decimal CalculateFee(DateTime entryTime, DateTime exitTime, string? vehicleType)
     {
-        var duration = exit - entry;
-        var hours = (decimal)duration.TotalHours;
-        return hours <= 1 ? 15000 : 15000 + (Math.Ceiling(hours) - 1) * 5000;
+        var elapsed = exitTime - entryTime;
+        var elapsedMinutes = (int)Math.Ceiling(elapsed.TotalMinutes);
+
+        decimal baseRate = 10000;
+        bool isHourly = true;
+
+        try
+        {
+            var path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "pricing.json");
+            if (System.IO.File.Exists(path))
+            {
+                var json = System.IO.File.ReadAllText(path);
+                var doc = System.Text.Json.JsonDocument.Parse(json);
+                var root = doc.RootElement;
+                if (root.ValueKind == System.Text.Json.JsonValueKind.Array)
+                {
+                    string targetType = (vehicleType ?? "car").ToLower();
+                    System.Text.Json.JsonElement matchedElement = default;
+                    bool found = false;
+
+                    foreach (var elem in root.EnumerateArray())
+                    {
+                        var typeProp = elem.GetProperty("type").GetString() ?? "";
+                        var typeLower = typeProp.ToLower();
+                        if (targetType == "bike" && (typeLower.Contains("xe máy") || typeLower.Contains("bike")))
+                        {
+                            matchedElement = elem;
+                            found = true;
+                            break;
+                        }
+                        else if (targetType == "car" && (typeLower.Contains("ô tô") || typeLower.Contains("car") || typeLower.Contains("4-7")))
+                        {
+                            matchedElement = elem;
+                            found = true;
+                            break;
+                        }
+                        else if (targetType == "suv" && (typeLower.Contains("suv") || typeLower.Contains("bán tải")))
+                        {
+                            matchedElement = elem;
+                            found = true;
+                            break;
+                        }
+                    }
+
+                    if (found)
+                    {
+                        var priceStr = matchedElement.GetProperty("price").GetString() ?? "10000";
+                        var subStr = matchedElement.GetProperty("sub").GetString() ?? "Giờ";
+
+                        var cleanPrice = priceStr.Replace(".", "").Replace(",", "").Trim();
+                        if (decimal.TryParse(cleanPrice, out var parsedPrice))
+                        {
+                            baseRate = parsedPrice;
+                        }
+                        isHourly = subStr.ToLower().Contains("giờ") || subStr.ToLower().Contains("hour");
+                    }
+                }
+            }
+            else
+            {
+                string targetType = (vehicleType ?? "car").ToLower();
+                if (targetType == "bike")
+                {
+                    baseRate = 10000;
+                    isHourly = false;
+                }
+                else if (targetType == "car")
+                {
+                    baseRate = 20000;
+                    isHourly = true;
+                }
+                else if (targetType == "suv")
+                {
+                    baseRate = 30000;
+                    isHourly = true;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error calculating dynamic fee in ReportsController: " + ex.Message);
+        }
+
+        if (isHourly)
+        {
+            var hours = (int)Math.Max(1, Math.Ceiling(elapsedMinutes / 60.0));
+            return baseRate * hours;
+        }
+        else
+        {
+            return baseRate;
+        }
     }
 }

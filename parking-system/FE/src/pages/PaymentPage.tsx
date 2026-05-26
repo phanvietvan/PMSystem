@@ -62,7 +62,59 @@ const PaymentPage = () => {
       };
       fetchCheckoutFee();
     } else {
-      setPrice(50000); // reservation standard flat rate
+      const loadReservationPrice = async () => {
+        let basePrice = 50000;
+        try {
+          const response = await api.get('/ParkingSessions/pricing');
+          if (response.data && Array.isArray(response.data)) {
+            localStorage.setItem('parking_pricing', JSON.stringify(response.data));
+            const reservationVehicleType = localStorage.getItem('reservationVehicleType') || 'car';
+            let matched = null;
+            if (reservationVehicleType === 'bike') {
+              matched = response.data[0];
+            } else if (reservationVehicleType === 'car') {
+              matched = response.data[1];
+            } else if (reservationVehicleType === 'suv') {
+              matched = response.data[2];
+            }
+
+            if (matched) {
+              const cleanPriceStr = matched.price.replace(/[.,]/g, '');
+              const parsedNum = parseFloat(cleanPriceStr);
+              if (!isNaN(parsedNum)) {
+                basePrice = parsedNum;
+              }
+            }
+          }
+        } catch (e) {
+          // fallback to localStorage
+          const savedPricing = localStorage.getItem('parking_pricing');
+          if (savedPricing) {
+            try {
+              const parsed = JSON.parse(savedPricing);
+              const reservationVehicleType = localStorage.getItem('reservationVehicleType') || 'car';
+              let matched = null;
+              if (reservationVehicleType === 'bike') {
+                matched = parsed[0];
+              } else if (reservationVehicleType === 'car') {
+                matched = parsed[1];
+              } else if (reservationVehicleType === 'suv') {
+                matched = parsed[2];
+              }
+
+              if (matched) {
+                const cleanPriceStr = matched.price.replace(/[.,]/g, '');
+                const parsedNum = parseFloat(cleanPriceStr);
+                if (!isNaN(parsedNum)) {
+                  basePrice = parsedNum;
+                }
+              }
+            } catch (err) {}
+          }
+        }
+        setPrice(basePrice);
+      };
+      loadReservationPrice();
     }
   }, [mode]);
 

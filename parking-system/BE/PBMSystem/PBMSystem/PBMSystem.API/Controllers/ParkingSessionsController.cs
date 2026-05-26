@@ -119,14 +119,100 @@ public class ParkingSessionsController : ControllerBase
         return Ok(session);
     }
 
-    private decimal CalculateFee(DateTime entryTime, DateTime exitTime)
+    private decimal CalculateFee(DateTime entryTime, DateTime exitTime, string? vehicleType)
     {
         var elapsed = exitTime - entryTime;
         var elapsedMinutes = (int)Math.Ceiling(elapsed.TotalMinutes);
-        decimal fee = 10000;
-        if (elapsedMinutes > 60)
-            fee += (elapsedMinutes - 60) * 500;
-        return fee;
+
+        decimal baseRate = 10000;
+        bool isHourly = true;
+
+        try
+        {
+            var path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "pricing.json");
+            if (System.IO.File.Exists(path))
+            {
+                var json = System.IO.File.ReadAllText(path);
+                var doc = System.Text.Json.JsonDocument.Parse(json);
+                var root = doc.RootElement;
+                if (root.ValueKind == System.Text.Json.JsonValueKind.Array)
+                {
+                    string targetType = (vehicleType ?? "car").ToLower();
+                    System.Text.Json.JsonElement matchedElement = default;
+                    bool found = false;
+
+                    foreach (var elem in root.EnumerateArray())
+                    {
+                        var typeProp = elem.GetProperty("type").GetString() ?? "";
+                        var typeLower = typeProp.ToLower();
+                        if (targetType == "bike" && (typeLower.Contains("xe máy") || typeLower.Contains("bike")))
+                        {
+                            matchedElement = elem;
+                            found = true;
+                            break;
+                        }
+                        else if (targetType == "car" && (typeLower.Contains("ô tô") || typeLower.Contains("car") || typeLower.Contains("4-7")))
+                        {
+                            matchedElement = elem;
+                            found = true;
+                            break;
+                        }
+                        else if (targetType == "suv" && (typeLower.Contains("suv") || typeLower.Contains("bán tải")))
+                        {
+                            matchedElement = elem;
+                            found = true;
+                            break;
+                        }
+                    }
+
+                    if (found)
+                    {
+                        var priceStr = matchedElement.GetProperty("price").GetString() ?? "10000";
+                        var subStr = matchedElement.GetProperty("sub").GetString() ?? "Giờ";
+
+                        var cleanPrice = priceStr.Replace(".", "").Replace(",", "").Trim();
+                        if (decimal.TryParse(cleanPrice, out var parsedPrice))
+                        {
+                            baseRate = parsedPrice;
+                        }
+                        isHourly = subStr.ToLower().Contains("giờ") || subStr.ToLower().Contains("hour");
+                    }
+                }
+            }
+            else
+            {
+                string targetType = (vehicleType ?? "car").ToLower();
+                if (targetType == "bike")
+                {
+                    baseRate = 10000;
+                    isHourly = false;
+                }
+                else if (targetType == "car")
+                {
+                    baseRate = 20000;
+                    isHourly = true;
+                }
+                else if (targetType == "suv")
+                {
+                    baseRate = 30000;
+                    isHourly = true;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error calculating dynamic fee: " + ex.Message);
+        }
+
+        if (isHourly)
+        {
+            var hours = (int)Math.Max(1, Math.Ceiling(elapsedMinutes / 60.0));
+            return baseRate * hours;
+        }
+        else
+        {
+            return baseRate;
+        }
     }
 
     /// <summary>
@@ -147,7 +233,7 @@ public class ParkingSessionsController : ControllerBase
             return Ok(new { hasActiveSession = false, session = (object?)null });
 
         var now = DateTime.UtcNow;
-        var fee = CalculateFee(session.EntryTime, now);
+        var fee = CalculateFee(session.EntryTime, now, session.VehicleType);
         var durationMinutes = (int)Math.Ceiling((now - session.EntryTime).TotalMinutes);
 
         return Ok(new { hasActiveSession = true, session, fee, durationMinutes });
@@ -179,7 +265,7 @@ public class ParkingSessionsController : ControllerBase
         }
 
         var exitTime = DateTime.UtcNow;
-        var fee = CalculateFee(session.EntryTime, exitTime);
+        var fee = CalculateFee(session.EntryTime, exitTime, session.VehicleType);
         var durationMinutes = (int)Math.Ceiling((exitTime - session.EntryTime).TotalMinutes);
 
         return Ok(new 
@@ -225,7 +311,7 @@ public class ParkingSessionsController : ControllerBase
 
         await _context.SaveChangesAsync();
 
-        var fee = CalculateFee(session.EntryTime, session.ExitTime.Value);
+        var fee = CalculateFee(session.EntryTime, session.ExitTime.Value, session.VehicleType);
 
         return Ok(new
         {
@@ -360,7 +446,7 @@ public class ParkingSessionsController : ControllerBase
             ps.ExitTime,
             ps.Status,
             ps.QrCode,
-            TotalFee = ps.ExitTime.HasValue ? CalculateFee(ps.EntryTime, ps.ExitTime.Value) : (decimal?)null,
+            TotalFee = ps.ExitTime.HasValue ? CalculateFee(ps.EntryTime, ps.ExitTime.Value, ps.VehicleType) : (decimal?)null,
             ps.IsCheckedIn,
             ps.EntryPhoto,
             ps.ExitPhoto,
@@ -377,6 +463,33 @@ public class ParkingSessionsController : ControllerBase
         });
 
         return Ok(result);
+    }
+
+    [HttpGet("pricing")]
+    public async Task<IActionResult> GetPricing()
+    {
+        var path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "pricing.json");
+        if (!System.IO.File.Exists(path))
+        {
+            var defaultPricing = new List<object>
+            {
+                new { type = "Xe máy", price = "10.000", sub = "VNĐ / Lượt" },
+                new { type = "Ô tô 4-7 chỗ", price = "20.000", sub = "VNĐ / Giờ" },
+                new { type = "SUV / Bán tải", price = "30.000", sub = "VNĐ / Giờ" }
+            };
+            return Ok(defaultPricing);
+        }
+        var json = await System.IO.File.ReadAllTextAsync(path);
+        return Content(json, "application/json");
+    }
+
+    [HttpPost("pricing")]
+    public async Task<IActionResult> SavePricing([FromBody] System.Text.Json.JsonElement pricing)
+    {
+        var path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "pricing.json");
+        var json = pricing.ToString();
+        await System.IO.File.WriteAllTextAsync(path, json);
+        return Ok(new { message = "Pricing saved successfully." });
     }
 }
 

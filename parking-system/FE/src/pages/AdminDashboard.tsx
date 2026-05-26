@@ -324,7 +324,7 @@ const AdminDashboard = () => {
         const currentFloors = p.floors || [1, 2, 3];
         return {
           ...p,
-          floors: currentFloors.filter(f => f !== floorToRemove)
+          floors: currentFloors.filter((f: number) => f !== floorToRemove)
         };
       }
       return p;
@@ -357,7 +357,7 @@ const AdminDashboard = () => {
 
   // Calculate daily revenue for the last 7 days from sessions
   const getLast7DaysRevenue = () => {
-    const days = [];
+    const days: any[] = [];
     
     // Initialize array for the last 7 days (oldest to newest, today is index 6)
     for (let i = 6; i >= 0; i--) {

@@ -40,7 +40,7 @@ const ReservationPage = () => {
     if (storedParking) {
       try {
         const parsed = JSON.parse(storedParking);
-        const matched = parkingLots.find(p => p.name === parsed.name);
+        const matched = parkingLots.find((p: any) => p.name === parsed.name);
         if (matched) initialParkingLotId = matched.id;
       } catch (e) {}
     }
@@ -56,7 +56,7 @@ const ReservationPage = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isVehicleDropdownOpen, setIsVehicleDropdownOpen] = useState(false);
 
-  const selectedParking = parkingLots.find(p => p.id === formData.parkingLotId) || parkingLots[0];
+  const selectedParking = parkingLots.find((p: any) => p.id === formData.parkingLotId) || parkingLots[0];
 
   const [isSlotSelected, setIsSlotSelected] = useState(fromStatus);
   const [currentSlot, setCurrentSlot] = useState(() => localStorage.getItem('selectedSlot') || '');
@@ -115,7 +115,7 @@ const ReservationPage = () => {
             setActivePlates(normalizedActive);
 
             // Auto-select the first available (non-active in current building) vehicle
-            const currentLotName = parkingLots.find(p => p.id === formData.parkingLotId)?.name || parkingLots[0].name;
+            const currentLotName = parkingLots.find((p: any) => p.id === formData.parkingLotId)?.name || parkingLots[0].name;
             const firstAvailable = parsedVehicles.find(v => {
               const norm = v.plate.replace(/[-. ]/g, '').toUpperCase();
               return !normalizedActive.some(a => a.plate === norm && a.parkingLotName === currentLotName);
@@ -395,7 +395,7 @@ const ReservationPage = () => {
                         transition={{ duration: 0.2, ease: "easeOut" }}
                         className="absolute z-[2500] left-0 right-0 mt-2 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-100/90 max-h-56 overflow-y-auto divide-y divide-slate-50 scrollbar-thin overflow-hidden p-1.5"
                       >
-                        {parkingLots.map(lot => (
+                        {parkingLots.map((lot: any) => (
                           <div
                             key={lot.id}
                             onClick={() => {
