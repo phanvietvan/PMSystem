@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { ShieldCheck, Info, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
-import { parseLicensePlate, getActiveQrs, removeActiveQr } from '../utils/auth';
+import { parseLicensePlate, getActiveQrs, removeActiveQr, addActiveQr } from '../utils/auth';
 import api from '../services/api';
 import QRCode from 'qrcode';
 
@@ -98,7 +98,6 @@ const ActiveSessionPage = () => {
               
               // Sync active QR to localStorage
               if (!isCompleted && sQrCode) {
-                const { addActiveQr } = await import('../utils/auth');
                 addActiveQr(sQrCode);
               }
 
@@ -210,6 +209,7 @@ const ActiveSessionPage = () => {
         setSessions(results);
         setLoading(false);
       } catch (e) {
+        console.error("Error fetching active sessions:", e);
         setLoading(false);
         navigate('/reserve');
       }
@@ -258,9 +258,7 @@ const ActiveSessionPage = () => {
               updated = true;
               
               // Async remove from local storage
-              import('../utils/auth').then(({ removeActiveQr }) => {
-                removeActiveQr(item.qr);
-              });
+              removeActiveQr(item.qr);
 
               const entryT = foundCompleted.entryTime;
               const exitT = foundCompleted.exitTime;
