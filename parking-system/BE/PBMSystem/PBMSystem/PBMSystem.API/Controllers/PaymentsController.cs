@@ -27,7 +27,15 @@ namespace PBMSystem.API.Controllers
 
             return Ok(result);
         }
+        [HttpPost("create-payos")]
+        public async Task<IActionResult> CreatePayOS(
+    [FromBody] CreatePayOSPaymentRequest request)
+        {
+            var result =
+                await _paymentService.CreatePayOSAsync(request);
 
+            return Ok(result);
+        }
         [HttpGet("{id}/status")]
         public async Task<IActionResult> Status(Guid id)
         {

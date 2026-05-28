@@ -13,5 +13,7 @@ namespace Services.Interfaces
             CreatePaymentRequest request);
 
         Task<object> GetStatusAsync(Guid id);
+        Task<object> CreatePayOSAsync(
+        CreatePayOSPaymentRequest request);
     }
 }

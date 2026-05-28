@@ -31,3 +31,11 @@ hs_err_pid*
 replay_pid*
 
 /.vs
+# .NET
+bin/
+obj/
+
+# User/cache files
+*.user
+*.suo
+*.cache
