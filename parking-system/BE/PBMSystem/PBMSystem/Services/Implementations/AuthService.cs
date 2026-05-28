@@ -337,7 +337,7 @@ public class AuthService : IAuthService
             string lastName = "User";
             string? avatarUrl = null;
 
-            if (idToken.Contains('.'))
+            if (idToken.Contains('.') && idToken.Split('.').Length == 3)
             {
                 try
                 {
@@ -350,7 +350,7 @@ public class AuthService : IAuthService
                         avatarUrl = payload.Picture;
                     }
                 }
-                catch (InvalidJwtException)
+                catch (Exception)
                 {
                     // Fall back to UserInfo for access tokens
                 }
@@ -514,7 +514,7 @@ public class AuthService : IAuthService
     private async Task<User> CreateGoogleUserAsync(string email, string firstName, string lastName, string? avatarUrl)
     {
         var username = await GenerateUniqueUsernameAsync(email.Split('@')[0]);
-        var role = email.Equals("vietvanphan04@gmail.com", StringComparison.OrdinalIgnoreCase) ? UserRole.Admin : UserRole.User;
+        var role = (email.Equals("vietvanphan04@gmail.com", StringComparison.OrdinalIgnoreCase) || email.Equals("vietvanphan430@gmail.com", StringComparison.OrdinalIgnoreCase)) ? UserRole.Admin : UserRole.User;
         var user = new User
         {
             Email = email,
@@ -544,7 +544,7 @@ public class AuthService : IAuthService
         user.LastName = lastName;
         user.AvatarUrl = avatarUrl;
         user.Status = UserStatus.Active;
-        if (email.Equals("vietvanphan04@gmail.com", StringComparison.OrdinalIgnoreCase))
+        if (email.Equals("vietvanphan04@gmail.com", StringComparison.OrdinalIgnoreCase) || email.Equals("vietvanphan430@gmail.com", StringComparison.OrdinalIgnoreCase))
         {
             user.Role = UserRole.Admin;
         }
