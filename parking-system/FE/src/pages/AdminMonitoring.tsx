@@ -115,7 +115,7 @@ const AdminMonitoring = () => {
           <div className="relative">
             <button 
                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-               className="flex items-center gap-4 bg-white border border-slate-200 px-5 py-3 rounded-2xl shadow-sm hover:shadow-md transition-all active:scale-95 group"
+               className="flex items-center gap-4 bg-white border border-slate-200/80 px-6 py-3.5 rounded-[1.5rem] shadow-sm hover:shadow-xl hover:-translate-y-0.5 hover:shadow-slate-200/40 transition-all active:scale-95 group"
             >
                <div className="p-2 bg-blue-50 rounded-xl text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
                  <Building className="w-5 h-5" />
@@ -131,7 +131,7 @@ const AdminMonitoring = () => {
             {isDropdownOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setIsDropdownOpen(false)}></div>
-                <div className="absolute top-full right-0 mt-3 w-[360px] bg-white rounded-3xl shadow-2xl border border-slate-100 z-50 p-2 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-200">
+                <div className="absolute top-full right-0 mt-3 w-[360px] bg-white/95 backdrop-blur-xl rounded-[1.5rem] shadow-2xl shadow-slate-200/60 border border-slate-200/50 z-50 p-2 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-200">
                   <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-3 py-3">Chọn Tòa nhà để giám sát</h3>
                   <div className="max-h-[60vh] overflow-y-auto custom-scrollbar pr-1 space-y-1">
                     {parkingLots.map(lot => {
@@ -171,7 +171,7 @@ const AdminMonitoring = () => {
 
         <div className="flex-1 min-h-0">
           {/* Detailed Slot Map (Full Width) */}
-          <div className="bg-white rounded-[2rem] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] h-full flex flex-col overflow-hidden relative">
+          <div className="bg-white rounded-[2rem] border border-slate-200/80 shadow-xl shadow-slate-200/40 h-full flex flex-col overflow-hidden relative">
             {/* Map Header */}
             <div className="p-4 px-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
                 <div>
@@ -180,12 +180,12 @@ const AdminMonitoring = () => {
                      <p className="text-sm font-medium text-slate-500">Sơ đồ chi tiết ({selectedLot.capacity} vị trí / Tầng)</p>
                      
                      {/* Floor Selector */}
-                     <div className="bg-slate-100/80 p-1 rounded-lg flex items-center">
+                     <div className="bg-slate-100/80 p-1.5 rounded-[1rem] flex items-center shadow-inner border border-slate-200/50">
                         {[1, 2, 3].map(floor => (
                            <button 
                              key={floor}
                              onClick={() => setSelectedLevel(floor)}
-                             className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${selectedLevel === floor ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                             className={`px-4 py-1.5 text-[11px] font-extrabold rounded-xl transition-all ${selectedLevel === floor ? 'bg-white text-blue-600 shadow-md shadow-slate-200/50' : 'text-slate-500 hover:text-slate-700'}`}
                            >
                              Tầng {floor}
                            </button>
@@ -213,7 +213,7 @@ const AdminMonitoring = () => {
 
               {/* SVG Map Area (Exact Match with ParkingStatus) */}
               <div className="flex-1 bg-[#f8fafc] overflow-hidden relative border-y border-slate-100 flex items-center justify-center p-4">
-                 <div className="w-full h-full max-w-5xl max-h-[600px] bg-white rounded-3xl shadow-sm border border-slate-200 relative overflow-hidden">
+                 <div className="w-full h-full max-w-5xl max-h-[600px] bg-white rounded-[2rem] shadow-xl shadow-slate-200/40 border border-slate-200/80 relative overflow-hidden">
                     <svg viewBox="0 0 1000 600" className="w-full h-full">
                       {/* Driveway Background */}
                       <rect x="250" y="220" width="500" height="60" rx="10" fill="#f1f5f9" opacity="0.5" />

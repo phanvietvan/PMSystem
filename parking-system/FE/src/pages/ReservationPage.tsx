@@ -75,25 +75,23 @@ const ReservationPage = () => {
   useEffect(() => {
     const bypassActiveCheck = location.state?.bypassActiveCheck || false;
 
-    if (!bypassActiveCheck) {
-      api.get('/ParkingSessions/my-session')
-        .then(res => {
-          if (res.data) {
-            if (res.data.hasActiveSession && res.data.session) {
-              const sQrCode = res.data.session.qrCode || res.data.session.QrCode;
-              if (sQrCode) {
-                addActiveQr(sQrCode);
-              }
-            } else {
-              localStorage.removeItem('activeSessionQrs');
-              localStorage.removeItem('activeSessionQr');
+    api.get('/ParkingSessions/my-session')
+      .then(res => {
+        if (res.data) {
+          if (res.data.hasActiveSession && res.data.session) {
+            const sQrCode = res.data.session.qrCode || res.data.session.QrCode;
+            if (sQrCode) {
+              addActiveQr(sQrCode);
             }
+          } else {
+            localStorage.removeItem('activeSessionQrs');
+            localStorage.removeItem('activeSessionQr');
           }
-        })
-        .catch(err => {
-          console.log('No active session on database.', err);
-        });
-    }
+        }
+      })
+      .catch(err => {
+        console.log('No active session on database.', err);
+      });
 
     const init = async () => {
       const storedUser = localStorage.getItem('user');

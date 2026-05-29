@@ -92,6 +92,23 @@ public class ParkingSessionsController : ControllerBase
         };
 
         _context.ParkingSessions.Add(session);
+
+        if (request.PrepaidAmount.HasValue && request.PrepaidAmount.Value > 0)
+        {
+            var payment = new Repositories.Entities.Payment
+            {
+                SessionId = session.Id,
+                UserId = userId,
+                LicensePlate = session.LicensePlate,
+                Amount = request.PrepaidAmount.Value,
+                TransactionTime = DateTime.UtcNow,
+                PaymentMethod = "Online",
+                Status = "Completed",
+                TransactionId = "TXN-" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper()
+            };
+            await _context.Payments.AddAsync(payment);
+        }
+
         await _context.SaveChangesAsync();
 
         User? user = null;
@@ -283,11 +300,17 @@ public class ParkingSessionsController : ControllerBase
         var fee = CalculateFee(session.EntryTime, exitTime, session.VehicleType);
         var durationMinutes = (int)Math.Ceiling((exitTime - session.EntryTime).TotalMinutes);
 
+        var payments = await _context.Payments
+            .Where(p => p.SessionId == session.Id && p.Status == "Completed")
+            .ToListAsync();
+        var prepaidAmount = payments.Sum(p => p.Amount);
+
         return Ok(new 
         { 
             session, 
             fee, 
             durationMinutes,
+            prepaidAmount,
             user = user != null ? new 
             {
                 user.Id,
@@ -324,7 +347,15 @@ public class ParkingSessionsController : ControllerBase
         session.IsPlateMatched = entryPlateNormalized == exitPlateNormalized;
         session.UpdatedAt = DateTime.UtcNow;
 
-        var fee = CalculateFee(session.EntryTime, session.ExitTime.Value, session.VehicleType);
+        decimal totalSurcharge = 0;
+        if (request.ExtraFees != null && request.ExtraFees.Any())
+        {
+            session.SurchargesJson = System.Text.Json.JsonSerializer.Serialize(request.ExtraFees);
+            totalSurcharge = request.ExtraFees.Sum(f => f.Amount);
+        }
+
+        var baseFee = CalculateFee(session.EntryTime, session.ExitTime.Value, session.VehicleType);
+        var fee = baseFee + totalSurcharge;
 
         var payment = new Repositories.Entities.Payment
         {

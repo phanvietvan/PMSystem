@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { AlertTriangle, Send, Check, MapPin, Layers } from 'lucide-react';
 import Navbar from '../components/layout/Navbar';
@@ -17,6 +17,59 @@ interface Incident {
   createdAt: string;
   status: 'Chờ xử lý' | 'Đã xử lý';
 }
+
+const CustomSelect = ({ value, onChange, options, icon: Icon, isError = false }: any) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div className="relative" ref={ref}>
+      <div 
+        className={`w-full ${Icon ? 'pl-12' : 'px-5'} pr-10 py-3.5 bg-white border ${isError ? 'border-red-500 ring-1 ring-red-500' : 'border-slate-200'} rounded-full text-sm font-semibold text-slate-800 shadow-sm cursor-pointer transition-all flex items-center justify-between ${isOpen && !isError ? 'border-blue-500 ring-1 ring-blue-500 shadow-md' : ''} hover:border-blue-300`}
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        {Icon && <Icon className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />}
+        <span className="truncate">{options.find((o:any) => o.value === value)?.label || value}</span>
+        <svg className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${isOpen ? 'rotate-180 text-blue-500' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+        </svg>
+      </div>
+
+      {isOpen && (
+        <div className="absolute top-[calc(100%+8px)] left-0 right-0 bg-white border border-slate-100 rounded-[1.5rem] shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] z-50 overflow-hidden py-2 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="max-h-60 overflow-y-auto custom-scrollbar px-1.5">
+            {options.map((opt: any, idx: number) => {
+              const isSelected = value === opt.value;
+              return (
+                <div 
+                  key={idx}
+                  className={`px-4 py-3 mx-1 my-0.5 rounded-xl text-sm font-semibold cursor-pointer transition-all flex items-center justify-between ${isSelected ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+                  onClick={() => {
+                    onChange(opt.value);
+                    setIsOpen(false);
+                  }}
+                >
+                  <span className="truncate">{opt.label}</span>
+                  {isSelected && <Check className="w-4 h-4 text-blue-600" />}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const ReportIncidentPage = () => {
   const [user, setUser] = useState<any>(null);
@@ -148,13 +201,13 @@ const ReportIncidentPage = () => {
           <div className="absolute bottom-0 right-0 w-40 h-40 bg-orange-400/5 rounded-full blur-3xl pointer-events-none"></div>
 
           <div className="relative z-10">
-            <div className="flex items-center gap-3.5 mb-8">
-              <div className="p-3 bg-rose-50 text-rose-600 rounded-2xl border border-rose-100/50 shadow-inner flex items-center justify-center">
-                <AlertTriangle className="w-6 h-6" />
+            <div className="flex items-center gap-5 mb-10">
+              <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center shrink-0 border border-red-100">
+                <AlertTriangle className="w-8 h-8" />
               </div>
               <div>
-                <h2 className="text-2xl font-black text-slate-800 tracking-tight leading-none">Báo cáo Sự cố Hệ thống</h2>
-                <p className="text-xs text-slate-400 font-medium mt-1.5">Gửi thông tin sự cố trực tiếp đến Quản trị viên (Admin) để xử lý kịp thời.</p>
+                <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Báo cáo Sự cố Hệ thống</h2>
+                <p className="text-[13px] text-slate-500 font-medium mt-1">Gửi thông tin sự cố trực tiếp đến Quản trị viên (Admin) để xử lý kịp thời.</p>
               </div>
             </div>
 
@@ -177,116 +230,108 @@ const ReportIncidentPage = () => {
                 </button>
               </motion.div>
             ) : (
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2 ml-1">Loại sự cố</label>
-                    <select
-                      value={type}
-                      onChange={e => setType(e.target.value)}
-                      className="w-full px-5 py-3 bg-white border border-slate-200/80 rounded-full text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500/10 focus:border-rose-500 transition-all shadow-sm cursor-pointer"
-                    >
-                      <option>Thiết bị hỏng</option>
-                      <option>Lỗi thanh toán</option>
-                      <option>Xe đỗ sai vị trí</option>
-                      <option>Vấn đề thẻ/vé</option>
-                      <option>Khác</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2 ml-1">Mức độ khẩn cấp</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {(['Bình thường', 'Cao', 'Khẩn cấp'] as const).map(level => {
-                        const isSelected = urgency === level;
-                        const levelColors = {
-                          'Bình thường': isSelected ? 'bg-blue-600 text-white border-blue-600' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200',
-                          'Cao': isSelected ? 'bg-amber-500 text-white border-amber-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200',
-                          'Khẩn cấp': isSelected ? 'bg-rose-600 text-white border-rose-600 animate-pulse' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
-                        };
-                        return (
-                          <button
-                            key={level}
-                            type="button"
-                            onClick={() => setUrgency(level)}
-                            className={`py-3 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${levelColors[level]}`}
-                          >
-                            {level}
-                          </button>
-                        );
-                      })}
+              <form onSubmit={handleSubmit}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                  {/* Left Column */}
+                  <div className="flex flex-col gap-6">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">LOẠI SỰ CỐ</label>
+                      <CustomSelect
+                        value={type}
+                        onChange={(val: string) => setType(val)}
+                        isError={true} // Giữ viền đỏ theo mockup
+                        options={[
+                          { value: 'Thiết bị hỏng', label: 'Thiết bị hỏng' },
+                          { value: 'Lỗi thanh toán', label: 'Lỗi thanh toán' },
+                          { value: 'Xe đỗ sai vị trí', label: 'Xe đỗ sai vị trí' },
+                          { value: 'Vấn đề thẻ/vé', label: 'Vấn đề thẻ/vé' },
+                          { value: 'Khác', label: 'Khác' }
+                        ]}
+                      />
                     </div>
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2 ml-1">Chi nhánh xảy ra sự cố</label>
-                    <div className="relative">
-                      <select
+                    <div>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ví dụ: Rào chắn bãi đỗ xe tầng 2 Landmark 81 bị kẹt"
+                        value={title}
+                        onChange={e => setTitle(e.target.value)}
+                        className="w-full px-5 py-3.5 bg-white border border-slate-200 rounded-full text-sm font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">CHI NHÁNH</label>
+                      <CustomSelect
+                        icon={MapPin}
                         value={branch}
-                        onChange={e => setBranch(e.target.value)}
-                        className="w-full pl-11 pr-5 py-3 bg-white border border-slate-200/80 rounded-full text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500/10 focus:border-rose-500 transition-all shadow-sm cursor-pointer appearance-none"
-                      >
-                        {branches.map(b => (
-                          <option key={b.id} value={b.name}>{b.name}</option>
-                        ))}
-                      </select>
-                      <MapPin className="absolute left-4 top-3.5 w-4 h-4 text-slate-400 pointer-events-none" />
+                        onChange={(val: string) => setBranch(val)}
+                        options={branches.map(b => ({ value: b.name, label: b.name }))}
+                      />
                     </div>
                   </div>
 
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2 ml-1">Khu vực tầng</label>
-                    <div className="relative">
-                      <select
+                  {/* Right Column */}
+                  <div className="flex flex-col gap-6">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">MỨC ĐỘ KHẨN CẤP</label>
+                      <div className="grid grid-cols-3 gap-3">
+                        {(['Bình thường', 'Cao', 'Khẩn cấp'] as const).map(level => {
+                          const isSelected = urgency === level;
+                          const levelColors = {
+                            'Bình thường': isSelected ? 'bg-blue-600 text-white border-blue-600' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200',
+                            'Cao': isSelected ? 'bg-amber-500 text-white border-amber-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200',
+                            'Khẩn cấp': isSelected ? 'bg-rose-600 text-white border-rose-600' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+                          };
+                          return (
+                            <button
+                              key={level}
+                              type="button"
+                              onClick={() => setUrgency(level)}
+                              className={`py-3 text-[11px] font-bold rounded-full border transition-all cursor-pointer shadow-sm ${levelColors[level]}`}
+                            >
+                              {level}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">KHU VỰC TẦNG</label>
+                      <CustomSelect
+                        icon={Layers}
                         value={floor}
-                        onChange={e => setFloor(e.target.value)}
-                        className="w-full pl-11 pr-5 py-3 bg-white border border-slate-200/80 rounded-full text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500/10 focus:border-rose-500 transition-all shadow-sm cursor-pointer appearance-none"
-                      >
-                        {(() => {
+                        onChange={(val: string) => setFloor(val)}
+                        options={(() => {
                           const selectedObj = branches.find(b => b.name === branch);
                           const floorList = selectedObj && selectedObj.floors ? selectedObj.floors : [1, 2, 3];
-                          return floorList.map((f: any) => (
-                            <option key={f} value={`Tầng ${f}`}>Tầng {f}</option>
-                          ));
+                          return floorList.map((f: any) => ({ value: `Tầng ${f}`, label: `Tầng ${f}` }));
                         })()}
-                      </select>
-                      <Layers className="absolute left-4 top-3.5 w-4 h-4 text-slate-400 pointer-events-none" />
+                      />
                     </div>
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2 ml-1">Tiêu đề sự cố</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ví dụ: Rào chắn bãi đỗ xe tầng 2 Landmark 81 bị kẹt"
-                    value={title}
-                    onChange={e => setTitle(e.target.value)}
-                    className="w-full px-5 py-3 bg-white border border-slate-200/80 rounded-full text-xs font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/10 focus:border-rose-500 transition-all shadow-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2 ml-1">Mô tả chi tiết</label>
+                <div className="mt-6">
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">MÔ TẢ CHI TIẾT</label>
                   <textarea
                     required
                     rows={4}
                     placeholder="Vui lòng mô tả chi tiết sự cố gặp phải (vị trí cụ thể, hiện tượng xảy ra, lỗi màn hình nếu có...)"
                     value={description}
                     onChange={e => setDescription(e.target.value)}
-                    className="w-full px-5 py-4 bg-white border border-slate-200/80 rounded-3xl text-xs font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/10 focus:border-rose-500 transition-all shadow-sm resize-none"
+                    className="w-full px-5 py-4 bg-white border border-slate-200 rounded-3xl text-sm font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm resize-none"
                   ></textarea>
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 text-white font-bold py-3.5 px-6 rounded-full text-[11px] uppercase tracking-widest transition-all shadow-lg shadow-rose-500/15 hover:shadow-rose-500/25 hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2 mt-4 cursor-pointer"
+                  className="w-full bg-[#f00] hover:bg-red-700 text-white font-bold py-4 px-6 rounded-full text-[13px] uppercase tracking-wider transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 flex items-center justify-center gap-2 mt-8 cursor-pointer"
                 >
-                  <Send className="w-4 h-4" />
-                  Gửi báo cáo sự cố
+                  <Send className="w-5 h-5" />
+                  GỬI BÁO CÁO SỰ CỐ
                 </button>
               </form>
             )}

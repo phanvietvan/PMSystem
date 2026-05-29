@@ -368,7 +368,7 @@ const AdminDashboard = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.1 }}
-                className={`bg-white p-7 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col relative overflow-hidden group ${m.urgent ? 'ring-2 ring-red-500/10 border-red-100' : ''}`}
+                className={`bg-white p-8 rounded-[2rem] border border-slate-200/80 shadow-xl shadow-slate-200/40 hover:-translate-y-1 hover:shadow-2xl hover:shadow-slate-200/50 transition-all duration-300 flex flex-col relative overflow-hidden group ${m.urgent ? 'ring-2 ring-red-500/20 border-red-100' : ''}`}
               >
                 <div className="flex justify-between items-start mb-6">
                   <div className={`p-3 rounded-2xl ${m.urgent ? 'bg-red-50 text-red-600' : 'bg-slate-50 text-slate-900'} group-hover:scale-110 transition-transform`}>
@@ -395,16 +395,18 @@ const AdminDashboard = () => {
 
           <div className="grid grid-cols-12 gap-8">
             {/* Revenue Trend Chart Area */}
-            <div className="col-span-12 lg:col-span-8 bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
+            <div className="col-span-12 lg:col-span-8 bg-white p-8 rounded-[2rem] border border-slate-200/80 shadow-xl shadow-slate-200/40">
               <div className="flex justify-between items-center mb-10">
                 <div>
                   <h3 className="text-lg font-black text-slate-900 tracking-tight">Xu hướng Doanh Thu</h3>
                   <p className="text-xs text-slate-400 font-bold">Thống kê doanh thu theo tuần (VNĐ)</p>
                 </div>
-                <div className="flex items-center gap-3 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
-                  <button className="text-[10px] font-black px-4 py-1.5 rounded-lg bg-white text-slate-900 shadow-sm border border-slate-200">7 ngày qua</button>
-                  <button className="text-[10px] font-black px-4 py-1.5 text-slate-400 hover:text-slate-900 transition-colors">30 ngày qua</button>
-                  <ChevronDown className="w-4 h-4 text-slate-400 mr-2" />
+                <div className="flex items-center bg-slate-100/80 p-1 rounded-xl border border-slate-200/60 shadow-inner">
+                  <button className="text-[11px] font-extrabold px-4 py-1.5 rounded-lg bg-white text-blue-600 shadow-sm border border-slate-200/50 transition-all">7 ngày qua</button>
+                  <button className="text-[11px] font-bold px-4 py-1.5 text-slate-500 hover:text-slate-800 transition-colors flex items-center gap-1.5">
+                    30 ngày qua
+                    <ChevronDown className="w-3.5 h-3.5 opacity-70" />
+                  </button>
                 </div>
               </div>
               
@@ -442,7 +444,7 @@ const AdminDashboard = () => {
             </div>
 
             {/* Vehicle Mix Area */}
-            <div className="col-span-12 lg:col-span-4 bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
+            <div className="col-span-12 lg:col-span-4 bg-white p-8 rounded-[2rem] border border-slate-200/80 shadow-xl shadow-slate-200/40">
               <h3 className="text-lg font-black text-slate-900 tracking-tight mb-2">Cơ cấu Phương Tiện</h3>
               <p className="text-xs text-slate-400 font-bold mb-10">Phân bổ lưu lượng theo loại xe</p>
               
@@ -480,7 +482,7 @@ const AdminDashboard = () => {
           {/* Branch & Map Management Section */}
           <div className="grid grid-cols-12 gap-8">
             {/* Create Branch Card */}
-            <div className="col-span-12 lg:col-span-5 bg-gradient-to-b from-white to-slate-50/50 p-8 rounded-[32px] border border-slate-200/80 shadow-lg flex flex-col justify-between relative overflow-hidden">
+            <div className="col-span-12 lg:col-span-5 bg-gradient-to-b from-white to-slate-50/80 p-8 rounded-[2rem] border border-slate-200/80 shadow-xl shadow-slate-200/40 flex flex-col justify-between relative overflow-hidden">
               {/* Ambient Background Glows */}
               <div className="absolute top-0 left-0 w-40 h-40 bg-blue-400/10 rounded-full blur-3xl pointer-events-none"></div>
               <div className="absolute bottom-0 right-0 w-40 h-40 bg-indigo-400/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -634,7 +636,7 @@ const AdminDashboard = () => {
             </div>
             
             {/* List Existing Branches Card */}
-            <div className="col-span-12 lg:col-span-7 bg-gradient-to-b from-white to-slate-50/50 p-8 rounded-[32px] border border-slate-200/80 shadow-lg flex flex-col relative overflow-hidden">
+            <div className="col-span-12 lg:col-span-7 bg-gradient-to-b from-white to-slate-50/80 p-8 rounded-[2rem] border border-slate-200/80 shadow-xl shadow-slate-200/40 flex flex-col relative overflow-hidden">
               {/* Ambient Background Glows */}
               <div className="absolute top-0 right-0 w-40 h-40 bg-indigo-400/10 rounded-full blur-3xl pointer-events-none"></div>
               <div className="absolute bottom-0 left-0 w-40 h-40 bg-blue-400/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -719,7 +721,7 @@ const AdminDashboard = () => {
           </div>
 
           {/* Incident Reports Table */}
-          <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm mt-8">
+          <div className="bg-white p-8 rounded-[2rem] border border-slate-200/80 shadow-xl shadow-slate-200/40 mt-8">
              <div className="flex justify-between items-center mb-8">
                 <div>
                    <h3 className="text-lg font-black text-slate-900 tracking-tight">Sự cố hệ thống cần xử lý</h3>

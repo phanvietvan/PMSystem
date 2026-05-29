@@ -23,6 +23,10 @@ public interface IEmailService
     /// Sends a booking confirmation email with the QR code and slot details.
     /// </summary>
     Task SendBookingConfirmationEmailAsync(string toEmail, string userName, string qrCode, string lotName, string slot, string licensePlate);
+
+    Task SendReservationReminderEmailAsync(string toEmail, string userName, string lotName, string slot, string licensePlate);
+
+    Task SendReservationCancellationEmailAsync(string toEmail, string userName, string lotName, string slot, string licensePlate);
 }
 
 public enum EmailOtpPurpose

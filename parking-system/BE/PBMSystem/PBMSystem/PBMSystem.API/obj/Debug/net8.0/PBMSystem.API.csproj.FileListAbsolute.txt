@@ -443,3 +443,4 @@ C:\Users\Admin\Desktop\Parking Building Management System\parking-system\BE\PBMS
 C:\Users\Admin\Desktop\Parking Building Management System\parking-system\BE\PBMSystem\PBMSystem\PBMSystem.API\obj\Debug\net8.0\PBMSystem.API.pdb
 C:\Users\Admin\Desktop\Parking Building Management System\parking-system\BE\PBMSystem\PBMSystem\PBMSystem.API\obj\Debug\net8.0\PBMSystem.API.genruntimeconfig.cache
 C:\Users\Admin\Desktop\Parking Building Management System\parking-system\BE\PBMSystem\PBMSystem\PBMSystem.API\obj\Debug\net8.0\ref\PBMSystem.API.dll
+C:\Users\Admin\Desktop\Parking Building Management System\parking-system\BE\PBMSystem\PBMSystem\PBMSystem.API\bin\Debug\net8.0\sessions.json

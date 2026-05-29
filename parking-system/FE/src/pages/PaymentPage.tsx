@@ -171,7 +171,8 @@ const PaymentPage = () => {
           reservationDate: reservationDate,
           reservationStartTime: reservationStartTime,
           parkingSlot: selectedSlot,
-          userId: loggedInUserId
+          userId: loggedInUserId,
+          prepaidAmount: price
         });
         if (response.data && response.data.qrCode) {
           qrCode = response.data.qrCode;

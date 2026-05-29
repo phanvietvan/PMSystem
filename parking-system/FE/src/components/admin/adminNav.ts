@@ -16,13 +16,13 @@ export interface AdminNavItem {
 }
 
 export const ADMIN_NAV: AdminNavItem[] = [
-  { name: 'Dashboard', icon: LayoutDashboard, path: '/admin' },
-  { name: 'Reservations', icon: CalendarDays, path: '/admin/reservations' },
-  { name: 'Live Monitoring', icon: MapIcon, path: '/admin/monitoring' },
-  { name: 'Reports', icon: BarChart3, path: '/admin/reports' },
-  { name: 'User Management', icon: Users, path: '/admin/users' },
-  { name: 'Blacklist & Notifs', icon: ShieldAlert, path: '/admin/blacklist' },
-  { name: 'Settings', icon: Settings, path: '/admin/settings' },
+  { name: 'Tổng quan', icon: LayoutDashboard, path: '/admin' },
+  { name: 'Đặt chỗ', icon: CalendarDays, path: '/admin/reservations' },
+  { name: 'Giám sát trực tiếp', icon: MapIcon, path: '/admin/monitoring' },
+  { name: 'Báo cáo', icon: BarChart3, path: '/admin/reports' },
+  { name: 'Quản lý người dùng', icon: Users, path: '/admin/users' },
+  { name: 'Danh sách đen & Cảnh báo', icon: ShieldAlert, path: '/admin/blacklist' },
+  { name: 'Cài đặt', icon: Settings, path: '/admin/settings' },
 ];
 
 export function isNavActive(pathname: string, path: string): boolean {
