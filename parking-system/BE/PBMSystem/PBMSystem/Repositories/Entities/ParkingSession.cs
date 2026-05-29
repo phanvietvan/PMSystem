@@ -24,4 +24,8 @@ public class ParkingSession : BaseEntity
     public string? ReservationDate { get; set; }
     public string? ReservationStartTime { get; set; }
     public string? ParkingSlot { get; set; }
+
+    public bool? IsReminderSent { get; set; } = false;
+
+    public string? SurchargesJson { get; set; }
 }

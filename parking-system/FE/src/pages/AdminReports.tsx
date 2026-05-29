@@ -92,7 +92,7 @@ const AdminReports = () => {
            </div>
            {/* Summary Cards */}
            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
+              <div className="bg-white p-8 rounded-[2rem] border border-slate-200/80 shadow-xl shadow-slate-200/40 hover:-translate-y-1 transition-transform duration-300">
                  <div className="flex justify-between items-center mb-4">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tổng lượt gửi</span>
                     <span className={`text-[10px] font-black px-2.5 py-1 rounded-full ${summary.growth.startsWith('-') ? 'text-red-600 bg-red-50' : 'text-emerald-600 bg-emerald-50'}`}>{summary.growth}</span>
@@ -100,7 +100,7 @@ const AdminReports = () => {
                  <div className="text-4xl font-black text-blue-600">{loading ? '...' : summary.totalCount}</div>
                  <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase tracking-widest">Giao dịch lũy kế</p>
               </div>
-              <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
+              <div className="bg-white p-8 rounded-[2rem] border border-slate-200/80 shadow-xl shadow-slate-200/40 hover:-translate-y-1 transition-transform duration-300">
                  <div className="flex justify-between items-center mb-4">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tỷ lệ lấp đầy</span>
                     <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full uppercase">Hiện tại</span>
@@ -108,11 +108,12 @@ const AdminReports = () => {
                  <div className="text-4xl font-black text-slate-900">{loading ? '...' : summary.occupancyRate}</div>
                  <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase tracking-widest">Sức chứa tổng thể</p>
               </div>
-              <div className="bg-blue-600 p-8 rounded-3xl shadow-xl shadow-blue-600/20 text-white relative overflow-hidden group">
+              <div className="bg-gradient-to-br from-blue-600 to-blue-700 p-8 rounded-[2rem] shadow-xl shadow-blue-600/30 text-white relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300">
+                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
                  <div className="relative z-10">
                     <h4 className="text-lg font-black mb-2">Dự báo tuần tới</h4>
-                    <p className="text-xs text-white/70 mb-6 leading-relaxed">Tải trọng dự kiến tăng 15% do sự kiện cuối tuần.</p>
-                    <button className="bg-white text-blue-600 px-6 py-2 rounded-xl text-[10px] font-black uppercase hover:scale-105 transition-transform">Xem dự báo AI</button>
+                    <p className="text-xs text-white/80 mb-6 leading-relaxed">Tải trọng dự kiến tăng 15% do sự kiện cuối tuần.</p>
+                    <button className="bg-white text-blue-600 px-6 py-2.5 rounded-[1rem] text-[10px] font-black uppercase tracking-wider hover:scale-105 transition-transform shadow-lg shadow-black/10">Xem dự báo AI</button>
                  </div>
                  <TrendingUp className="absolute -right-4 -bottom-4 w-32 h-32 opacity-10 rotate-12 group-hover:rotate-0 transition-transform duration-500" />
               </div>
@@ -120,7 +121,7 @@ const AdminReports = () => {
 
            <div className="grid grid-cols-12 gap-8">
               {/* Bar Chart Comparison */}
-              <div className="col-span-12 lg:col-span-8 bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
+              <div className="col-span-12 lg:col-span-8 bg-white p-8 md:p-10 rounded-[2rem] border border-slate-200/80 shadow-xl shadow-slate-200/40">
                  <div className="flex justify-between items-center mb-10">
                     <h3 className="text-lg font-black text-slate-900 tracking-tight">Doanh thu Hàng ngày (7 ngày gần nhất)</h3>
                     <div className="flex items-center gap-6">
@@ -148,7 +149,7 @@ const AdminReports = () => {
               </div>
 
               {/* Heatmap Section */}
-              <div className="col-span-12 lg:col-span-4 bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
+              <div className="col-span-12 lg:col-span-4 bg-white p-8 md:p-10 rounded-[2rem] border border-slate-200/80 shadow-xl shadow-slate-200/40">
                  <div className="flex justify-between items-center mb-8">
                     <h3 className="text-lg font-black text-slate-900 tracking-tight">Bản đồ Nhiệt Cao Điểm</h3>
                     <div className="flex items-center gap-1">
@@ -172,7 +173,7 @@ const AdminReports = () => {
 
            {/* Table & Insights Grid */}
            <div className="grid grid-cols-12 gap-8">
-              <div className="col-span-12 lg:col-span-7 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="col-span-12 lg:col-span-7 bg-white rounded-[2rem] border border-slate-200/80 shadow-xl shadow-slate-200/40 overflow-hidden">
                  <div className="p-8 border-b border-slate-100 flex justify-between items-center">
                     <h3 className="text-lg font-black text-slate-900 tracking-tight">Khu vực Hiệu quả nhất</h3>
                     <MoreVertical className="text-slate-400 w-5 h-5 cursor-pointer" />
@@ -204,23 +205,24 @@ const AdminReports = () => {
                  </div>
               </div>
 
-              <div className="col-span-12 lg:col-span-5 space-y-6">
-                 <div className="bg-[#004b58] text-white p-8 rounded-3xl relative overflow-hidden group shadow-xl shadow-[#004b58]/20">
-                    <div className="relative z-10">
-                       <h4 className="text-lg font-black mb-2">Tối ưu hóa năng lượng</h4>
-                       <p className="text-xs text-white/70 mb-6 leading-relaxed">Hệ thống gợi ý giảm 20% độ sáng tại khu vực C3 từ 01:00 đến 05:00 sáng.</p>
-                       <button className="bg-white text-[#004b58] px-6 py-2 rounded-xl text-[10px] font-black uppercase hover:scale-105 transition-transform">Áp dụng ngay</button>
-                    </div>
-                    <Leaf className="absolute -right-4 -bottom-4 w-32 h-32 opacity-10 rotate-12 group-hover:rotate-0 transition-transform duration-500" />
-                 </div>
-                 <div className="bg-white border border-slate-200 p-8 rounded-3xl shadow-sm relative overflow-hidden group">
-                    <div className="relative z-10">
-                       <h4 className="text-lg font-black text-slate-900 mb-2">Báo cáo An ninh</h4>
-                       <p className="text-xs text-slate-400 mb-6 leading-relaxed">03 cảnh báo cần xem xét trong 24 giờ qua liên quan đến lỗi nhận diện biển số.</p>
-                       <button className="bg-blue-600 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase hover:scale-105 transition-transform shadow-lg shadow-blue-600/20">Kiểm tra Logs</button>
-                    </div>
-                    <ShieldCheck className="absolute -right-4 -bottom-4 w-32 h-32 text-blue-600 opacity-5 rotate-12 group-hover:rotate-0 transition-transform duration-500" />
-                 </div>
+              <div className="col-span-12 lg:col-span-5 space-y-8">
+                  <div className="bg-gradient-to-br from-[#004b58] to-[#003844] text-white p-8 md:p-10 rounded-[2rem] relative overflow-hidden group shadow-xl shadow-[#004b58]/30 hover:-translate-y-1 transition-transform duration-300">
+                     <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-3xl pointer-events-none"></div>
+                     <div className="relative z-10">
+                        <h4 className="text-lg font-black mb-2">Tối ưu hóa năng lượng</h4>
+                        <p className="text-xs text-white/80 mb-6 leading-relaxed">Hệ thống gợi ý giảm 20% độ sáng tại khu vực C3 từ 01:00 đến 05:00 sáng.</p>
+                        <button className="bg-white text-[#004b58] px-6 py-2.5 rounded-[1rem] text-[10px] font-black uppercase tracking-wider hover:scale-105 transition-transform shadow-lg shadow-black/10">Áp dụng ngay</button>
+                     </div>
+                     <Leaf className="absolute -right-4 -bottom-4 w-32 h-32 opacity-10 rotate-12 group-hover:rotate-0 transition-transform duration-500" />
+                  </div>
+                  <div className="bg-white border border-slate-200/80 p-8 md:p-10 rounded-[2rem] shadow-xl shadow-slate-200/40 relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300">
+                     <div className="relative z-10">
+                        <h4 className="text-lg font-black text-slate-900 mb-2">Báo cáo An ninh</h4>
+                        <p className="text-xs text-slate-500 mb-6 leading-relaxed">03 cảnh báo cần xem xét trong 24 giờ qua liên quan đến lỗi nhận diện biển số.</p>
+                        <button className="bg-blue-600 text-white px-6 py-2.5 rounded-[1rem] text-[10px] font-black uppercase tracking-wider hover:scale-105 transition-transform shadow-lg shadow-blue-600/20">Kiểm tra Logs</button>
+                     </div>
+                     <ShieldCheck className="absolute -right-4 -bottom-4 w-32 h-32 text-blue-600 opacity-[0.03] rotate-12 group-hover:rotate-0 transition-transform duration-500" />
+                  </div>
               </div>
            </div>
         </div>

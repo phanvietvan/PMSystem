@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Services;
+using PBMSystem.API.BackgroundServices;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,6 +27,9 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // ── Repository + Services Layers ─────────────────────────────────────────────
 builder.Services.AddRepositories();
 builder.Services.AddPBMServices();
+
+// ── Background Jobs ───────────────────────────────────────────────────────────
+builder.Services.AddHostedService<ReservationJobService>();
 
 // ── JWT Authentication ────────────────────────────────────────────────────────
 var jwtSettings = builder.Configuration

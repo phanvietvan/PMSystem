@@ -1,15 +1,41 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import BrandLogo from '../components/brand/BrandLogo';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useLottie } from 'lottie-react';
 import Navbar from '../components/layout/Navbar';
 import animationData from '../components/ui/hasahar.json';
-import { hasActiveSessions } from '../utils/auth';
+import { hasActiveSessions, addActiveQr } from '../utils/auth';
+import api from '../services/api';
 
 const LandingPage = () => {
   const navigate = useNavigate();
   const [showActiveWarning, setShowActiveWarning] = useState(false);
+
+  // Sync and verify active session with DB
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      api.get('/ParkingSessions/my-session')
+        .then(res => {
+          if (res.data) {
+            if (res.data.hasActiveSession && res.data.session) {
+              const sQrCode = res.data.session.qrCode || res.data.session.QrCode;
+              if (sQrCode) {
+                addActiveQr(sQrCode);
+              }
+            } else {
+              localStorage.removeItem('activeSessionQrs');
+              localStorage.removeItem('activeSessionQr');
+              setShowActiveWarning(false);
+            }
+          }
+        })
+        .catch(err => {
+          console.log('Error syncing active session:', err);
+        });
+    }
+  }, []);
 
   const lottieOptions = {
     animationData: animationData,

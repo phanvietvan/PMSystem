@@ -34,7 +34,8 @@ public class ParkingLotsController : ControllerBase
             Floor = request.Floor,
             Block = request.Block,
             Floors = request.Floors ?? new List<int> { 1, 2, 3 },
-            Address = request.Address
+            Address = request.Address,
+            Capacity = request.Capacity > 0 ? request.Capacity : 50
         };
 
         await _db.ParkingLots.AddAsync(lot);
@@ -55,6 +56,10 @@ public class ParkingLotsController : ControllerBase
         lot.Block = request.Block ?? lot.Block;
         lot.Floors = request.Floors ?? lot.Floors;
         lot.Address = request.Address ?? lot.Address;
+        if (request.Capacity > 0)
+        {
+            lot.Capacity = request.Capacity;
+        }
 
         _db.ParkingLots.Update(lot);
         await _db.SaveChangesAsync();

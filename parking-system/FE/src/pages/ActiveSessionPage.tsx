@@ -100,6 +100,9 @@ const ActiveSessionPage = () => {
               if (!isCompleted && sQrCode) {
                 const { addActiveQr } = await import('../utils/auth');
                 addActiveQr(sQrCode);
+              } else if (isCompleted && sQrCode) {
+                const { removeActiveQr } = await import('../utils/auth');
+                removeActiveQr(sQrCode);
               }
 
               results.push({
@@ -189,6 +192,7 @@ const ActiveSessionPage = () => {
               }
             } catch (e) {
               console.error("Failed to verify local active QR:", qr, e);
+              removeActiveQr(qr);
             }
           }
         }

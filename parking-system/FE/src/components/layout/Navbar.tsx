@@ -14,6 +14,8 @@ const Navbar = () => {
   const [user, setUser] = useState<any>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [hasSeenUnread, setHasSeenUnread] = useState(true);
 
   useEffect(() => {
     const applyStoredUser = () => {
@@ -39,6 +41,38 @@ const Navbar = () => {
       window.removeEventListener('user-login', handleStorageChange);
     };
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchNotifs = async () => {
+      try {
+        const res = await api.get('/Notifications');
+        const count = res.data.filter((n: any) => !n.read).length;
+        setUnreadCount(count);
+      } catch (err) {}
+    };
+    fetchNotifs();
+    const interval = setInterval(fetchNotifs, 15000);
+    return () => clearInterval(interval);
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const lastSeen = Number(localStorage.getItem(`lastSeenNotifCount_${user.id}`) || '0');
+    if (unreadCount > lastSeen) {
+       setHasSeenUnread(false);
+    } else {
+       setHasSeenUnread(true);
+    }
+  }, [unreadCount, user]);
+
+  const handleOpenNotif = () => {
+    setIsNotifOpen(!isNotifOpen);
+    if (!isNotifOpen && user) {
+      setHasSeenUnread(true);
+      localStorage.setItem(`lastSeenNotifCount_${user.id}`, unreadCount.toString());
+    }
+  };
 
   const handleLogout = () => {
     clearSession();
@@ -112,11 +146,13 @@ const Navbar = () => {
               )}
               <div className="relative">
                 <button 
-                  onClick={() => setIsNotifOpen(!isNotifOpen)}
+                  onClick={handleOpenNotif}
                   className="w-10 h-10 flex items-center justify-center bg-white hover:bg-blue-50/80 text-slate-500 hover:text-blue-600 rounded-full transition-all duration-300 ease-out border border-slate-200 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_15px_rgba(37,99,235,0.12)] hover:-translate-y-0.5 relative group active:scale-95"
                 >
                   <Bell size={18} className="transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:rotate-12 group-hover:scale-110 group-active:rotate-0" />
-                  <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white transition-transform duration-300 group-hover:scale-125"></span>
+                  {unreadCount > 0 && !hasSeenUnread && (
+                    <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white transition-transform duration-300 group-hover:scale-125"></span>
+                  )}
                 </button>
                 {isNotifOpen && (
                   <>
