@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import BrandLogo from '../../components/brand/BrandLogo';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
@@ -31,11 +31,59 @@ const ForgotPasswordPage = () => {
   const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [devOtpCode, setDevOtpCode] = useState('');
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+
+  const [timer, setTimer] = useState(60);
+  const [canResend, setCanResend] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
   
   const navigate = useNavigate();
+
+  const startTimer = () => {
+    setTimer(60);
+    setCanResend(false);
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setTimer((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current!);
+          setCanResend(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
+
+  const handleResendOtp = async () => {
+    if (!canResend) return;
+    setLoading(true);
+    setError('');
+    try {
+      const response = await api.post('/auth/password/forgot', {
+        email: email.toLowerCase().trim()
+      });
+
+      const apiResponse = response.data;
+      if (apiResponse.data && apiResponse.data.otpCode) {
+        console.log("Dev OTP Code:", apiResponse.data.otpCode);
+      }
+
+      setLoading(false);
+      startTimer();
+    } catch (err: any) {
+      setLoading(false);
+      console.error('Resend OTP Error:', err.response?.data);
+      setError(err.response?.data?.message || 'Không thể gửi lại mã OTP. Vui lòng thử lại.');
+    }
+  };
 
   const handleNext = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,13 +103,12 @@ const ForgotPasswordPage = () => {
 
         const apiResponse = response.data;
         if (apiResponse.data && apiResponse.data.otpCode) {
-          setDevOtpCode(apiResponse.data.otpCode);
-        } else {
-          setDevOtpCode('');
+          console.log("Dev OTP Code:", apiResponse.data.otpCode);
         }
 
         setLoading(false);
         setStep(1);
+        startTimer();
       } catch (err: any) {
         setLoading(false);
         console.error('Forgot Password OTP Error:', err.response?.data);
@@ -214,12 +261,7 @@ const ForgotPasswordPage = () => {
               {step === 1 && (
                 <div className="space-y-6 animate-fade-in-up">
                   <div className="text-center p-4 rounded-2xl bg-indigo-50/40 border border-indigo-100/50">
-                    <p className="text-xs text-slate-500">Mã OTP đã được gửi. Vui lòng nhập mã để đặt lại mật khẩu.</p>
-                    {devOtpCode && (
-                      <p className="text-[11px] font-black text-indigo-600 mt-2 bg-indigo-50 py-1 px-3 rounded-full inline-block">
-                        Mã OTP của bạn: {devOtpCode}
-                      </p>
-                    )}
+                    <p className="text-xs text-slate-500">Mã OTP đã được gửi đến email của bạn thành công. Vui lòng nhập mã để đặt lại mật khẩu.</p>
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-1 block">Mã xác thực OTP (6 chữ số)</label>
@@ -236,6 +278,23 @@ const ForgotPasswordPage = () => {
                         placeholder="000000" 
                       />
                     </div>
+                  </div>
+
+                  <div className="flex justify-center items-center text-xs px-1 text-slate-500 mt-2">
+                    {canResend ? (
+                      <button
+                        type="button"
+                        onClick={handleResendOtp}
+                        className="text-blue-600 hover:text-blue-700 font-bold underline cursor-pointer bg-transparent border-none"
+                        disabled={loading}
+                      >
+                        Gửi lại mã OTP
+                      </button>
+                    ) : (
+                      <p>
+                        Gửi lại mã sau: <span className="font-bold text-slate-700">{timer}s</span>
+                      </p>
+                    )}
                   </div>
                   <button 
                     className={`w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-full transition-all duration-300 shadow-md shadow-blue-500/10 hover:shadow-lg hover:shadow-blue-500/20 active:scale-[0.98] text-[10px] uppercase tracking-widest cursor-pointer ${loading ? 'opacity-80 cursor-wait' : ''}`} 

@@ -57,31 +57,45 @@ public class GoogleLoginRequest
 
 public class UpdateProfileRequest
 {
-    [Required, MinLength(2), MaxLength(50)]
+    [Required(ErrorMessage = "Tên không được để trống.")]
+    [MinLength(2), MaxLength(50)]
+    [RegularExpression(@"^[\p{L}\p{M}\s]{2,50}$", ErrorMessage = "Tên chỉ được chứa chữ cái và khoảng trắng, từ 2 đến 50 ký tự.")]
     public string FirstName { get; set; } = string.Empty;
 
-    [Required, MinLength(2), MaxLength(50)]
+    [Required(ErrorMessage = "Họ/Tên đệm không được để trống.")]
+    [MinLength(2), MaxLength(50)]
+    [RegularExpression(@"^[\p{L}\p{M}\s]{2,50}$", ErrorMessage = "Họ chỉ được chứa chữ cái và khoảng trắng, từ 2 đến 50 ký tự.")]
     public string LastName { get; set; } = string.Empty;
 
-    [Required]
+    [Required(ErrorMessage = "Số điện thoại không được để trống.")]
+    [RegularExpression(@"^(0|84|\+84)[35789]\d{8}$", ErrorMessage = "Số điện thoại không đúng định dạng Việt Nam (0xx, 84xx, hoặc +84xx).")]
     public string PhoneNumber { get; set; } = string.Empty;
 
-    [Required]
+    [Required(ErrorMessage = "Địa chỉ không được để trống.")]
     public string Address { get; set; } = string.Empty;
 
-    public string? LicensePlate { get; set; }
-    public string? VehicleType { get; set; }
+    [Required(ErrorMessage = "Biển số xe không được để trống.")]
+    public string LicensePlate { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Loại phương tiện không được để trống.")]
+    public string VehicleType { get; set; } = string.Empty;
 }
 
 public class AdminUpdateUserRequest
 {
-    [Required, MinLength(2), MaxLength(50)]
+    [Required(ErrorMessage = "Tên không được để trống.")]
+    [MinLength(2), MaxLength(50)]
+    [RegularExpression(@"^[\p{L}\p{M}\s]{2,50}$", ErrorMessage = "Tên chỉ được chứa chữ cái và khoảng trắng, từ 2 đến 50 ký tự.")]
     public string FirstName { get; set; } = string.Empty;
 
-    [Required, MinLength(2), MaxLength(50)]
+    [Required(ErrorMessage = "Họ/Tên đệm không được để trống.")]
+    [MinLength(2), MaxLength(50)]
+    [RegularExpression(@"^[\p{L}\p{M}\s]{2,50}$", ErrorMessage = "Họ chỉ được chứa chữ cái và khoảng trắng, từ 2 đến 50 ký tự.")]
     public string LastName { get; set; } = string.Empty;
 
+    [RegularExpression(@"^(0|84|\+84)[35789]\d{8}$", ErrorMessage = "Số điện thoại không đúng định dạng Việt Nam (0xx, 84xx, hoặc +84xx).")]
     public string? PhoneNumber { get; set; }
+    
     public string? Address { get; set; }
     public string? LicensePlate { get; set; }
     public string? VehicleType { get; set; }
@@ -111,13 +125,18 @@ public class VerifyRegisterOtpRequest
     [Required, StringLength(6, MinimumLength = 6)]
     public string Otp { get; set; } = string.Empty;
 
-    [Required, MinLength(3), MaxLength(50)]
+    [Required(ErrorMessage = "Tên tài khoản không được để trống.")]
+    [MinLength(3), MaxLength(50)]
+    [RegularExpression(@"^[a-zA-Z0-9_]{3,50}$", ErrorMessage = "Tên người dùng chỉ được chứa chữ cái không dấu, chữ số và dấu gạch dưới, từ 3 đến 50 ký tự.")]
     public string Username { get; set; } = string.Empty;
 
     [Required, MinLength(8)]
     public string Password { get; set; } = string.Empty;
 
+    [RegularExpression(@"^[\p{L}\p{M}\s]{2,50}$", ErrorMessage = "Tên chỉ được chứa chữ cái và khoảng trắng, từ 2 đến 50 ký tự.")]
     public string? FirstName { get; set; }
+
+    [RegularExpression(@"^[\p{L}\p{M}\s]{2,50}$", ErrorMessage = "Họ chỉ được chứa chữ cái và khoảng trắng, từ 2 đến 50 ký tự.")]
     public string? LastName { get; set; }
 }
 

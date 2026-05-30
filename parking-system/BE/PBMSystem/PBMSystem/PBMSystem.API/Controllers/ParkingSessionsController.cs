@@ -584,7 +584,7 @@ public class ParkingSessionsController : ControllerBase
             .OrderByDescending(ps => ps.CreatedAt)
             .ToListAsync();
 
-        var userIds = sessions.Where(ps => ps.UserId.HasValue).Select(ps => ps.UserId.Value).Distinct().ToList();
+        var userIds = sessions.Where(ps => ps.UserId.HasValue).Select(ps => ps.UserId!.Value).Distinct().ToList();
         var users = await _context.Users.Where(u => userIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id);
 
         var result = sessions.Select(ps => new {

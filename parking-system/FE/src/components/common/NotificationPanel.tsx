@@ -1,4 +1,4 @@
-import { Bell, AlertTriangle, CheckCircle2, ShieldAlert, Car, Map, Banknote } from 'lucide-react';
+import { Bell, AlertTriangle, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../services/api';
@@ -8,7 +8,7 @@ export interface NotificationPanelProps {
   onClose?: () => void;
 }
 
-const NotificationPanel = ({ role, onClose }: NotificationPanelProps) => {
+const NotificationPanel = ({ role }: NotificationPanelProps) => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 

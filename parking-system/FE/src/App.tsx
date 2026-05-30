@@ -14,6 +14,7 @@ import LoginPage from './pages/auth/LoginPage';
 import PricingPage from './pages/PricingPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
+import VnPayReturnPage from './pages/VnPayReturnPage';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminMonitoring from './pages/AdminMonitoring';
 import AdminReservations from './pages/AdminReservations';
@@ -75,6 +76,7 @@ function App() {
           <Route path="/status" element={<ProtectedRoute><ParkingStatus /></ProtectedRoute>} />
           <Route path="/reserve" element={<ProtectedRoute><ReservationPage /></ProtectedRoute>} />
           <Route path="/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
+          <Route path="/payment/vnpay-return" element={<VnPayReturnPage />} />
           <Route path="/success" element={<ProtectedRoute><SuccessPage /></ProtectedRoute>} />
           <Route path="/gate-scan" element={<ProtectedRoute><GateScanPage /></ProtectedRoute>} />
           <Route path="/navigation" element={<ProtectedRoute><NavigationPage /></ProtectedRoute>} />
