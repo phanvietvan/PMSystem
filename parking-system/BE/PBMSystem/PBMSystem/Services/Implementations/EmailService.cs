@@ -217,7 +217,7 @@ public class EmailService : IEmailService
         _logger.LogInformation("Contact submission email successfully sent to pmsystem.system@gmail.com");
     }
 
-    public async Task SendBookingConfirmationEmailAsync(string toEmail, string userName, string qrCode, string lotName, string slot, string licensePlate)
+    public async Task SendBookingConfirmationEmailAsync(string toEmail, string userName, string qrCode, string lotName, string slot, string licensePlate, string mapsLink = "")
     {
         var emailSubject = "Xác nhận đặt chỗ thành công - PM System";
         var body = $"""
@@ -251,6 +251,13 @@ public class EmailService : IEmailService
                         <td style="padding: 12px; font-weight: bold;">Biển số xe:</td>
                         <td style="padding: 12px; font-weight: bold;">{licensePlate}</td>
                     </tr>
+                    {(string.IsNullOrEmpty(mapsLink) ? "" : $@"
+                    <tr>
+                        <td style=""padding: 12px; font-weight: bold; border-top: 1px solid #e2e8f0;"">Chỉ đường:</td>
+                        <td style=""padding: 12px; border-top: 1px solid #e2e8f0;"">
+                            <a href=""{mapsLink}"" style=""display: inline-block; padding: 8px 16px; background-color: #3b82f6; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px;"">Xem trên Google Maps</a>
+                        </td>
+                    </tr>")}
                 </table>
                 <p>Vui lòng xuất trình mã QR này tại trạm kiểm soát lối vào để nhân viên xác thực.</p>
                 <p style="color: #888; font-size: 11px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 10px;">
@@ -374,6 +381,66 @@ public class EmailService : IEmailService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to send cancellation email to {toEmail}", toEmail);
+        }
+    }
+
+    public async Task SendSlotChangeEmailAsync(string toEmail, string userName, string lotName, string oldSlot, string newSlot, string licensePlate)
+    {
+        var emailSubject = "Thông báo: Vị trí đỗ xe của bạn đã được thay đổi - PM System";
+        var body = $"""
+            <!DOCTYPE html>
+            <html>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; color: #333; line-height: 1.6;">
+                <h2 style="color: #3b82f6; border-bottom: 2px solid #3b82f6; padding-bottom: 8px;">Thay đổi vị trí đỗ xe</h2>
+                <p>Xin chào <strong>{userName}</strong>,</p>
+                <p>Hệ thống PM System xin thông báo: Vị trí đỗ xe của bạn tại bãi đỗ <strong>{lotName}</strong> đã được Ban quản lý thay đổi vì lý do vận hành.</p>
+                
+                <table style="width: 100%; border-collapse: collapse; margin: 20px 0; background: #f8fafc; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0;">
+                    <tr>
+                        <td style="padding: 12px; font-weight: bold; border-bottom: 1px solid #e2e8f0; width: 150px;">Vị trí cũ:</td>
+                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #64748b; text-decoration: line-through;">{oldSlot}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px; font-weight: bold; border-bottom: 1px solid #e2e8f0;">Vị trí mới:</td>
+                        <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; font-weight: bold; color: #16a34a; font-size: 18px;">{newSlot}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 12px; font-weight: bold;">Biển số xe:</td>
+                        <td style="padding: 12px; font-weight: bold;">{licensePlate}</td>
+                    </tr>
+                </table>
+                <p>Mã QR đặt chỗ cũ của bạn vẫn hoạt động bình thường, hệ thống tự động nhận diện vị trí mới của bạn.</p>
+                <p>Cảm ơn bạn đã thông cảm và sử dụng dịch vụ của PM System!</p>
+                <p style="color: #888; font-size: 11px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 10px;">
+                    Thư này được gửi tự động từ hệ thống.
+                </p>
+            </body>
+            </html>
+            """;
+
+        var mailMessage = new MimeMessage();
+        mailMessage.From.Add(new MailboxAddress(_smtp.FromName, _smtp.FromAddress));
+        mailMessage.To.Add(MailboxAddress.Parse(toEmail));
+        mailMessage.Subject = emailSubject;
+        mailMessage.Body = new TextPart("html") { Text = body };
+
+        if (_isDevelopment && (string.IsNullOrWhiteSpace(_smtp.Username) || _smtp.Username.Contains("MAILTRAP_")))
+        {
+            _logger.LogInformation("Slot change email simulated for {toEmail} (Old: {oldSlot}, New: {newSlot})", toEmail, oldSlot, newSlot);
+            return;
+        }
+
+        try
+        {
+            using var client = new SmtpClient();
+            await client.ConnectAsync(_smtp.Host, _smtp.Port, SecureSocketOptions.StartTls);
+            await client.AuthenticateAsync(_smtp.Username, _smtp.Password);
+            await client.SendAsync(mailMessage);
+            await client.DisconnectAsync(true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send slot change email to {toEmail}", toEmail);
         }
     }
 }

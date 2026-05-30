@@ -38,6 +38,12 @@ public class ParkingSessionsController : ControllerBase
         // Verify if the parking slot is already locked/reserved in the selected building
         if (!string.IsNullOrWhiteSpace(request.ParkingLotName) && !string.IsNullOrWhiteSpace(request.ParkingSlot))
         {
+            var parkingLot = await _context.ParkingLots.FirstOrDefaultAsync(l => l.Name == request.ParkingLotName);
+            if (parkingLot != null && parkingLot.LockedSlots != null && parkingLot.LockedSlots.Contains(request.ParkingSlot))
+            {
+                return BadRequest(new { message = $"Vị trí đỗ {request.ParkingSlot} tại {request.ParkingLotName} hiện đang được bảo trì. Vui lòng chọn vị trí khác!" });
+            }
+
             var isSlotTaken = await _context.ParkingSessions
                 .AnyAsync(ps => ps.Status == "Active" 
                              && ps.ParkingLotName == request.ParkingLotName 
@@ -123,17 +129,101 @@ public class ParkingSessionsController : ControllerBase
                 ? $"{user.FirstName} {user.LastName}".Trim()
                 : (user.Username ?? "Khách hàng");
 
+            string mapsLink = "";
+            var parkingLot = await _context.ParkingLots.FirstOrDefaultAsync(l => l.Name == request.ParkingLotName);
+            if (parkingLot != null && !string.IsNullOrWhiteSpace(parkingLot.Latitude) && !string.IsNullOrWhiteSpace(parkingLot.Longitude))
+            {
+                mapsLink = $"https://www.google.com/maps?q={parkingLot.Latitude},{parkingLot.Longitude}";
+            }
+
             _ = _emailService.SendBookingConfirmationEmailAsync(
                 user.Email,
                 userName,
                 qrCode,
                 request.ParkingLotName ?? "PM System Central",
                 request.ParkingSlot ?? "Tự động phân bổ",
-                request.LicensePlate.ToUpper()
+                request.LicensePlate.ToUpper(),
+                mapsLink
             );
         }
 
         return Ok(session);
+    }
+
+    [HttpPost("{id:guid}/cancel")]
+    public async Task<IActionResult> CancelSession(Guid id)
+    {
+        var session = await _context.ParkingSessions.FindAsync(id);
+        if (session == null)
+            return NotFound(new { message = "Không tìm thấy phiên đỗ xe." });
+
+        if (session.Status != "Active")
+            return BadRequest(new { message = "Chỉ có thể hủy các phiên đang hoạt động." });
+            
+        if (session.IsCheckedIn == true)
+            return BadRequest(new { message = "Không thể hủy vì xe đã vào bãi." });
+
+        session.Status = "Cancelled";
+        session.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = "Hủy chỗ thành công.", session });
+    }
+
+    [HttpPost("{id:guid}/change-slot")]
+    public async Task<IActionResult> ChangeSlot(Guid id, [FromBody] ChangeSlotRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.NewSlot))
+            return BadRequest(new { message = "Vị trí mới không được để trống." });
+
+        var session = await _context.ParkingSessions.FindAsync(id);
+            
+        if (session == null)
+            return NotFound(new { message = "Không tìm thấy phiên đỗ xe." });
+
+        if (session.Status != "Active")
+            return BadRequest(new { message = "Chỉ có thể đổi chỗ cho phiên đang hoạt động." });
+
+        // Check if new slot is locked
+        var parkingLot = await _context.ParkingLots.FirstOrDefaultAsync(l => l.Name == session.ParkingLotName);
+        if (parkingLot != null && parkingLot.LockedSlots != null && parkingLot.LockedSlots.Contains(request.NewSlot))
+        {
+            return BadRequest(new { message = $"Vị trí {request.NewSlot} đang được bảo trì." });
+        }
+
+        // Check if new slot is occupied/reserved
+        var isSlotTaken = await _context.ParkingSessions
+            .AnyAsync(ps => ps.Status == "Active" 
+                         && ps.ParkingLotName == session.ParkingLotName 
+                         && ps.ParkingSlot == request.NewSlot);
+        
+        if (isSlotTaken)
+        {
+            return BadRequest(new { message = $"Vị trí {request.NewSlot} đã có người đặt hoặc đang bận." });
+        }
+
+        var oldSlot = session.ParkingSlot ?? "Không xác định";
+        session.ParkingSlot = request.NewSlot;
+        session.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        if (session.UserId.HasValue)
+        {
+            var user = await _context.Users.FindAsync(session.UserId.Value);
+            if (user != null && !string.IsNullOrWhiteSpace(user.Email))
+            {
+                await _emailService.SendSlotChangeEmailAsync(
+                    user.Email,
+                    $"{user.FirstName} {user.LastName}".Trim(),
+                    session.ParkingLotName ?? "Bãi đỗ",
+                    oldSlot,
+                    request.NewSlot,
+                    session.LicensePlate
+                );
+            }
+        }
+
+        return Ok(new { message = "Đổi vị trí thành công.", session });
     }
 
     private decimal CalculateFee(DateTime entryTime, DateTime exitTime, string? vehicleType)

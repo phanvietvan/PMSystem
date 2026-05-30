@@ -11,3 +11,4 @@ public class AppNotification : BaseEntity
     public string Type { get; set; } = "info"; // info, warning, alert, success
     public bool IsRead { get; set; } = false; // Note: for simplicity. Ideally a list of ReadBy UserIds
 }
+ 

@@ -56,6 +56,7 @@ interface SessionData {
   entryTime: string | null;
   isCheckedIn: boolean;
   isCompleted?: boolean;
+  isCancelled?: boolean;
   exitTime?: string | null;
   exitLicensePlate?: string;
   isPlateMatched?: boolean;
@@ -69,6 +70,8 @@ const ActiveSessionPage = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+    
     const fetchAllActiveSessions = async () => {
       try {
         const token = localStorage.getItem('token');
@@ -78,7 +81,6 @@ const ActiveSessionPage = () => {
         const results: SessionData[] = [];
 
         if (token && user) {
-          // Fetch history sessions for the user directly
           const allResp = await api.get('/ParkingSessions/history');
           if (allResp.data && Array.isArray(allResp.data)) {
             const mySessions = allResp.data;
@@ -95,12 +97,12 @@ const ActiveSessionPage = () => {
 
               const diffMs = sExitTime && sEntryTime ? new Date(sExitTime).getTime() - new Date(sEntryTime).getTime() : 0;
               const isCompleted = sStatus === 'Completed';
+              const isCancelled = sStatus === 'Cancelled';
               
-              // Sync active QR to localStorage
-              if (!isCompleted && sQrCode) {
+              if (!isCompleted && !isCancelled && sQrCode) {
                 const { addActiveQr } = await import('../utils/auth');
                 addActiveQr(sQrCode);
-              } else if (isCompleted && sQrCode) {
+              } else if ((isCompleted || isCancelled) && sQrCode) {
                 const { removeActiveQr } = await import('../utils/auth');
                 removeActiveQr(sQrCode);
               }
@@ -114,6 +116,7 @@ const ActiveSessionPage = () => {
                 entryTime: sEntryTime || null,
                 isCheckedIn: sIsCheckedIn || false,
                 isCompleted: isCompleted,
+                isCancelled: isCancelled,
                 exitTime: sExitTime,
                 exitLicensePlate: s.exitLicensePlate || s.ExitLicensePlate,
                 isPlateMatched: s.isPlateMatched ?? s.IsPlateMatched,
@@ -123,7 +126,6 @@ const ActiveSessionPage = () => {
             }
           }
         } else {
-          // Fallback: use QR codes stored in localStorage (anonymous / legacy)
           const qrs = getActiveQrs();
           if (qrs.length > 0) {
             for (const qr of qrs) {
@@ -131,6 +133,12 @@ const ActiveSessionPage = () => {
                 const resp = await api.get(`/ParkingSessions/verify/${qr}`);
                 if (resp.data && resp.data.session) {
                   const s = resp.data.session;
+                  const sStatus = s.status || s.Status;
+                  if (sStatus === 'Cancelled' || sStatus === 'Completed') {
+                     removeActiveQr(qr);
+                     continue;
+                  }
+                  
                   const sLicensePlate = s.licensePlate || s.LicensePlate;
                   const sParkingSlot = s.parkingSlot || s.ParkingSlot;
                   const sEntryTime = s.entryTime || s.EntryTime;
@@ -146,6 +154,7 @@ const ActiveSessionPage = () => {
                     entryTime: sEntryTime || null,
                     isCheckedIn: sIsCheckedIn || false,
                     isCompleted: false,
+                    isCancelled: false,
                     parkingLotName: sParkingLotName,
                     vehicleType: s.vehicleType || s.VehicleType || 'car'
                   });
@@ -159,16 +168,20 @@ const ActiveSessionPage = () => {
           }
         }
 
-        // Unified check: always inspect localStorage active QRs to ensure no active sessions are missed!
         const localQrs = getActiveQrs();
         if (localQrs.length > 0) {
           for (const qr of localQrs) {
             if (results.some(r => r.qr === qr)) continue;
-
             try {
               const resp = await api.get(`/ParkingSessions/verify/${qr}`);
               if (resp.data && resp.data.session) {
                 const s = resp.data.session;
+                const sStatus = s.status || s.Status;
+                if (sStatus === 'Cancelled' || sStatus === 'Completed') {
+                   removeActiveQr(qr);
+                   continue;
+                }
+                
                 const sLicensePlate = s.licensePlate || s.LicensePlate;
                 const sParkingSlot = s.parkingSlot || s.ParkingSlot;
                 const sEntryTime = s.entryTime || s.EntryTime;
@@ -184,6 +197,7 @@ const ActiveSessionPage = () => {
                   entryTime: sEntryTime || null,
                   isCheckedIn: sIsCheckedIn || false,
                   isCompleted: false,
+                  isCancelled: false,
                   parkingLotName: sParkingLotName,
                   vehicleType: s.vehicleType || s.VehicleType || 'car'
                 });
@@ -191,36 +205,51 @@ const ActiveSessionPage = () => {
                 removeActiveQr(qr);
               }
             } catch (e) {
-              console.error("Failed to verify local active QR:", qr, e);
               removeActiveQr(qr);
             }
           }
         }
 
         if (results.length === 0) {
-          setSessions([]);
-          setLoading(false);
+          if (isMounted) {
+            setSessions([]);
+            setLoading(false);
+          }
           return;
         }
 
-        // Sort results: Active first, then completed (newest first)
         results.sort((a, b) => {
-           if (a.isCompleted === b.isCompleted) {
+           if (a.isCompleted === b.isCompleted && a.isCancelled === b.isCancelled) {
               return new Date(b.entryTime || 0).getTime() - new Date(a.entryTime || 0).getTime();
            }
-           return a.isCompleted ? 1 : -1;
+           if (a.isCompleted || a.isCancelled) return 1;
+           return -1;
         });
 
-        setSessions(results);
-        setLoading(false);
+        if (isMounted) {
+          setSessions(results);
+          setLoading(false);
+        }
       } catch (e) {
-        console.error("Error fetching sessions history:", e);
-        setSessions([]);
-        setLoading(false);
+        if (isMounted) {
+          setSessions([]);
+          setLoading(false);
+        }
       }
     };
 
+    // Initial fetch
     fetchAllActiveSessions();
+
+    // Polling interval for realtime sync (slot changes, cancellations, etc.)
+    const syncId = setInterval(() => {
+      fetchAllActiveSessions();
+    }, 5000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(syncId);
+    };
   }, []);
 
   // Timer: update seconds every second based on each session's entryTime (only if checked in!)
@@ -241,62 +270,7 @@ const ActiveSessionPage = () => {
     return () => clearInterval(id);
   }, [sessions.length]);
 
-  // Real-time Status Polling: Automatically end session and transition to history card when scanned out at exit gate
-  useEffect(() => {
-    if (sessions.length === 0) return;
-
-    const checkSessionStatus = async () => {
-      try {
-        // Fetch all sessions to find the completed ones
-        const allResp = await api.get('/ParkingSessions');
-        if (!allResp.data || !Array.isArray(allResp.data)) return;
-        
-        const completedList = allResp.data.filter((s: any) => s.status === 'Completed');
-
-        setSessions(prev => {
-          let updated = false;
-          const newSessions = prev.map(item => {
-            if (item.isCompleted) return item;
-            
-            const foundCompleted = completedList.find((c: any) => c.qrCode === item.qr);
-            if (foundCompleted) {
-              updated = true;
-              
-              // Async remove from local storage
-              import('../utils/auth').then(({ removeActiveQr }) => {
-                removeActiveQr(item.qr);
-              });
-
-              const entryT = foundCompleted.entryTime;
-              const exitT = foundCompleted.exitTime;
-              const diffMs = exitT && entryT ? new Date(exitT).getTime() - new Date(entryT).getTime() : 0;
-              const secs = Math.max(0, Math.floor(diffMs / 1000));
-              
-              return {
-                ...item,
-                isCompleted: true,
-                exitTime: exitT,
-                seconds: secs,
-                exitLicensePlate: foundCompleted.exitLicensePlate,
-                isPlateMatched: foundCompleted.isPlateMatched,
-                parkingLotName: foundCompleted.parkingLotName || item.parkingLotName,
-                vehicleType: foundCompleted.vehicleType || foundCompleted.VehicleType || item.vehicleType
-              };
-            }
-            return item;
-          });
-
-          return updated ? newSessions : prev;
-        });
-
-      } catch (e) {
-        console.warn("Polling error:", e);
-      }
-    };
-
-    const intervalId = setInterval(checkSessionStatus, 2000);
-    return () => clearInterval(intervalId);
-  }, [sessions.length]);
+  // Removed old manual exit-gate polling because fetchAllActiveSessions runs every 5 seconds now
 
   const formatTime = (totalSeconds: number) => {
     const hrs = Math.floor(totalSeconds / 3600);
@@ -418,46 +392,64 @@ const ActiveSessionPage = () => {
             </motion.div>
           ) : (
             sessions.map((session, idx) => {
-            if (session.isCompleted) {
+            if (session.isCompleted || session.isCancelled) {
               return (
                 <motion.div
                   key={session.qr}
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: idx * 0.1 }}
-                  className="bg-surface-container-lowest border border-emerald-500/20 rounded-[3rem] p-10 shadow-2xl shadow-emerald-500/5 relative overflow-hidden"
+                  className={`bg-surface-container-lowest border rounded-[3rem] p-10 relative overflow-hidden ${
+                    session.isCancelled 
+                      ? 'border-red-500/20 shadow-2xl shadow-red-500/5' 
+                      : 'border-emerald-500/20 shadow-2xl shadow-emerald-500/5'
+                  }`}
                 >
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+                  <div className={`absolute top-0 right-0 w-64 h-64 rounded-full blur-3xl pointer-events-none ${
+                    session.isCancelled ? 'bg-red-500/5' : 'bg-emerald-500/5'
+                  }`} />
                   
                   <div className="absolute top-0 right-0 p-8">
-                    <div className="flex items-center gap-2 bg-emerald-50 px-4 py-1.5 rounded-full border border-emerald-200 shadow-sm">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                      <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Đã ra cổng</span>
+                    <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full border shadow-sm ${
+                      session.isCancelled 
+                        ? 'bg-red-50 border-red-200' 
+                        : 'bg-emerald-50 border-emerald-200'
+                    }`}>
+                      <span className={`w-2.5 h-2.5 rounded-full ${
+                        session.isCancelled ? 'bg-red-500 animate-pulse' : 'bg-emerald-500 animate-pulse'
+                      }`}></span>
+                      <span className={`text-[10px] font-black uppercase tracking-widest ${
+                        session.isCancelled ? 'text-red-700' : 'text-emerald-700'
+                      }`}>
+                        {session.isCancelled ? 'Đã hủy' : 'Đã ra cổng'}
+                      </span>
                     </div>
                   </div>
 
                   <div className="space-y-8">
                     <div className="space-y-3">
-                      <div className="flex items-center gap-3 text-emerald-600">
-                        <ShieldCheck className="w-6 h-6 fill-emerald-100 text-emerald-600 animate-bounce" />
+                      <div className={`flex items-center gap-3 ${session.isCancelled ? 'text-red-600' : 'text-emerald-600'}`}>
+                        <ShieldCheck className={`w-6 h-6 animate-bounce ${session.isCancelled ? 'fill-red-100 text-red-600' : 'fill-emerald-100 text-emerald-600'}`} />
                         <span className="text-xs font-black uppercase tracking-widest">
-                          Lịch sử đã ra vào
+                          {session.isCancelled ? 'Lịch sử hủy vé' : 'Lịch sử đã ra vào'}
                         </span>
                       </div>
-                      <div>
-                        <p className="text-[10px] font-black text-outline uppercase tracking-widest mb-1">
-                          Tổng thời gian đỗ
-                        </p>
-                        <h1 className="text-5xl font-display font-black text-on-surface tracking-tighter tabular-nums">
-                          {formatTime(session.seconds)}
-                        </h1>
-                      </div>
+                      {!session.isCancelled && (
+                        <div>
+                          <p className="text-[10px] font-black text-outline uppercase tracking-widest mb-1">
+                            Tổng thời gian đỗ
+                          </p>
+                          <h1 className="text-5xl font-display font-black text-on-surface tracking-tighter tabular-nums">
+                            {formatTime(session.seconds)}
+                          </h1>
+                        </div>
+                      )}
                     </div>
 
                     <div className="bg-surface-container-low border border-outline-variant/10 rounded-[2.5rem] p-8 space-y-6 relative">
                       <div className="border-b border-outline-variant/10 pb-4 flex justify-between items-center">
                         <span className="text-xs font-extrabold text-on-surface uppercase tracking-wider">Chi tiết phiên gửi xe</span>
-                        {session.isPlateMatched !== undefined && (
+                        {!session.isCancelled && session.isPlateMatched !== undefined && (
                           <span className={`text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full border ${
                             session.isPlateMatched 
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
@@ -472,7 +464,9 @@ const ActiveSessionPage = () => {
                         <div className="space-y-4">
                           <div className="flex items-center gap-2">
                             <div className="w-6 h-6 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 text-xs font-bold">1</div>
-                            <span className="text-[10px] font-black text-outline uppercase tracking-wider">Thời gian xe vào</span>
+                            <span className="text-[10px] font-black text-outline uppercase tracking-wider">
+                              {session.isCancelled ? 'Thời gian dự kiến vào' : 'Thời gian xe vào'}
+                            </span>
                           </div>
                           <div>
                             <p className="text-sm font-bold text-on-surface">{formatDateTime(session.entryTime)}</p>
@@ -482,44 +476,52 @@ const ActiveSessionPage = () => {
                           </div>
                         </div>
 
-                        <div className="space-y-4 border-t md:border-t-0 md:border-l border-outline-variant/10 pt-4 md:pt-0 md:pl-6">
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 text-xs font-bold">2</div>
-                            <span className="text-[10px] font-black text-outline uppercase tracking-wider">Thời gian xe ra</span>
+                        {!session.isCancelled && (
+                          <div className="space-y-4 border-t md:border-t-0 md:border-l border-outline-variant/10 pt-4 md:pt-0 md:pl-6">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 text-xs font-bold">2</div>
+                              <span className="text-[10px] font-black text-outline uppercase tracking-wider">Thời gian xe ra</span>
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-on-surface">{formatDateTime(session.exitTime)}</p>
+                              <p className="text-xs text-on-surface-variant font-medium mt-1">Biển số ra: <strong className="text-on-surface font-extrabold">{session.exitLicensePlate ? parseLicensePlate(session.exitLicensePlate) : session.licensePlate}</strong></p>
+                              <p className="text-xs text-on-surface-variant font-medium">Tòa nhà: <strong className="text-on-surface font-extrabold">{session.parkingLotName || 'Landmark 81 - Bãi đỗ A1'}</strong></p>
+                              <p className="text-xs text-on-surface-variant font-medium">Bãi đỗ: <strong className="text-on-surface font-extrabold">Khu vực {session.level}</strong></p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {!session.isCancelled ? (
+                      <div className="bg-emerald-50/50 border border-emerald-200/50 rounded-[2rem] p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-2xl bg-white border border-emerald-100 flex items-center justify-center text-emerald-600 shadow-sm">
+                            <span className="material-symbols-outlined text-[24px]">payments</span>
                           </div>
                           <div>
-                            <p className="text-sm font-bold text-on-surface">{formatDateTime(session.exitTime)}</p>
-                            <p className="text-xs text-on-surface-variant font-medium mt-1">Biển số ra: <strong className="text-on-surface font-extrabold">{session.exitLicensePlate ? parseLicensePlate(session.exitLicensePlate) : session.licensePlate}</strong></p>
-                            <p className="text-xs text-on-surface-variant font-medium">Tòa nhà: <strong className="text-on-surface font-extrabold">{session.parkingLotName || 'Landmark 81 - Bãi đỗ A1'}</strong></p>
-                            <p className="text-xs text-on-surface-variant font-medium">Bãi đỗ: <strong className="text-on-surface font-extrabold">Khu vực {session.level}</strong></p>
+                            <p className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">Trạng thái thanh toán</p>
+                            <p className="text-xs text-slate-500 font-semibold">Tự động trừ ví qua tài khoản liên kết</p>
                           </div>
                         </div>
+                        <div className="text-left sm:text-right">
+                          <p className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">Số tiền đã trả</p>
+                          <p className="text-2xl font-black text-emerald-600">
+                            {formatCurrency(calculateFee(session.entryTime, session.exitTime, session.vehicleType))}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-
-                    <div className="bg-emerald-50/50 border border-emerald-200/50 rounded-[2rem] p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-2xl bg-white border border-emerald-100 flex items-center justify-center text-emerald-600 shadow-sm">
-                          <span className="material-symbols-outlined text-[24px]">payments</span>
+                    ) : (
+                      <div className="bg-red-50/50 border border-red-200/50 rounded-[2rem] p-6 flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-2xl bg-white border border-red-100 flex items-center justify-center text-red-600 shadow-sm shrink-0">
+                          <span className="material-symbols-outlined text-[24px]">cancel</span>
                         </div>
                         <div>
-                          <p className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">Trạng thái thanh toán</p>
-                          <p className="text-xs text-slate-500 font-semibold">Tự động trừ ví qua tài khoản liên kết</p>
+                          <p className="text-[9px] font-black text-red-700 uppercase tracking-widest">Vé đỗ xe đã bị hủy</p>
+                          <p className="text-xs text-slate-600 font-medium">Vé này không còn giá trị sử dụng. Nếu bạn vẫn có nhu cầu, vui lòng đặt lại một chỗ mới trên hệ thống.</p>
                         </div>
                       </div>
-                      <div className="text-left sm:text-right">
-                        <p className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">Số tiền đã trả</p>
-                        <p className="text-2xl font-black text-emerald-600">
-                          {formatCurrency(calculateFee(session.entryTime, session.exitTime, session.vehicleType))}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="text-center pt-2">
-                      <p className="text-[11px] text-emerald-700/80 font-bold italic leading-relaxed">
-                        🎉 Cảm ơn quý khách đã sử dụng dịch vụ tại PM System! Chúc quý khách lái xe an toàn.
-                      </p>
-                    </div>
+                    )}
                   </div>
                 </motion.div>
               );
