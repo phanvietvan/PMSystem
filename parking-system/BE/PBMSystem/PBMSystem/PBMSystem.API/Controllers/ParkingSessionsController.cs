@@ -410,7 +410,8 @@ public class ParkingSessionsController : ControllerBase
                 user.PhoneNumber,
                 user.Address,
                 user.LicensePlate,
-                user.VehicleType
+                user.VehicleType,
+                user.AvatarUrl
             } : null
         });
     }
@@ -607,7 +608,8 @@ public class ParkingSessionsController : ControllerBase
                 u.FirstName,
                 u.LastName,
                 u.Email,
-                u.PhoneNumber
+                u.PhoneNumber,
+                u.AvatarUrl
             } : null
         });
 

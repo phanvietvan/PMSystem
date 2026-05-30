@@ -441,6 +441,11 @@ public class AuthService : IAuthService
         user.Address = request.Address.Trim();
         user.LicensePlate = request.LicensePlate.Trim();
         user.VehicleType = request.VehicleType.Trim();
+        
+        if (request.AvatarUrl != null)
+        {
+            user.AvatarUrl = request.AvatarUrl;
+        }
 
         _userRepo.Update(user);
         await _userRepo.SaveChangesAsync();

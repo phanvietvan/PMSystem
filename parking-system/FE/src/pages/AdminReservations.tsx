@@ -216,7 +216,13 @@ const AdminReservations = () => {
                       <td className="px-8 py-6 text-sm font-semibold text-slate-700 font-mono tracking-wider">{row.qrCode || `#${row.id.substring(0, 8).toUpperCase()}`}</td>
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-3.5">
-                          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-indigo-50 to-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs shadow-sm ring-1 ring-indigo-100/50">{userInitials}</div>
+                          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-indigo-50 to-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs shadow-sm ring-1 ring-indigo-100/50 overflow-hidden">
+                            {row.user?.avatarUrl && row.user.avatarUrl !== 'null' && row.user.avatarUrl !== 'undefined' ? (
+                              <img src={row.user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                            ) : (
+                              userInitials
+                            )}
+                          </div>
                           <span className="text-sm font-semibold text-slate-800">{userName}</span>
                         </div>
                       </td>
@@ -320,7 +326,13 @@ const AdminReservations = () => {
                     <div>
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-2">Khách Hàng</p>
                       <div className="flex items-center gap-3">
-                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center text-blue-600 font-bold text-xs shadow-sm ring-1 ring-blue-100/50">{getUserInitials({ firstName: selectedReservation.user?.firstName, lastName: selectedReservation.user?.lastName, username: selectedReservation.user?.firstName ? `${selectedReservation.user?.firstName} ${selectedReservation.user?.lastName}` : 'Khách vãng lai' } as any)}</div>
+                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center text-blue-600 font-bold text-xs shadow-sm ring-1 ring-blue-100/50 overflow-hidden">
+                            {selectedReservation.user?.avatarUrl && selectedReservation.user.avatarUrl !== 'null' && selectedReservation.user.avatarUrl !== 'undefined' ? (
+                              <img src={selectedReservation.user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                            ) : (
+                              getUserInitials({ firstName: selectedReservation.user?.firstName, lastName: selectedReservation.user?.lastName, username: selectedReservation.user?.firstName ? `${selectedReservation.user?.firstName} ${selectedReservation.user?.lastName}` : 'Khách vãng lai' } as any)
+                            )}
+                         </div>
                          <div>
                             <p className="text-sm font-bold text-slate-900">
                               {selectedReservation.user ? `${selectedReservation.user.firstName || ''} ${selectedReservation.user.lastName || ''}`.trim() || 'Khách hàng' : 'Khách vãng lai'}

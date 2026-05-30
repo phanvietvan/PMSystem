@@ -79,6 +79,8 @@ public class UpdateProfileRequest
 
     [Required(ErrorMessage = "Loại phương tiện không được để trống.")]
     public string VehicleType { get; set; } = string.Empty;
+    
+    public string? AvatarUrl { get; set; }
 }
 
 public class AdminUpdateUserRequest

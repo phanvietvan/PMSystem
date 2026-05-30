@@ -1123,24 +1123,14 @@ const getAudioContext = () => {
                   className="flex items-center gap-3 bg-slate-50 hover:bg-slate-100 p-1.5 pr-4 rounded-full border border-slate-200 transition-colors duration-200"
                 >
                   <div className="w-9 h-9 rounded-full flex items-center justify-center overflow-hidden border border-slate-200 bg-blue-100 text-blue-600">
-                    {currentUser.email ? (
-                      <img 
-                        src={`https://unavatar.io/${currentUser.email}?fallback=false`} 
-                        alt="Avatar" 
-                        className="w-full h-full object-cover" 
-                        onError={(e) => { 
-                          e.currentTarget.onerror = null; // Prevent infinite loop
-                          if (currentUser.avatarUrl && currentUser.avatarUrl !== 'null' && currentUser.avatarUrl !== 'undefined') {
-                            e.currentTarget.src = currentUser.avatarUrl;
-                          } else {
-                            e.currentTarget.src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(displayName) + '&background=DBEAFE&color=2563EB';
-                          }
-                        }}
-                      />
-                    ) : currentUser.avatarUrl && currentUser.avatarUrl !== 'null' && currentUser.avatarUrl !== 'undefined' ? (
+                    {currentUser.avatarUrl && currentUser.avatarUrl !== 'null' && currentUser.avatarUrl !== 'undefined' ? (
                       <img src={currentUser.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                     ) : (
-                      <User size={18} />
+                      <img 
+                        src={`https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=DBEAFE&color=2563EB`} 
+                        alt="Avatar" 
+                        className="w-full h-full object-cover" 
+                      />
                     )}
                   </div>
                   <div className="hidden sm:block text-left">

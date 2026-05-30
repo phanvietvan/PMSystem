@@ -15,6 +15,8 @@ const ProfilePage = () => {
   const [lastName, setLastName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [address, setAddress] = useState('');
+  const [avatarBase64, setAvatarBase64] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Dynamic multiple vehicles list
   const [vehicles, setVehicles] = useState<{ plate: string; type: string }[]>([]);
@@ -58,13 +60,14 @@ const ProfilePage = () => {
       lastName !== initialLastName ||
       phoneNumber !== initialPhoneNumber ||
       address !== initialAddress ||
-      vehiclesChanged
+      vehiclesChanged ||
+      avatarBase64 !== null
     );
   };
 
   useEffect(() => {
     isDirtyRef.current = isDirty();
-  }, [firstName, lastName, phoneNumber, address, vehicles, currentUser]);
+  }, [firstName, lastName, phoneNumber, address, vehicles, avatarBase64, currentUser]);
 
   useEffect(() => {
     const handleCaptureClick = (e: MouseEvent) => {
@@ -244,7 +247,8 @@ const ProfilePage = () => {
         phoneNumber: phoneNumber.trim(),
         licensePlate: serializedPlates,
         vehicleType: primaryVehicleType,
-        address: address.trim()
+        address: address.trim(),
+        avatarUrl: avatarBase64 || currentUser.avatarUrl
       });
 
       if (response.data.success) {
@@ -260,6 +264,7 @@ const ProfilePage = () => {
         };
         localStorage.setItem('user', JSON.stringify(updatedUser));
         setCurrentUser(updatedUser);
+        setAvatarBase64(null);
         
         // Notify Navbar and other listening components
         window.dispatchEvent(new Event('user-login'));
@@ -353,17 +358,56 @@ const ProfilePage = () => {
           <div className="text-center mb-8">
             {/* Avatar Profile Section */}
             <div className="flex justify-center mb-4">
-              <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white shadow-lg relative bg-blue-100 flex items-center justify-center text-blue-600">
-                {currentUser.avatarUrl && currentUser.avatarUrl !== 'null' && currentUser.avatarUrl !== 'undefined' ? (
-                  <img 
-                    src={currentUser.avatarUrl} 
-                    alt="Profile Avatar" 
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover" 
-                  />
-                ) : (
-                  <User size={40} className="opacity-80" />
-                )}
+              <div className="relative group">
+                <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white shadow-lg relative bg-blue-100 flex items-center justify-center text-blue-600 transition-all duration-300">
+                  {avatarBase64 ? (
+                    <img 
+                      src={avatarBase64} 
+                      alt="Profile Avatar" 
+                      className="w-full h-full object-cover" 
+                    />
+                  ) : currentUser.avatarUrl && currentUser.avatarUrl !== 'null' && currentUser.avatarUrl !== 'undefined' ? (
+                    <img 
+                      src={currentUser.avatarUrl} 
+                      alt="Profile Avatar" 
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover" 
+                    />
+                  ) : (
+                    <User size={40} className="opacity-80" />
+                  )}
+                  
+                  {/* Hover Overlay */}
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer backdrop-blur-[2px]"
+                  >
+                    <span className="material-symbols-outlined text-white text-[24px]">photo_camera</span>
+                  </div>
+                </div>
+                
+                {/* File Input */}
+                <input 
+                  type="file" 
+                  ref={fileInputRef}
+                  className="hidden" 
+                  accept="image/jpeg, image/png, image/webp" 
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      if (file.size > 2 * 1024 * 1024) {
+                        setError('Kích thước ảnh không được vượt quá 2MB');
+                        return;
+                      }
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setAvatarBase64(reader.result as string);
+                        setError('');
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
               </div>
             </div>
             <h1 className="text-2xl font-extrabold text-slate-950">Thông tin cá nhân</h1>

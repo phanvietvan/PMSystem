@@ -357,15 +357,7 @@ const ActiveSessionPage = () => {
       <Navbar />
 
       <main className="max-w-2xl mx-auto px-6 pt-32 pb-20 relative z-10">
-        {/* Header badge showing count */}
-        {sessions.filter(s => !s.isCompleted).length > 1 && (
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-4 flex justify-center">
-            <div className="inline-flex items-center gap-2 bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100">
-              <span className="material-symbols-outlined text-[14px] text-blue-500">garage</span>
-              <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{sessions.filter(s => !s.isCompleted).length} xe đang gửi</span>
-            </div>
-          </motion.div>
-        )}
+
 
         <div className="space-y-6">
           {sessions.length === 0 ? (

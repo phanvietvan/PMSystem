@@ -659,8 +659,12 @@ const AdminMonitoring = () => {
                             {showUserInfo && (
                               <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-sm space-y-3 animate-in fade-in slide-in-from-top-2">
                                 <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
-                                  <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center font-bold text-lg">
-                                    {(actionModalSession.user.firstName?.[0] || actionModalSession.user.lastName?.[0] || actionModalSession.user.email?.[0] || "U").toUpperCase()}
+                                  <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center font-bold text-lg overflow-hidden shrink-0">
+                                    {actionModalSession.user.avatarUrl && actionModalSession.user.avatarUrl !== 'null' && actionModalSession.user.avatarUrl !== 'undefined' ? (
+                                      <img src={actionModalSession.user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                                    ) : (
+                                      (actionModalSession.user.firstName?.[0] || actionModalSession.user.lastName?.[0] || actionModalSession.user.email?.[0] || "U").toUpperCase()
+                                    )}
                                   </div>
                                   <div>
                                     <p className="text-sm font-bold text-slate-800">
