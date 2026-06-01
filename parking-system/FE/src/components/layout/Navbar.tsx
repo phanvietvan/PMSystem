@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { User, LogOut, ChevronDown, Car, AlertTriangle } from 'lucide-react';
+import { User, LogOut, ChevronDown, Car, AlertTriangle, Bell } from 'lucide-react';
+import NotificationPanel from '../common/NotificationPanel';
 import BrandLogo from '../brand/BrandLogo';
 import api from '../../services/api';
 import { isAdmin, syncCurrentUserFromApi, clearSession } from '../../utils/auth';
@@ -12,6 +13,9 @@ const Navbar = () => {
   const currentPath = location.pathname;
   const [user, setUser] = useState<any>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [hasSeenUnread, setHasSeenUnread] = useState(true);
 
   useEffect(() => {
     const applyStoredUser = () => {
@@ -37,6 +41,38 @@ const Navbar = () => {
       window.removeEventListener('user-login', handleStorageChange);
     };
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchNotifs = async () => {
+      try {
+        const res = await api.get('/Notifications');
+        const count = res.data.filter((n: any) => !n.read).length;
+        setUnreadCount(count);
+      } catch (err) {}
+    };
+    fetchNotifs();
+    const interval = setInterval(fetchNotifs, 15000);
+    return () => clearInterval(interval);
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const lastSeen = Number(localStorage.getItem(`lastSeenNotifCount_${user.id}`) || '0');
+    if (unreadCount > lastSeen) {
+       setHasSeenUnread(false);
+    } else {
+       setHasSeenUnread(true);
+    }
+  }, [unreadCount, user]);
+
+  const handleOpenNotif = () => {
+    setIsNotifOpen(!isNotifOpen);
+    if (!isNotifOpen && user) {
+      setHasSeenUnread(true);
+      localStorage.setItem(`lastSeenNotifCount_${user.id}`, unreadCount.toString());
+    }
+  };
 
   const handleLogout = () => {
     clearSession();
@@ -109,28 +145,43 @@ const Navbar = () => {
                 </Link>
               )}
               <div className="relative">
+                <button 
+                  onClick={handleOpenNotif}
+                  className="w-10 h-10 flex items-center justify-center bg-white hover:bg-blue-50/80 text-slate-500 hover:text-blue-600 rounded-full transition-all duration-300 ease-out border border-slate-200 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_15px_rgba(37,99,235,0.12)] hover:-translate-y-0.5 relative group active:scale-95"
+                >
+                  <Bell size={18} className="transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:rotate-12 group-hover:scale-110 group-active:rotate-0" />
+                  {unreadCount > 0 && !hasSeenUnread && (
+                    <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white transition-transform duration-300 group-hover:scale-125"></span>
+                  )}
+                </button>
+                {isNotifOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setIsNotifOpen(false)} />
+                    <div className="absolute right-0 top-12 z-50">
+                      <NotificationPanel role="user" onClose={() => setIsNotifOpen(false)} />
+                    </div>
+                  </>
+                )}
+              </div>
+              <div className="relative">
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                   className="flex items-center gap-3 bg-slate-50 hover:bg-slate-100 p-1.5 pr-4 rounded-full border border-slate-200 transition-colors duration-200"
                 >
                   <div className="w-9 h-9 rounded-full flex items-center justify-center overflow-hidden border border-slate-200 bg-blue-100 text-blue-600">
-                    {user.email ? (
+                    {user.avatarUrl && user.avatarUrl !== 'null' && user.avatarUrl !== 'undefined' ? (
+                      <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : user.email ? (
                       <img 
                         src={`https://unavatar.io/${user.email}?fallback=false`} 
                         alt="Avatar" 
                         className="w-full h-full object-cover" 
                         onError={(e) => { 
                           e.currentTarget.onerror = null; // Prevent infinite loop
-                          if (user.avatarUrl && user.avatarUrl !== 'null' && user.avatarUrl !== 'undefined') {
-                            e.currentTarget.src = user.avatarUrl;
-                          } else {
-                            const name = user.firstName || user.lastName ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : user.username;
-                            e.currentTarget.src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(name) + '&background=DBEAFE&color=2563EB';
-                          }
+                          const name = user.firstName || user.lastName ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : user.username;
+                          e.currentTarget.src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(name) + '&background=DBEAFE&color=2563EB';
                         }}
                       />
-                    ) : user.avatarUrl && user.avatarUrl !== 'null' && user.avatarUrl !== 'undefined' ? (
-                      <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                     ) : (
                       <User size={18} />
                     )}

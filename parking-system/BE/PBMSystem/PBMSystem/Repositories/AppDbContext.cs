@@ -25,6 +25,8 @@ public class AppDbContext : DbContext
     public DbSet<ParkingLot> ParkingLots => Set<ParkingLot>();
     public DbSet<PricingConfig> PricingConfigs => Set<PricingConfig>();
     public DbSet<Regulation> Regulations => Set<Regulation>();
+    public DbSet<BlacklistEntry> BlacklistEntries => Set<BlacklistEntry>();
+    public DbSet<AppNotification> AppNotifications => Set<AppNotification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -38,6 +40,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<ParkingLot>().ToCollection("ParkingLots");
         modelBuilder.Entity<PricingConfig>().ToCollection("PricingConfigs");
         modelBuilder.Entity<Regulation>().ToCollection("Regulations");
+        modelBuilder.Entity<BlacklistEntry>().ToCollection("BlacklistEntries");
+        modelBuilder.Entity<AppNotification>().ToCollection("AppNotifications");
 
         // Global query filters for soft-delete
         modelBuilder.Entity<User>().HasQueryFilter(u => !u.IsDeleted);
@@ -47,6 +51,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<ParkingLot>().HasQueryFilter(pl => !pl.IsDeleted);
         modelBuilder.Entity<PricingConfig>().HasQueryFilter(pc => !pc.IsDeleted);
         modelBuilder.Entity<Regulation>().HasQueryFilter(r => !r.IsDeleted);
+        modelBuilder.Entity<BlacklistEntry>().HasQueryFilter(b => !b.IsDeleted);
+        modelBuilder.Entity<AppNotification>().HasQueryFilter(n => !n.IsDeleted);
     }
 
     /// <summary>

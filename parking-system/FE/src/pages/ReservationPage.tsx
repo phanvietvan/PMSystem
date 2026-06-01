@@ -23,7 +23,18 @@ const ReservationPage = () => {
     { id: 7, name: "Sân bay Tân Sơn Nhất - Block A", latitude: "10.8160", longitude: "106.6630", floor: "Ga quốc tế", block: "Khu vực A" }
   ];
 
-  const [parkingLots, setParkingLots] = useState<any[]>(defaultLots);
+  const [parkingLots, setParkingLots] = useState<any[]>(() => {
+    const stored = localStorage.getItem('selectedParking');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (parsed && parsed.id && !defaultLots.some((p: any) => p.id === parsed.id)) {
+          return [...defaultLots, parsed];
+        }
+      } catch (e) {}
+    }
+    return defaultLots;
+  });
 
   useEffect(() => {
     const loadLots = async () => {
@@ -48,8 +59,12 @@ const ReservationPage = () => {
     if (storedParking) {
       try {
         const parsed = JSON.parse(storedParking);
-        const matched = parkingLots.find((p: any) => p.name === parsed.name);
-        if (matched) initialParkingLotId = matched.id;
+        if (parsed && parsed.id) {
+          initialParkingLotId = parsed.id;
+        } else {
+          const matched = parkingLots.find((p: any) => p.name === parsed?.name);
+          if (matched) initialParkingLotId = matched.id;
+        }
       } catch (e) {}
     }
     return {

@@ -14,13 +14,16 @@ import LoginPage from './pages/auth/LoginPage';
 import PricingPage from './pages/PricingPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
+import VnPayReturnPage from './pages/VnPayReturnPage';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminMonitoring from './pages/AdminMonitoring';
 import AdminReservations from './pages/AdminReservations';
 import AdminReports from './pages/AdminReports';
 import AdminUsers from './pages/AdminUsers';
 import AdminSettings from './pages/AdminSettings';
+import AdminBlacklist from './pages/AdminBlacklist';
 import ReportIncidentPage from './pages/ReportIncidentPage';
+import AdminIncidents from './pages/AdminIncidents';
 import AdminRoute from './components/auth/AdminRoute';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import './index.css';
@@ -64,6 +67,8 @@ function App() {
           <Route path="/admin/reservations" element={<AdminRoute><AdminReservations /></AdminRoute>} />
           <Route path="/admin/reports" element={<AdminRoute><AdminReports /></AdminRoute>} />
           <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
+          <Route path="/admin/incidents" element={<AdminRoute><AdminIncidents /></AdminRoute>} />
+          <Route path="/admin/blacklist" element={<AdminRoute><AdminBlacklist /></AdminRoute>} />
           <Route path="/admin/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />
 
           <Route path="/" element={<LandingPage />} />
@@ -71,6 +76,7 @@ function App() {
           <Route path="/status" element={<ProtectedRoute><ParkingStatus /></ProtectedRoute>} />
           <Route path="/reserve" element={<ProtectedRoute><ReservationPage /></ProtectedRoute>} />
           <Route path="/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
+          <Route path="/payment/vnpay-return" element={<VnPayReturnPage />} />
           <Route path="/success" element={<ProtectedRoute><SuccessPage /></ProtectedRoute>} />
           <Route path="/gate-scan" element={<ProtectedRoute><GateScanPage /></ProtectedRoute>} />
           <Route path="/navigation" element={<ProtectedRoute><NavigationPage /></ProtectedRoute>} />

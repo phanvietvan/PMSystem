@@ -12,4 +12,7 @@ public class ParkingLot : BaseEntity
     public string Block { get; set; } = "Block A";
     public List<int> Floors { get; set; } = new List<int> { 1, 2, 3 };
     public string? Address { get; set; }
+    public int? Capacity { get; set; } = 50;
+    public Dictionary<string, int>? FloorCapacities { get; set; } = new Dictionary<string, int>();
+    public List<string>? LockedSlots { get; set; } = new List<string>();
 }

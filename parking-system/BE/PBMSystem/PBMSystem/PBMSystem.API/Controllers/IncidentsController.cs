@@ -26,6 +26,7 @@ public class IncidentsController : ControllerBase
     public async Task<ActionResult<IEnumerable<Incident>>> GetAll()
     {
         var incidents = await _db.Incidents
+            .Where(i => !i.IsDeleted)
             .OrderByDescending(i => i.CreatedAt)
             .ToListAsync();
         return Ok(incidents);

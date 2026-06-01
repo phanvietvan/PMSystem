@@ -47,11 +47,11 @@ public class ReportsController : ControllerBase
         {
             var targetDate = DateTime.Today.AddDays(-i);
             var dSessions = sessions.Where(s => s.ExitTime.HasValue && s.ExitTime.Value.Date == targetDate.Date);
-            var dRevenue = dSessions.Sum(s => (double)CalculateFee(s.EntryTime, s.ExitTime.Value, s.VehicleType));
+            var dRevenue = dSessions.Sum(s => (double)CalculateFee(s.EntryTime, s.ExitTime!.Value, s.VehicleType));
             
             var lastWeekDate = targetDate.AddDays(-7);
             var lastWeekSessions = sessions.Where(s => s.ExitTime.HasValue && s.ExitTime.Value.Date == lastWeekDate.Date);
-            var lastWeekRevenue = lastWeekSessions.Sum(s => (double)CalculateFee(s.EntryTime, s.ExitTime.Value, s.VehicleType));
+            var lastWeekRevenue = lastWeekSessions.Sum(s => (double)CalculateFee(s.EntryTime, s.ExitTime!.Value, s.VehicleType));
 
             monthlyData.Add(new {
                 month = targetDate.ToString("dd/MM"),
@@ -67,7 +67,7 @@ public class ReportsController : ControllerBase
             .Where(s => !string.IsNullOrEmpty(s.ParkingLotName))
             .GroupBy(s => s.ParkingLotName)
             .Select(g => new {
-                id = GetZoneId(g.Key),
+                id = GetZoneId(g.Key!),
                 name = g.Key,
                 count = g.Count().ToString("N0"),
                 revenueValue = g.Sum(s => (double)(s.ExitTime.HasValue ? CalculateFee(s.EntryTime, s.ExitTime.Value, s.VehicleType) : 0m)),
@@ -86,6 +86,63 @@ public class ReportsController : ControllerBase
             };
         }
 
+        // 4. Heatmap Logic
+        var heatmapData = new int[4, 7]; // 4 rows (Morning, Noon, Afternoon, Night), 7 cols (Mon-Sun)
+        var last30DaysSessions = sessions.Where(s => s.EntryTime >= DateTime.Now.AddDays(-30)).ToList();
+        
+        foreach(var session in last30DaysSessions)
+        {
+            var localTime = session.EntryTime.ToLocalTime();
+            int dayOfWeek = (int)localTime.DayOfWeek; // 0: Sun, 1: Mon, ...
+            int col = dayOfWeek == 0 ? 6 : dayOfWeek - 1; // Map to 0: Mon ... 6: Sun
+            
+            int hour = localTime.Hour;
+            int row = 3; // Night by default (18-05)
+            if (hour >= 6 && hour < 12) row = 0; // Morning
+            else if (hour >= 12 && hour < 14) row = 1; // Noon
+            else if (hour >= 14 && hour < 18) row = 2; // Afternoon
+
+            heatmapData[row, col]++;
+        }
+
+        // Convert counts to colors
+        var heatmapColors = new List<string>();
+        int maxDensity = 1;
+        for (int r = 0; r < 4; r++)
+            for (int c = 0; c < 7; c++)
+                if (heatmapData[r, c] > maxDensity) maxDensity = heatmapData[r, c];
+
+        for (int r = 0; r < 4; r++)
+        {
+            for (int c = 0; c < 7; c++)
+            {
+                double ratio = (double)heatmapData[r, c] / maxDensity;
+                string color = "bg-blue-50"; // lowest
+                if (ratio > 0.8) color = "bg-slate-900";
+                else if (ratio > 0.6) color = "bg-blue-600";
+                else if (ratio > 0.4) color = "bg-blue-400";
+                else if (ratio > 0.2) color = "bg-blue-200";
+                else if (ratio > 0.05) color = "bg-blue-100";
+                
+                heatmapColors.Add(color);
+            }
+        }
+
+        // 5. AI Forecast Logic
+        string aiForecast = "Tải trọng dự kiến ổn định, không có biến động lớn.";
+        if (growth > 10) {
+            aiForecast = $"Tải trọng dự kiến tăng {growth:F0}% do nhu cầu gửi xe tăng cao.";
+        } else if (growth < -10) {
+            aiForecast = $"Tải trọng dự kiến giảm {Math.Abs(growth):F0}% so với chu kỳ trước.";
+        } else if (currentMonthSessions.Count > 0) {
+             // Simple logic based on weekends
+             var weekendCount = currentMonthSessions.Count(s => s.EntryTime.DayOfWeek == DayOfWeek.Saturday || s.EntryTime.DayOfWeek == DayOfWeek.Sunday);
+             var weekdayCount = currentMonthSessions.Count - weekendCount;
+             if (weekendCount * 2.5 > weekdayCount) { // If weekends are disproportionately busy
+                 aiForecast = "Tải trọng dự kiến tăng mạnh vào cuối tuần do sự kiện khu vực.";
+             }
+        }
+
         return Ok(new {
             summary = new {
                 totalCount = totalCount,
@@ -93,7 +150,9 @@ public class ReportsController : ControllerBase
                 occupancyRate = $"{occupancyRate:F1}%"
             },
             monthlyData = monthlyData,
-            zones = zonesList
+            zones = zonesList,
+            heatmapColors = heatmapColors,
+            aiForecast = aiForecast
         });
     }
 

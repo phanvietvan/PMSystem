@@ -1,0 +1,82 @@
+﻿Rule ID,Module Group,Category,Priority,Rule Name,Description
+BR-STR-01,Structure & Database Constraints,Mandatory,High,Zone/Floor Dependency,"Mỗi bãi đỗ xe phải thuộc một tòa nhà cụ thể và có thông tin tầng, khu vực (block). Không thể tạo bãi đỗ xe mà không gắn với tòa nhà."
+BR-STR-02,Structure & Database Constraints,Mandatory,High,Slot Floor Dependency,Mỗi ô đỗ xe phải thuộc một tầng cụ thể trong bãi đỗ. Không thể tạo ô đỗ xe nếu tầng đó không tồn tại trong bãi đỗ.
+BR-STR-03,Structure & Database Constraints,Mandatory,High,Multi-Role Exclusivity,"Mỗi tài khoản trong hệ thống chỉ được phép mang MỘT vai trò duy nhất tại một thời điểm (User, Staff, hoặc Admin). Không cho phép đa vai trò đồng thời."
+BR-STR-04,Structure & Database Constraints,Validation,High,Active Session Integrity,Mỗi biển số xe chỉ được phép có TỐI ĐA MỘT phiên đỗ xe đang hoạt động tại cùng một bãi đỗ. Hệ thống từ chối tạo phiên mới nếu phiên cũ chưa kết thúc.
+BR-STR-05,Structure & Database Constraints,Validation,High,Slot Uniqueness,Mỗi ô đỗ xe chỉ được phép gắn với TỐI ĐA MỘT phiên đang hoạt động. Không thể đặt chỗ một ô đã bị khóa hoặc đang bận.
+BR-STR-06,Structure & Database Constraints,Mandatory,High,License Plate Normalization,"Tất cả biển số xe được chuẩn hóa trước khi lưu trữ và so sánh: chuyển thành CHỮ HOA, loại bỏ dấu gạch ngang (-), dấu chấm (.), và khoảng trắng."
+BR-STR-07,Structure & Database Constraints,Integrity,High,Soft Delete Policy,"Dữ liệu người dùng, sự cố, quy định, và cấu hình giá khi xóa sẽ được đánh dấu là đã xóa (soft delete) thay vì xóa vĩnh viễn, nhằm bảo toàn lịch sử kiểm toán."
+BR-STR-08,Structure & Database Constraints,Integrity,Medium,Unique Transaction ID,Mỗi giao dịch thanh toán phải có mã giao dịch (Transaction ID) duy nhất trong toàn hệ thống.
+BR-STR-09,Structure & Database Constraints,Integrity,Critical,Email Uniqueness,Mỗi địa chỉ email chỉ được phép đăng ký MỘT tài khoản duy nhất. Hệ thống từ chối đăng ký trùng lặp với thông báo lỗi rõ ràng.
+BR-STR-10,Structure & Database Constraints,Integrity,Critical,Password Security,Mật khẩu người dùng KHÔNG BAO GIỜ được lưu trữ dạng văn bản thuần. Bắt buộc sử dụng thuật toán mã hóa một chiều (hashing) trước khi lưu vào cơ sở dữ liệu.
+BR-GEN-01,General & System-Wide,Authentication,Critical,OTP Verification Required,Tất cả quy trình đăng ký tài khoản mới và khôi phục mật khẩu BẮT BUỘC xác thực qua mã OTP 6 chữ số được gửi đến email đã đăng ký. Mã OTP có thời hạn sử dụng giới hạn.
+BR-GEN-02,General & System-Wide,Authentication,High,OTP Spam Prevention,"Áp dụng thời gian chờ tối thiểu 60 giây giữa các lần gửi OTP cho cùng một địa chỉ email, nhằm ngăn chặn hành vi lạm dụng và spam."
+BR-GEN-03,General & System-Wide,Authentication,Critical,Role-Based Access Control,"Hệ thống áp dụng phân quyền 3 cấp: User (quyền cơ bản), Staff (quyền vận hành cổng), Admin (toàn quyền). Mỗi chức năng chỉ được truy cập bởi vai trò phù hợp."
+BR-GEN-04,General & System-Wide,Authentication,Critical,Banned User Lockout,Tài khoản bị cấm (Banned) hoặc ngưng hoạt động (Inactive) KHÔNG được phép đăng nhập vào hệ thống. Mọi phiên đăng nhập hiện tại bị thu hồi ngay lập tức.
+BR-GEN-05,General & System-Wide,Authentication,High,Session Revocation on Password Change,"Khi người dùng thay đổi hoặc đặt lại mật khẩu, TẤT CẢ phiên đăng nhập trên mọi thiết bị đều bị thu hồi, buộc đăng nhập lại."
+BR-GEN-06,General & System-Wide,Authentication,Medium,Google Login Auto-Registration,"Đăng nhập lần đầu qua Google sẽ tự động tạo tài khoản mới. Sau đó người dùng BẮT BUỘC hoàn thiện hồ sơ cá nhân (họ tên, SĐT, biển số xe, loại xe, địa chỉ) trước khi sử dụng các chức năng khác."
+BR-GEN-07,General & System-Wide,Notification,High,Role-Based Notification,"Thông báo hệ thống được gửi theo vai trò: có thể gửi cho ""tất cả"", ""khách hàng"", ""nhân viên"", hoặc ""quản trị"". Mỗi người dùng chỉ nhận thông báo phù hợp với vai trò của mình."
+BR-GEN-08,General & System-Wide,Notification,Medium,Notification Read Tracking,Hệ thống theo dõi trạng thái đã đọc/chưa đọc của thông báo. Người dùng có thể đánh dấu tất cả thông báo là đã đọc. Hiển thị tối đa 20 thông báo mới nhất.
+BR-GEN-09,General & System-Wide,Email,High,Email Notification Service,"Hệ thống gửi email tự động cho các sự kiện: xác thực OTP, xác nhận đặt chỗ (kèm mã QR), chuyển tiếp liên hệ từ khách hàng, và thông báo đặt lại mật khẩu."
+BR-GEN-10,General & System-Wide,Security,Critical,Privacy Protection,Quy trình quên mật khẩu KHÔNG ĐƯỢC tiết lộ email nào đã đăng ký trong hệ thống. Luôn trả về phản hồi thành công bất kể email có tồn tại hay không.
+BR-PKM-01,Parking Management,Reservation,Critical,Online Reservation Required,Chỉ khách hàng đã đăng nhập mới được phép đặt chỗ đỗ xe trực tuyến. Khách vãng lai (chưa đăng ký) không thể sử dụng tính năng đặt chỗ.
+BR-PKM-02,Parking Management,Reservation,Critical,Slot Availability Verification,"Trước khi xác nhận đặt chỗ, hệ thống phải kiểm tra ô đỗ được chọn có đang trống hay không. Ô đã bị chiếm hoặc đã được đặt trước phải từ chối và gợi ý chọn ô khác."
+BR-PKM-03,Parking Management,Reservation,Critical,One Vehicle One Session,Một xe (xác định bằng biển số) chỉ được có TỐI ĐA một phiên đỗ đang hoạt động tại cùng một bãi. Phải thanh toán phiên hiện tại trước khi đặt chỗ mới.
+BR-PKM-04,Parking Management,Reservation,Critical,QR Code Issuance,Mỗi phiên đặt chỗ thành công sẽ được cấp MỘT mã QR duy nhất làm vé điện tử. Mã QR này là phương tiện chính để xác thực tại cổng vào/ra.
+BR-PKM-05,Parking Management,Reservation,High,Booking Confirmation Email,"Sau khi đặt chỗ và thanh toán trước thành công, hệ thống tự động gửi email xác nhận đến khách hàng, bao gồm: mã QR, tên bãi đỗ, ô đỗ được phân bổ, và biển số xe."
+BR-PKM-06,Parking Management,Reservation,High,Reservation vs Walk-in,"Phiên đặt trước (có ngày hẹn) được tạo ở trạng thái ""Đã đặt chỗ"" (chưa check-in). Phiên vãng lai (không có ngày hẹn) được tính check-in ngay lập tức."
+BR-PKM-07,Parking Management,Reservation,Medium,Prepayment Option,Khách hàng có thể thanh toán trước toàn bộ hoặc một phần phí đỗ xe khi đặt chỗ. Số tiền đã trả trước được ghi nhận và trừ khi thanh toán tại cổng ra.
+BR-PKM-08,Parking Management,Entry,Critical,QR Gate Entry,"Xe vào bãi đỗ bằng cách quét mã QR tại bốt bảo vệ cổng vào. Hệ thống xác thực mã QR, kích hoạt phiên đỗ xe, và mở barrier tự động."
+BR-PKM-09,Parking Management,Entry,Critical,Blacklist Gate Check,"Tại cổng vào, hệ thống kiểm tra biển số xe với Danh sách đen. Xe trong danh sách đen bị CẢNH BÁO ngay lập tức cho nhân viên bảo vệ."
+BR-PKM-10,Parking Management,Entry,High,Entry Time Recording,"Khi xe quét QR tại cổng vào, thời gian vào thực tế được ghi nhận và bắt đầu tính thời gian đỗ xe (dùng để tính phí)."
+BR-PKM-11,Parking Management,Exit,Critical,Exit Verification,"Xe ra cổng phải cung cấp: (1) Mã QR của phiên đỗ, VÀ (2) Biển số xe thực tế tại cổng ra. Cả hai thông tin đều bắt buộc."
+BR-PKM-12,Parking Management,Exit,Critical,License Plate Matching,"Hệ thống so sánh biển số xe lúc vào với biển số xe lúc ra. Nếu KHÔNG TRÙNG KHỚP, hệ thống phát cảnh báo cho nhân viên bảo vệ để xử lý thủ công."
+BR-PKM-13,Parking Management,Exit,Critical,Session Completion,"Khi xe ra cổng thành công, phiên đỗ xe chuyển sang trạng thái ""Hoàn thành"", thời gian ra được ghi nhận, và ô đỗ được giải phóng cho xe khác sử dụng."
+BR-PKM-14,Parking Management,Exit,High,Auto Fee Calculation,"Phí đỗ xe được tính tự động dựa trên: thời gian vào, thời gian ra, loại xe, và bảng giá hiện hành. Phụ phí (nếu có) được cộng thêm vào tổng phí."
+BR-PKM-15,Parking Management,Exit,High,Auto Payment Creation,"Khi xe hoàn tất check-out, một bản ghi thanh toán tự động được tạo với mã giao dịch duy nhất và trạng thái ""Hoàn thành""."
+BR-PKM-16,Parking Management,Status,High,Real-time Slot Monitoring,"Trạng thái ô đỗ xe được cập nhật thời gian thực: ""Trống"" (không có phiên), ""Đã đặt"" (có phiên nhưng chưa check-in), ""Đang sử dụng"" (xe đã vào)."
+BR-PKM-17,Parking Management,History,Medium,Parking History,"Khách hàng có thể xem toàn bộ lịch sử đỗ xe, bao gồm cả phiên được liên kết qua tài khoản người dùng và qua biển số xe đã đăng ký."
+BR-MGR-01,Parking Manager,Pricing,Critical,Vehicle-Based Pricing,"Hệ thống áp dụng bảng giá phân loại theo loại xe: Xe máy, Ô tô 4-7 chỗ, SUV/Bán tải. Mỗi loại xe có đơn giá và đơn vị tính riêng (theo giờ hoặc theo lượt)."
+BR-MGR-02,Parking Manager,Pricing,High,Default Rate Schedule,"Bảng giá mặc định: Xe máy = 10.000 VNĐ/lượt, Ô tô = 20.000 VNĐ/giờ, SUV = 30.000 VNĐ/giờ. Quản trị viên có thể thay đổi bảng giá bất cứ lúc nào."
+BR-MGR-03,Parking Manager,Pricing,High,Minimum Billing Unit,"Đối với tính phí theo giờ, thời gian tối thiểu tính phí là 1 giờ. Phần lẻ giờ được làm tròn LÊN thành giờ tiếp theo (ví dụ: 1 giờ 5 phút = 2 giờ)."
+BR-MGR-04,Parking Manager,Pricing,Critical,Admin-Only Price Update,Chỉ có Quản trị viên mới được phép cập nhật bảng giá đỗ xe. Cập nhật sẽ thay thế toàn bộ bảng giá hiện hành (lưu trữ bảng cũ cho lịch sử).
+BR-MGR-05,Parking Manager,Payment,High,Payment Methods,"Hệ thống hỗ trợ nhiều phương thức thanh toán: Visa, MoMo, Apple Pay, và thanh toán trực tuyến. Mỗi giao dịch ghi nhận phương thức đã sử dụng."
+BR-MGR-06,Parking Manager,Reservation,High,CSV Export,"Quản trị viên có thể xuất danh sách đặt chỗ ra file CSV với bộ lọc theo thời gian, trạng thái, và bãi đỗ để phục vụ báo cáo và kiểm toán."
+BR-MGR-07,Parking Manager,Report,High,Dashboard Metrics,"Bảng điều khiển quản trị hiển thị: tổng số phiên đỗ xe, doanh thu tháng hiện tại, tỷ lệ tăng trưởng so với tháng trước (%), và tỷ lệ lấp đầy hiện tại (%)."
+BR-MGR-08,Parking Manager,Report,Medium,Zone Revenue Ranking,"Hệ thống xếp hạng hiệu suất doanh thu theo từng khu vực bãi đỗ (Top 4), bao gồm số lượng phiên và tổng doanh thu của mỗi khu vực."
+BR-MGR-09,Parking Manager,Report,Medium,Daily Revenue Chart,"Biểu đồ doanh thu hiển thị dữ liệu 7 ngày gần nhất, so sánh tuần hiện tại với tuần trước để đánh giá xu hướng."
+BR-MGR-10,Parking Manager,Monitoring,High,Live Parking Monitoring,Trang giám sát hiển thị dữ liệu bãi đỗ xe thời gian thực với trạng thái phiên đỗ xe đang hoạt động trên tất cả các tòa nhà.
+BR-STF-01,Staff / Technic,Gate,Critical,QR Scan Authentication,"Nhân viên bảo vệ xác thực xe vào bằng cách quét mã QR. Mã QR không hợp lệ, đã hết hạn, hoặc đã sử dụng sẽ bị từ chối với thông báo lỗi rõ ràng."
+BR-STF-02,Staff / Technic,Gate,Critical,Exit Manual Override,"Khi biển số xe ra không trùng khớp biển số xe vào, nhân viên bảo vệ phải xác nhận thủ công trước khi cho xe ra. Hệ thống ghi nhận sự không khớp."
+BR-STF-03,Staff / Technic,Blacklist,Critical,Real-time Blacklist Alert,"Khi quét biển số xe tại cổng, hệ thống tự động kiểm tra Danh sách đen. Xe bị cấm kích hoạt cảnh báo trực quan trên màn hình bốt bảo vệ và thông báo đến Admin."
+BR-STF-04,Staff / Technic,Blacklist,High,Staff View-Only Blacklist,Nhân viên có quyền XEM danh sách đen nhưng KHÔNG được phép thêm hoặc xóa. Chỉ Quản trị viên mới có quyền quản lý danh sách đen.
+BR-STF-05,Staff / Technic,Gate,Medium,Entry Photo Documentation,Hệ thống hỗ trợ chụp ảnh xe tại cổng vào/ra để lưu trữ làm bằng chứng đối chiếu khi cần thiết.
+BR-STF-06,Staff / Technic,Gate,Medium,Barrier Auto Control,"Sau khi xác thực thành công, cổng barrier mở tự động. Nhân viên có thể đóng barrier thủ công sau khi xe đi qua."
+BR-STF-07,Staff / Technic,Incident,High,Incident Reporting,"Cả khách hàng và nhân viên đều có thể gửi báo cáo sự cố. Báo cáo yêu cầu: Tiêu đề và Mô tả (bắt buộc); Loại, Chi nhánh, Tầng, Mức độ khẩn cấp (tùy chọn)."
+BR-STF-08,Staff / Technic,Incident,High,Incident Status Workflow,"Sự cố tuân theo quy trình trạng thái: ""Chờ xử lý"" -> ""Đã xử lý"". Chỉ Admin/Staff mới được đánh dấu sự cố là đã giải quyết. Không cho phép quay ngược trạng thái."
+BR-STF-09,Staff / Technic,Incident,Medium,Urgency Classification,"Sự cố được phân loại theo 3 mức độ khẩn cấp: ""Bình thường"", ""Cao"", ""Khẩn cấp"". Mặc định là ""Bình thường"". Mức độ khẩn cấp quyết định thứ tự ưu tiên xử lý."
+BR-ADM-01,System Administration,User Mgmt,High,User Listing,Quản trị viên và Nhân viên có thể xem danh sách tất cả người dùng đã đăng ký. Tài khoản đang chờ xác thực (chưa verify OTP) được loại khỏi danh sách.
+BR-ADM-02,System Administration,User Mgmt,Critical,Role Assignment Restriction,Quản trị viên có thể thay đổi vai trò của người dùng bất kỳ. Nhân viên có thể cập nhật thông tin người dùng nhưng KHÔNG ĐƯỢC phân quyền Admin.
+BR-ADM-03,System Administration,User Mgmt,Critical,User Status Management,"Quản trị viên có thể thay đổi trạng thái tài khoản: Hoạt động, Ngừng hoạt động, hoặc Bị cấm. Tài khoản bị cấm sẽ bị khóa đăng nhập ngay lập tức."
+BR-ADM-04,System Administration,User Mgmt,High,Self-Delete Prevention,Quản trị viên KHÔNG ĐƯỢC phép tự xóa tài khoản của chính mình để đảm bảo luôn tồn tại ít nhất một tài khoản quản trị trong hệ thống.
+BR-ADM-05,System Administration,Blacklist,Critical,Admin-Only Blacklist Management,Chỉ Quản trị viên mới có quyền thêm hoặc xóa biển số xe khỏi Danh sách đen. Mỗi mục yêu cầu: Biển số xe (bắt buộc) và Lý do (bắt buộc).
+BR-ADM-06,System Administration,Blacklist,High,Blacklist Audit Trail,"Mỗi mục trong danh sách đen ghi nhận: người thêm (tên Admin), ngày thêm, biển số, và lý do. Thông tin này phục vụ cho mục đích kiểm toán và truy vết."
+BR-ADM-07,System Administration,Blacklist,Medium,Blacklist Hard Delete,"Xóa mục khỏi danh sách đen là xóa vĩnh viễn (hard delete). Sau khi xóa, xe được phép vào bãi đỗ ngay lập tức."
+BR-ADM-08,System Administration,Settings,Medium,Regulation Management,"Quản trị viên quản lý nội quy bãi đỗ xe (hiển thị cho khách hàng). Nội quy có nội dung văn bản, thứ tự hiển thị, và trạng thái kích hoạt."
+BR-ADM-09,System Administration,Settings,High,System Config Update,"Cập nhật cấu hình hệ thống (bảng giá, nội quy) sẽ soft-delete bản cũ và tạo bản mới, đảm bảo lưu trữ lịch sử thay đổi cho kiểm toán."
+BR-ADM-10,System Administration,Contact,Medium,Contact Form Processing,"Hệ thống cung cấp form liên hệ công khai. Khi khách hàng gửi liên hệ, email được chuyển tiếp đến quản trị viên với đầy đủ thông tin: tên, email, SĐT, chủ đề, nội dung."
+BR-AI-01,AI & Analytics,Analytics,High,Revenue Growth Tracking,Hệ thống tự động tính toán tỷ lệ tăng trưởng doanh thu hàng tháng bằng cách so sánh doanh thu tháng hiện tại với tháng trước. Công thức: ((Tháng này - Tháng trước) / Tháng trước) x 100%.
+BR-AI-02,AI & Analytics,Analytics,Medium,Occupancy Rate Calculation,Tỷ lệ lấp đầy được tính thời gian thực: (Số phiên đang hoạt động / Tổng sức chứa) x 100%. Tổng sức chứa hệ thống là 174 ô đỗ trên tất cả các tòa nhà.
+BR-AI-03,AI & Analytics,Analytics,Medium,Automated Fee Engine,"Hệ thống tự động tính phí dựa trên bảng giá cấu hình, loại xe, và thời gian thực tế đỗ. Hỗ trợ cả tính theo giờ (làm tròn lên) và tính theo lượt (cố định)."
+BR-AI-04,AI & Analytics,Analytics,Medium,Dynamic Slot Allocation,"Trạng thái ô đỗ xe được tính toán động từ dữ liệu phiên thực tế, không lưu trữ riêng. Đảm bảo dữ liệu luôn chính xác và nhất quán."
+
+--- SUMMARY MATRIX ---
+Category,Rule Prefix,Total,Critical,Scope
+Structure & Database Constraints,BR-STR,10,4,"Data integrity, validation"
+General & System-Wide,BR-GEN,10,4,"Auth, notification, email, security"
+Parking Management,BR-PKM,17,7,"Reservation, entry, exit, status"
+Parking Manager,BR-MGR,10,2,"Pricing, reports, monitoring"
+Staff / Technic,BR-STF,9,3,"Gate ops, blacklist, incidents"
+System Administration,BR-ADM,10,3,"User mgmt, blacklist, settings"
+AI & Analytics,BR-AI,4,0,"Revenue, occupancy, fee engine"
+TOTAL,,70,23,
