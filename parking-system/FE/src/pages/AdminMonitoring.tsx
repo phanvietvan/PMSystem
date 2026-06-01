@@ -33,7 +33,7 @@ const DEFAULT_LOTS = [
 const AdminMonitoring = () => {
   const [activeSessions, setActiveSessions] = useState<any[]>([]);
   const [parkingLots, setParkingLots] = useState<any[]>(DEFAULT_LOTS);
-  const [selectedLot, setSelectedLot] = useState(DEFAULT_LOTS[0]);
+  const [selectedLot, setSelectedLot] = useState<any>(DEFAULT_LOTS[0]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [selectedLevel, setSelectedLevel] = useState(1);
   const [actionModalSlot, setActionModalSlot] = useState<string | null>(null);
@@ -58,7 +58,11 @@ const AdminMonitoring = () => {
         ]);
         
         if (lotsRes.data && Array.isArray(lotsRes.data) && lotsRes.data.length > 0) {
-          const lots = lotsRes.data.map(l => ({ ...l, capacity: l.capacity || 24 }));
+          const lots = lotsRes.data.map(l => {
+             const activeFloors = l.floors && l.floors.length > 0 ? l.floors : [1];
+             const trueCapacity = l.floorCapacities && Object.keys(l.floorCapacities).length > 0 ? activeFloors.reduce((sum: number, f: number) => sum + (l.floorCapacities[f.toString()] || 24), 0) : (l.capacity || 24);
+             return { ...l, capacity: trueCapacity };
+          });
           setParkingLots(lots);
           setSelectedLot(prev => lots.find(l => l.id === prev.id) || lots[0]);
         }
@@ -84,9 +88,14 @@ const AdminMonitoring = () => {
 
       api.get('/ParkingLots').then(res => {
          if (res.data && Array.isArray(res.data)) {
-           setParkingLots(res.data);
+           const lots = res.data.map((l: any) => {
+              const activeFloors = l.floors && l.floors.length > 0 ? l.floors : [1];
+              const trueCapacity = l.floorCapacities && Object.keys(l.floorCapacities).length > 0 ? activeFloors.reduce((sum: number, f: number) => sum + (l.floorCapacities[f.toString()] || 24), 0) : (l.capacity || 24);
+              return { ...l, capacity: trueCapacity };
+           });
+           setParkingLots(lots);
            setSelectedLot(prev => {
-             const updated = res.data.find((l: any) => l.id === prev?.id);
+             const updated = lots.find((l: any) => l.id === prev?.id);
              if (updated) {
                // Update local storage too just in case
                localStorage.setItem('selectedLot', JSON.stringify(updated));
@@ -320,11 +329,14 @@ const AdminMonitoring = () => {
                 <div>
                   <h3 className="text-xl font-black text-slate-900 mb-1">{selectedLot.name}</h3>
                   <div className="flex items-center gap-4">
-                     <p className="text-sm font-medium text-slate-500">Sơ đồ chi tiết ({selectedLot.capacity} vị trí / Tầng)</p>
+                     {(() => {
+                        const currentFloorCapacity = selectedLot.floorCapacities?.[selectedLevel.toString()] || (selectedLot.capacity ? Math.floor(selectedLot.capacity / (selectedLot.floors?.length || 1)) : 24);
+                        return <p className="text-sm font-medium text-slate-500">Sơ đồ chi tiết ({currentFloorCapacity} vị trí / Tầng)</p>;
+                     })()}
                      
                      {/* Floor Selector */}
                      <div className="bg-slate-100/80 p-1.5 rounded-[1rem] flex items-center shadow-inner border border-slate-200/50">
-                        {[1, 2, 3].map(floor => (
+                        {(selectedLot.floors && selectedLot.floors.length > 0 ? selectedLot.floors : [1]).map((floor: number) => (
                            <button 
                              key={floor}
                              onClick={() => setSelectedLevel(floor)}
@@ -390,7 +402,7 @@ const AdminMonitoring = () => {
 
                       {/* Render West Slots and East Slots based on capacity */}
                       {(() => {
-                        const currentFloorCapacity = selectedLot.floorCapacities?.[selectedLevel.toString()] || selectedLot.capacity || 24;
+                        const currentFloorCapacity = selectedLot.floorCapacities?.[selectedLevel.toString()] || (selectedLot.capacity ? Math.floor(selectedLot.capacity / (selectedLot.floors?.length || 1)) : 24);
                         const capacityHalf = Math.floor(currentFloorCapacity / 2);
                         const rowSize = Math.floor(capacityHalf / 2);
                         

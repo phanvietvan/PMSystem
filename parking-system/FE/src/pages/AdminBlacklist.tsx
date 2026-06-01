@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import AdminLayout from '../components/admin/AdminLayout';
-import { Plus, ShieldAlert, AlertTriangle, Trash2, BellRing, Send, CheckCircle2 } from 'lucide-react';
+import { Plus, ShieldAlert, AlertTriangle, Trash2, BellRing, Send, CheckCircle2, ShieldCheck, CalendarDays, Clock, History, Users, Megaphone, Check, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
 
@@ -59,12 +59,15 @@ const DarkCustomSelect = ({ value, onChange, options }: any) => {
 const AdminBlacklist = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [blacklist, setBlacklist] = useState<any[]>([]);
+  const [pendingReports, setPendingReports] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [notifRole, setNotifRole] = useState('all');
   const [notifTitle, setNotifTitle] = useState('');
   const [notifMessage, setNotifMessage] = useState('');
   const [isSent, setIsSent] = useState(false);
+  const [notifHistory, setNotifHistory] = useState<any[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
 
   const [newPlate, setNewPlate] = useState('');
   const [newReason, setNewReason] = useState('');
@@ -81,9 +84,65 @@ const AdminBlacklist = () => {
     }
   };
 
+  const fetchPendingReports = async () => {
+    try {
+      const res = await api.get('/Incidents');
+      const pending = res.data.filter((i: any) => i.type === 'BlacklistReport' && i.status === 'Chờ xử lý');
+      setPendingReports(pending);
+    } catch (error) {
+      console.error('Error fetching reports', error);
+    }
+  };
+
   useEffect(() => {
     fetchBlacklist();
+    fetchNotifHistory();
+    fetchPendingReports();
+
+    // Real-time polling for pending reports (3s)
+    const interval = setInterval(() => {
+      fetchPendingReports();
+    }, 3000);
+
+    return () => clearInterval(interval);
   }, []);
+
+  const handleResolveReport = async (report: any, action: 'approve' | 'reject') => {
+    if (action === 'approve' && !window.confirm('Xác nhận đưa phương tiện này vào danh sách đen?')) return;
+    if (action === 'reject' && !window.confirm('Từ chối báo cáo này?')) return;
+    
+    let plate = report.title.replace('Báo cáo xe vi phạm:', '').trim();
+    if (!plate) plate = 'KHONG_RO';
+
+    let reasonToSave = report.description;
+    try {
+      const parsed = JSON.parse(report.description);
+      if (parsed && parsed.reason) {
+        reasonToSave = parsed.reason;
+      }
+    } catch(e) {}
+
+    try {
+      if (action === 'approve') {
+        await api.post('/Blacklist', { plateNumber: plate, reason: reasonToSave });
+      }
+      await api.put(`/Incidents/${report.id}/resolve`);
+      fetchBlacklist();
+      fetchPendingReports();
+    } catch (e) {
+      console.error(e);
+      alert('Thao tác thất bại');
+    }
+  };
+
+  const fetchNotifHistory = async () => {
+    try {
+      const res = await api.get('/Notifications');
+      setNotifHistory(Array.isArray(res.data) ? res.data : []);
+    } catch (error) {
+      console.error('Error fetching notification history', error);
+    }
+  };
 
   const handleSendNotification = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,6 +155,7 @@ const AdminBlacklist = () => {
         message: notifMessage
       });
       setIsSent(true);
+      fetchNotifHistory();
       setTimeout(() => {
         setIsSent(false);
         setNotifTitle('');
@@ -143,7 +203,7 @@ const AdminBlacklist = () => {
       <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8 animate-fade-in-up">
         
         {/* Header Title */}
-        <div className="mb-8">
+        <div className="mb-2">
           <h1 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-3">
             <ShieldAlert className="text-red-500" size={28} />
             Danh Sách Đen & Thông Báo
@@ -151,10 +211,135 @@ const AdminBlacklist = () => {
           <p className="text-[13px] text-slate-500 mt-1.5 font-medium">Quản lý các phương tiện bị cấm và gửi thông báo hệ thống</p>
         </div>
 
+        {/* Summary Stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0 }} className="bg-white p-6 rounded-[1.5rem] border border-slate-200/80 shadow-lg shadow-slate-200/30 flex items-center gap-5 group hover:-translate-y-0.5 transition-all">
+            <div className="p-3.5 bg-red-50 text-red-500 rounded-2xl group-hover:scale-110 transition-transform">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TỔNG BỊ CẤM</p>
+              <p className="text-2xl font-black text-slate-900 mt-0.5">{blacklist.length}</p>
+            </div>
+          </motion.div>
+          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="bg-white p-6 rounded-[1.5rem] border border-slate-200/80 shadow-lg shadow-slate-200/30 flex items-center gap-5 group hover:-translate-y-0.5 transition-all">
+            <div className="p-3.5 bg-amber-50 text-amber-500 rounded-2xl group-hover:scale-110 transition-transform">
+              <CalendarDays className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">THÊM TRONG TUẦN</p>
+              <p className="text-2xl font-black text-slate-900 mt-0.5">
+                {blacklist.filter((item: any) => {
+                  const d = new Date(item.date);
+                  const now = new Date();
+                  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                  return d >= weekAgo;
+                }).length}
+              </p>
+            </div>
+          </motion.div>
+          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.16 }} className="bg-white p-6 rounded-[1.5rem] border border-slate-200/80 shadow-lg shadow-slate-200/30 flex items-center gap-5 group hover:-translate-y-0.5 transition-all">
+            <div className="p-3.5 bg-blue-50 text-blue-500 rounded-2xl group-hover:scale-110 transition-transform">
+              <Megaphone className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ĐÃ GỬi THÔNG BÁO</p>
+              <p className="text-2xl font-black text-slate-900 mt-0.5">{notifHistory.length}</p>
+            </div>
+          </motion.div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
           {/* Left Column: Blacklist */}
           <div className="lg:col-span-8 space-y-6">
+            
+            {/* Pending Reports Section */}
+            {pendingReports.length > 0 && (
+              <div className="bg-amber-50/50 rounded-[2rem] p-8 border border-amber-200/50 shadow-xl shadow-amber-100/20">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center">
+                    <AlertTriangle size={20} />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-black text-slate-800">Báo cáo chờ duyệt ({pendingReports.length})</h2>
+                    <p className="text-xs font-bold text-amber-600">Admin cần xem xét để đưa vào danh sách đen</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {pendingReports.map(report => {
+                    const plate = report.title.replace('Báo cáo xe vi phạm:', '').trim();
+                    let details: any = null;
+                    let displayReason = report.description;
+                    try {
+                      details = JSON.parse(report.description);
+                      if (details && typeof details === 'object' && details.reason) {
+                        displayReason = details.reason;
+                      }
+                    } catch (e) {
+                      // plain string
+                    }
+
+                    return (
+                      <div key={report.id} className="bg-white rounded-2xl p-5 border border-amber-100 shadow-sm flex flex-col sm:flex-row gap-4 justify-between sm:items-start group hover:border-amber-300 transition-colors">
+                        <div className="flex gap-4 w-full">
+                          {details?.photo && (
+                            <div className="w-20 h-20 rounded-xl overflow-hidden shrink-0 border-2 border-white shadow-sm bg-slate-100 hidden sm:block">
+                              <img src={details.photo} alt="Xe" className="w-full h-full object-cover" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-3 mb-2">
+                              <span className="font-mono font-black text-slate-800 bg-slate-100 px-3 py-1 rounded-lg border border-slate-200 text-sm">
+                                {plate}
+                              </span>
+                              <span className="text-[11px] font-bold text-slate-400 flex items-center gap-1">
+                                <Clock size={12} />
+                                {new Date(report.createdAt).toLocaleString('vi-VN')}
+                              </span>
+                            </div>
+                            
+                            {details && (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3 bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs">
+                                <div>
+                                  <span className="text-slate-400 font-bold uppercase tracking-wider block text-[9px] mb-0.5">Chủ xe & Liên hệ</span>
+                                  <span className="font-semibold text-slate-700">{details.customerName || 'Khách vãng lai'} {details.customerPhone && <><br/>{details.customerPhone}</>}</span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-400 font-bold uppercase tracking-wider block text-[9px] mb-0.5">Khu vực & Thời gian vào</span>
+                                  <span className="font-semibold text-slate-700">{details.parkingLot || 'Không rõ'} <br/>{details.entryTime || 'N/A'}</span>
+                                </div>
+                              </div>
+                            )}
+
+                            <p className="text-sm font-semibold text-slate-700">Lý do: <span className="font-medium text-slate-600">{displayReason}</span></p>
+                            <p className="text-[10px] text-slate-400 font-bold mt-2 uppercase">Người báo cáo: {report.reporter}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button 
+                            onClick={() => handleResolveReport(report, 'reject')}
+                            className="w-10 h-10 rounded-xl bg-slate-50 text-slate-500 hover:bg-slate-200 hover:text-slate-700 flex items-center justify-center transition-colors tooltip"
+                            title="Từ chối báo cáo"
+                          >
+                            <X size={18} />
+                          </button>
+                          <button 
+                            onClick={() => handleResolveReport(report, 'approve')}
+                            className="bg-red-50 text-red-600 hover:bg-red-600 hover:text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-colors flex items-center gap-2 border border-red-100 shadow-sm"
+                          >
+                            <Check size={18} />
+                            Đưa vào Blacklist
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="bg-white rounded-[2rem] p-8 border border-slate-200/80 shadow-xl shadow-slate-200/40">
               <div className="flex justify-between items-center mb-8">
                 <h2 className="text-lg font-extrabold text-slate-800 flex items-center gap-2.5">
@@ -201,8 +386,14 @@ const AdminBlacklist = () => {
                       <tr><td colSpan={5} className="py-8 text-center text-slate-400">Đang tải...</td></tr>
                     ) : filteredList.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="py-8 text-center text-slate-400 font-medium">
-                          Không tìm thấy biển số nào.
+                        <td colSpan={5} className="py-12 text-center">
+                          <div className="flex flex-col items-center">
+                            <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mb-4">
+                              <ShieldCheck className="w-8 h-8 text-emerald-500" />
+                            </div>
+                            <p className="text-sm font-bold text-slate-600">Không có phương tiện bị cấm</p>
+                            <p className="text-xs text-slate-400 mt-1">Hệ thống đang sạch, không có xe nào trong danh sách đen 🎉</p>
+                          </div>
                         </td>
                       </tr>
                     ) : (
@@ -311,6 +502,65 @@ const AdminBlacklist = () => {
               <p className="leading-relaxed">
                 Hệ thống sẽ đẩy (Push Notification) thông báo trực tiếp đến giao diện của các <strong>{notifRole.toUpperCase()}</strong> đang online. Chuông thông báo của họ sẽ hiển thị chấm đỏ.
               </p>
+            </div>
+
+            {/* Notification History */}
+            <div className="bg-white rounded-[2rem] border border-slate-200/80 shadow-xl shadow-slate-200/40 overflow-hidden">
+              <button 
+                onClick={() => setShowHistory(!showHistory)}
+                className="w-full p-6 flex items-center justify-between hover:bg-slate-50/50 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-slate-100 text-slate-600 rounded-xl">
+                    <History className="w-5 h-5" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="text-sm font-black text-slate-800">Lịch sử thông báo</h3>
+                    <p className="text-[11px] text-slate-400 font-medium">{notifHistory.length} thông báo đã gửi</p>
+                  </div>
+                </div>
+                <svg className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${showHistory ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              
+              <AnimatePresence>
+                {showHistory && (
+                  <motion.div 
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="px-6 pb-6 space-y-3 max-h-[400px] overflow-y-auto">
+                      {notifHistory.length === 0 ? (
+                        <p className="text-sm text-slate-400 text-center py-6 font-medium">Chưa có thông báo nào.</p>
+                      ) : (
+                        notifHistory.map((n: any, i: number) => (
+                          <div key={n.id || i} className="p-4 bg-slate-50/80 rounded-2xl border border-slate-100/60 hover:bg-slate-50 transition-colors">
+                            <div className="flex items-start gap-3">
+                              <div className={`p-1.5 rounded-lg shrink-0 mt-0.5 ${n.read ? 'bg-slate-100 text-slate-400' : 'bg-blue-100 text-blue-600'}`}>
+                                <BellRing className="w-3.5 h-3.5" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[13px] font-bold text-slate-800 truncate">{n.title}</p>
+                                <p className="text-[11px] text-slate-500 font-medium mt-0.5 line-clamp-2">{n.desc}</p>
+                                <p className="text-[10px] text-slate-400 font-medium mt-1.5 flex items-center gap-1">
+                                  <Clock className="w-3 h-3" /> {n.time}
+                                </p>
+                              </div>
+                              {!n.read && (
+                                <span className="w-2 h-2 bg-blue-500 rounded-full shrink-0 mt-2"></span>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
           
