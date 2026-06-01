@@ -348,25 +348,6 @@ const [newLotAddress, setNewLotAddress] = useState('');
     return amount.toLocaleString('vi-VN') + ' ₫';
   };
 
-  const maxVal = Math.max(
-    ...monthlyData.map(d => Math.max(d.current || 0, d.lastYear || 0)),
-    10000
-  );
-
-  const exportReportToCSV = () => {
-    const headers = ['Khu vực', 'Lượt xe', 'Doanh thu'];
-    const rows = zones.map(z => `"${z.name}","${z.count}","${z.revenue}"`);
-    const csvContent = [headers.join(','), ...rows].join('\n');
-    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `report_zones_${new Date().getTime()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   return (
     <AdminLayout>
       <div className="p-8 md:p-10 space-y-8 min-h-screen">

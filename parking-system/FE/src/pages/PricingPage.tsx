@@ -154,7 +154,7 @@ const PricingPage = () => {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
-      transition: { staggerChildren: 0.08 }
+      transition: { staggerChildren: 0.1 }
     }
   };
 
@@ -337,7 +337,6 @@ const PricingPage = () => {
                       <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">PM System Management</p>
                     </div>
                   </div>
-                  <span className="text-[10px] text-slate-400 font-black uppercase tracking-wider">PM Security</span>
                 </div>
 
                 {/* 2-Column Grid for rules */}
