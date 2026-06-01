@@ -9,6 +9,7 @@ import {
   Edit,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Car,
   Clock,
   X,
@@ -17,6 +18,7 @@ import {
 import AdminLayout from '../components/admin/AdminLayout';
 import api from '../services/api';
 import { getUserInitials } from '../utils/auth';
+import ExcelJS from 'exceljs';
 
 const AdminReservations = () => {
   const [reservations, setReservations] = useState<any[]>([]);
@@ -24,6 +26,38 @@ const AdminReservations = () => {
   const [selectedReservation, setSelectedReservation] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [vehicleFilter, setVehicleFilter] = useState('All');
+  const [locationFilter, setLocationFilter] = useState('All');
+  const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
+  const [isVehicleDropdownOpen, setIsVehicleDropdownOpen] = useState(false);
+  const [isLocationDropdownOpen, setIsLocationDropdownOpen] = useState(false);
+
+  const statusOptions = [
+    { value: 'All', label: 'Tất cả trạng thái' },
+    { value: 'Waiting', label: 'Chờ vào bãi' },
+    { value: 'Parking', label: 'Đang đỗ xe' },
+    { value: 'Completed', label: 'Đã hoàn tất' },
+    { value: 'Cancelled', label: 'Đã hủy' }
+  ];
+
+  const vehicleOptions = [
+    { value: 'All', label: 'Tất cả các loại' },
+    { value: 'car', label: 'Ô tô (Car)' },
+    { value: 'suv', label: 'Bán tải / SUV' },
+    { value: 'bike', label: 'Xe máy (Bike)' }
+  ];
+
+  const locationOptions = [
+    { value: 'All', label: 'Tất cả khu vực' },
+    ...Array.from(new Set(reservations.map(r => r.parkingLotName).filter(Boolean))).map(loc => ({
+      value: loc as string,
+      label: loc as string
+    }))
+  ];
 
   useEffect(() => {
     const fetchReservations = async () => {
@@ -60,47 +94,225 @@ const AdminReservations = () => {
     return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')} - ${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
   };
 
-  const exportToCSV = () => {
-    const headers = ['Mã QR', 'Khách hàng', 'Biển số', 'Loại xe', 'Vị trí đỗ', 'Giờ vào', 'Giờ ra', 'Trạng thái', 'Thành tiền'];
-    const rows = filteredReservations.map(r => {
-      const userName = r.user ? `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim() || 'Khách hàng' : 'Khách vãng lai';
-      let statusLabel = 'Đang đỗ';
-      if (r.status === 'Cancelled') statusLabel = 'Đã hủy';
-      else if (r.status === 'Completed') statusLabel = 'Hoàn tất';
-      else if (!r.isCheckedIn) statusLabel = 'Chờ vào';
+  const exportToExcel = async () => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Lịch Sử Phiên Đỗ Xe');
 
-      return [
-        r.qrCode || `#${r.id?.substring(0, 8).toUpperCase()}`,
-        userName,
-        r.licensePlate || 'N/A',
-        r.vehicleType || 'Không rõ',
-        `${r.parkingLotName || 'Chưa phân bổ'} - Slot ${r.parkingSlot || 'Auto'}`,
-        r.isCheckedIn || !r.userId ? (r.entryTime ? new Date(r.entryTime).toLocaleString() : '--:--') : 'Chưa vào',
-        r.exitTime ? new Date(r.exitTime).toLocaleString() : '--:--',
-        statusLabel,
-        r.totalFee || 0
-      ].map(v => `"${v}"`).join(',');
+    // Add Title
+    worksheet.mergeCells('A1:M2');
+    const titleCell = worksheet.getCell('A1');
+    titleCell.value = 'BÁO CÁO TOÀN DIỆN PHIÊN ĐỖ XE - PMSYSTEM';
+    titleCell.font = { name: 'Arial', size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    titleCell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF004B58' }
+    };
+
+    // Add Timestamp & Stats
+    worksheet.mergeCells('A3:M3');
+    const timeCell = worksheet.getCell('A3');
+    timeCell.value = `Ngày xuất: ${new Date().toLocaleString('vi-VN')}  |  Tổng số bản ghi: ${filteredReservations.length.toLocaleString('vi-VN')}`;
+    timeCell.font = { name: 'Arial', size: 11, italic: true, bold: true, color: { argb: 'FF475569' } };
+    timeCell.alignment = { horizontal: 'right', vertical: 'middle' };
+
+    worksheet.addRow([]); // Blank row
+
+    // Headers
+    const headers = [
+      'STT', 'Mã QR / Đặt chỗ', 'Khách hàng', 'Thông tin liên hệ', 
+      'Biển số (Vào)', 'Biển số (Ra)', 'Loại xe', 
+      'Tòa nhà & Vị trí', 'Giờ đặt', 'Giờ vào', 'Giờ ra', 
+      'Trạng thái', 'Thành tiền (VND)'
+    ];
+
+    const headerRow = worksheet.addRow(headers);
+    headerRow.height = 25;
+    headerRow.eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } }; // slate-900
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.border = {
+        top: { style: 'medium', color: { argb: 'FFFFFFFF' } },
+        bottom: { style: 'medium', color: { argb: 'FFFFFFFF' } },
+        left: { style: 'thin', color: { argb: 'FF334155' } },
+        right: { style: 'thin', color: { argb: 'FF334155' } }
+      };
     });
 
-    const csvContent = [headers.join(','), ...rows].join('\n');
-    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
+    // Add Data
+    let totalRevenue = 0;
+
+    filteredReservations.forEach((r, index) => {
+      const userName = r.user ? `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim() || 'Khách hàng' : 'Khách vãng lai';
+      const contactInfo = r.user ? [r.user.email, r.user.phoneNumber].filter(Boolean).join(' - ') : 'N/A';
+      
+      let statusLabel = 'Đang đỗ';
+      let statusColor = 'FF10B981'; // emerald-500
+      if (r.status === 'Cancelled') { statusLabel = 'Đã hủy'; statusColor = 'FFEF4444'; } // red-500
+      else if (r.status === 'Completed') { statusLabel = 'Hoàn tất'; statusColor = 'FF64748B'; } // slate-500
+      else if (!r.isCheckedIn) { statusLabel = 'Chờ vào'; statusColor = 'FFF59E0B'; } // amber-500
+
+      const formatTime = (dateStr?: string) => dateStr ? new Date(dateStr).toLocaleString('vi-VN') : '--:--';
+      
+      const bookTime = r.userId ? formatTime(r.createdAt || r.entryTime) : 'N/A (Khách vãng lai)';
+      const entryTime = r.isCheckedIn || !r.userId ? formatTime(r.entryTime) : 'Chưa vào bãi';
+      const exitTime = formatTime(r.exitTime);
+      
+      const location = `${r.parkingLotName || 'Chưa phân bổ'} - Slot ${r.parkingSlot || 'Auto'}`;
+      const plateIn = r.licensePlate || 'N/A';
+      const plateOut = r.exitLicensePlate || '--';
+      const fee = r.totalFee || 0;
+      totalRevenue += fee;
+      
+      const row = worksheet.addRow([
+        index + 1,
+        r.qrCode || `#${r.id?.substring(0, 8).toUpperCase()}`,
+        userName,
+        contactInfo,
+        plateIn,
+        plateOut,
+        r.vehicleType || 'Không rõ',
+        location,
+        bookTime,
+        entryTime,
+        exitTime,
+        statusLabel,
+        fee
+      ]);
+
+      // Zebra styling & Borders
+      const isEven = index % 2 === 0;
+      row.eachCell((cell, colNumber) => {
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: isEven ? 'FFFFFFFF' : 'FFF8FAFC' } // white or slate-50
+        };
+        cell.border = {
+          bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } }, // slate-200
+        };
+        cell.alignment = { vertical: 'middle', wrapText: true };
+        
+        // Centering specific columns
+        if ([1, 2, 5, 6, 7, 12, 13].includes(colNumber)) cell.alignment.horizontal = 'center';
+        
+        // Status color formatting
+        if (colNumber === 12) {
+          cell.font = { bold: true, color: { argb: statusColor } };
+        }
+        // Currency formatting
+        if (colNumber === 13) {
+          cell.numFmt = '#,##0" ₫"';
+          cell.font = { bold: true, color: { argb: 'FF0284C7' } }; // sky-600
+        }
+      });
+    });
+
+    // Add Total Row
+    worksheet.addRow([]); // Blank
+    const totalRow = worksheet.addRow(['', '', '', '', '', '', '', '', '', '', '', 'TỔNG DOANH THU:', totalRevenue]);
+    totalRow.height = 30;
+    
+    totalRow.getCell(12).font = { bold: true, size: 12, color: { argb: 'FF0F172A' } };
+    totalRow.getCell(12).alignment = { vertical: 'middle', horizontal: 'right' };
+    
+    totalRow.getCell(13).font = { bold: true, size: 14, color: { argb: 'FF0284C7' } };
+    totalRow.getCell(13).numFmt = '#,##0" ₫"';
+    totalRow.getCell(13).alignment = { vertical: 'middle', horizontal: 'center' };
+    totalRow.getCell(13).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+    totalRow.getCell(13).border = { 
+       top: { style: 'medium', color: { argb: 'FF94A3B8' } },
+       bottom: { style: 'medium', color: { argb: 'FF94A3B8' } },
+    };
+
+    // Set Column Widths
+    worksheet.columns = [
+      { width: 6 },  // STT
+      { width: 16 }, // QR
+      { width: 22 }, // Khách hàng
+      { width: 25 }, // Liên hệ
+      { width: 14 }, // Biển số vào
+      { width: 14 }, // Biển số ra
+      { width: 12 }, // Loại xe
+      { width: 32 }, // Vị trí
+      { width: 20 }, // Giờ đặt
+      { width: 20 }, // Giờ vào
+      { width: 20 }, // Giờ ra
+      { width: 16 }, // Trạng thái
+      { width: 22 }  // Thành tiền
+    ];
+
+    // Generate File
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `reservations_${new Date().getTime()}.csv`);
+    link.setAttribute('download', `PMSystem_BaoCaoToanDien_${new Date().getTime()}.xlsx`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
   const filteredReservations = reservations.filter(r => {
-    if (!searchQuery) return true;
-    const term = searchQuery.toLowerCase();
-    const qr = (r.qrCode || '').toLowerCase();
-    const plate = (r.licensePlate || '').toLowerCase();
-    const userName = r.user ? `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim().toLowerCase() : 'khách vãng lai';
-    return qr.includes(term) || plate.includes(term) || userName.includes(term);
+    // Search Filter
+    let matchSearch = true;
+    if (searchQuery) {
+      const term = searchQuery.toLowerCase();
+      const qr = (r.qrCode || '').toLowerCase();
+      const id = (r.id || '').substring(0, 8).toLowerCase();
+      const plate = (r.licensePlate || '').toLowerCase();
+      const exitPlate = (r.exitLicensePlate || '').toLowerCase();
+      const userName = r.user ? `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim().toLowerCase() : 'khách vãng lai';
+      const email = (r.user?.email || '').toLowerCase();
+      const phone = (r.user?.phoneNumber || '').toLowerCase();
+      const location = (r.parkingLotName || '').toLowerCase();
+      const vehicle = (r.vehicleType || '').toLowerCase();
+      
+      matchSearch = qr.includes(term) 
+                 || id.includes(term)
+                 || plate.includes(term) 
+                 || exitPlate.includes(term)
+                 || userName.includes(term)
+                 || email.includes(term)
+                 || phone.includes(term)
+                 || location.includes(term)
+                 || vehicle.includes(term);
+    }
+    
+    // Status Filter
+    let matchStatus = true;
+    if (statusFilter !== 'All') {
+       if (statusFilter === 'Completed') matchStatus = r.status === 'Completed';
+       else if (statusFilter === 'Cancelled') matchStatus = r.status === 'Cancelled';
+       else if (statusFilter === 'Waiting') matchStatus = r.status !== 'Completed' && r.status !== 'Cancelled' && !r.isCheckedIn;
+       else if (statusFilter === 'Parking') matchStatus = r.status !== 'Completed' && r.status !== 'Cancelled' && r.isCheckedIn;
+    }
+
+    // Vehicle Filter
+    let matchVehicle = true;
+    if (vehicleFilter !== 'All') {
+       const vType = (r.vehicleType || '').toLowerCase();
+       if (vehicleFilter === 'car') matchVehicle = vType === 'car';
+       else if (vehicleFilter === 'bike') matchVehicle = vType === 'bike';
+       else if (vehicleFilter === 'suv') matchVehicle = vType === 'suv';
+    }
+
+    // Location Filter
+    let matchLocation = true;
+    if (locationFilter !== 'All') {
+       matchLocation = r.parkingLotName === locationFilter;
+    }
+
+    return matchSearch && matchStatus && matchVehicle && matchLocation;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredReservations.length / ITEMS_PER_PAGE));
+  const currentReservations = filteredReservations.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE + 1;
+  const endIndex = Math.min(currentPage * ITEMS_PER_PAGE, filteredReservations.length);
 
   // Tính toán thống kê theo thời gian thực (Real-time Stats)
   const totalReservations = reservations.length;
@@ -120,7 +332,7 @@ const AdminReservations = () => {
       {/* Page Content */}
         <div className="p-8 md:p-10 space-y-8 min-h-screen">
           <div className="flex flex-col gap-1.5 mb-2">
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Quản lý Phiên Đỗ Xe</h1>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Quản lý Giao Dịch Đặt Xe</h1>
             <p className="text-sm font-semibold text-slate-500">Giám sát và phân tích toàn bộ lượt ra vào bãi đỗ xe theo thời gian thực.</p>
           </div>
           {/* Quick Stats */}
@@ -152,33 +364,141 @@ const AdminReservations = () => {
 
           {/* Table Container */}
           {/* Table Container */}
-          <div className="bg-white rounded-[24px] border border-slate-100 shadow-[0_8px_32px_rgba(0,0,0,0.03)] overflow-hidden">
-            <div className="p-6 md:p-8 border-b border-slate-100/50 flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="bg-white rounded-[24px] border border-slate-100 shadow-[0_8px_32px_rgba(0,0,0,0.03)] flex flex-col relative z-20">
+            <div className="p-6 md:p-8 border-b border-slate-100/50 flex flex-col md:flex-row justify-between items-center gap-6 relative z-50 rounded-t-[24px]">
               <div className="relative w-full md:w-[400px] group">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <Search className="text-slate-400 w-5 h-5 group-focus-within:text-blue-500 transition-colors" />
                 </div>
                 <input 
                   className="w-full bg-slate-50/50 border border-slate-200/60 rounded-full pl-12 pr-6 py-3.5 text-sm font-semibold text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/50 focus:bg-white transition-all shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]" 
-                  placeholder="Tìm theo mã vé hoặc biển số..." 
+                  placeholder="Tìm theo mã vé, biển số, SĐT, email, vị trí..." 
                   value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
+                  onChange={e => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1);
+                  }}
                 />
               </div>
               <div className="flex items-center gap-3 w-full md:w-auto">
-                 <button className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3.5 border border-slate-200/80 bg-white rounded-full text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300 transition-all shadow-sm">
-                    <Filter className="w-4 h-4" />
-                    Bộ lọc
-                 </button>
-                 <button onClick={exportToCSV} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3.5 bg-slate-900 border border-slate-900 rounded-full text-sm font-bold text-white hover:bg-slate-800 hover:shadow-lg hover:shadow-slate-900/20 hover:-translate-y-0.5 transition-all">
+                 <div className="relative">
+                   <button 
+                     onClick={() => setIsFilterOpen(!isFilterOpen)}
+                     className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3.5 border rounded-full text-sm font-bold transition-all shadow-sm ${isFilterOpen || statusFilter !== 'All' || vehicleFilter !== 'All' || locationFilter !== 'All' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200/80 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300'}`}>
+                      <div className="relative flex items-center justify-center">
+                         <Filter className="w-4 h-4" />
+                         {(statusFilter !== 'All' || vehicleFilter !== 'All' || locationFilter !== 'All') && (
+                           <span className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-blue-600 border-2 ${isFilterOpen || statusFilter !== 'All' || vehicleFilter !== 'All' || locationFilter !== 'All' ? 'border-blue-50' : 'border-white'}`}></span>
+                         )}
+                      </div>
+                      Bộ lọc
+                   </button>
+                   
+                   {isFilterOpen && (
+                     <div className="absolute right-0 md:right-auto md:left-0 top-full mt-3 w-[300px] bg-white rounded-[1.5rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] border border-slate-100 p-6 z-[60] animate-in fade-in slide-in-from-top-4 duration-300 origin-top-left">
+                        <div className="flex items-center justify-between mb-5 border-b border-slate-50 pb-4">
+                           <h4 className="text-sm font-black text-slate-900 tracking-tight">Bộ lọc dữ liệu</h4>
+                           {(statusFilter !== 'All' || vehicleFilter !== 'All' || locationFilter !== 'All') && (
+                             <button 
+                               onClick={() => { setStatusFilter('All'); setVehicleFilter('All'); setLocationFilter('All'); setCurrentPage(1); }}
+                               className="text-[10px] font-black text-red-500 hover:text-red-600 uppercase tracking-widest px-2.5 py-1.5 rounded-lg hover:bg-red-50 transition-colors active:scale-95"
+                             >
+                               Xóa lọc
+                             </button>
+                           )}
+                        </div>
+                        <div className="space-y-5 text-left">
+                           <div className="space-y-2 relative">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Trạng thái</label>
+                               <div className="relative">
+                                <div 
+                                  onClick={() => { setIsStatusDropdownOpen(!isStatusDropdownOpen); setIsVehicleDropdownOpen(false); setIsLocationDropdownOpen(false); }}
+                                  className={`w-full bg-slate-50/50 border ${isStatusDropdownOpen ? 'border-blue-500 ring-4 ring-blue-500/10' : 'border-slate-200/80'} rounded-2xl pl-4 pr-4 py-3.5 text-sm font-bold text-slate-700 cursor-pointer hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center justify-between`}
+                                >
+                                   <span>{statusOptions.find(o => o.value === statusFilter)?.label}</span>
+                                   <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${isStatusDropdownOpen ? 'rotate-180 text-blue-500' : ''}`} />
+                                </div>
+                                
+                                {isStatusDropdownOpen && (
+                                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-[0_12px_40px_-12px_rgba(0,0,0,0.15)] overflow-hidden z-[70] animate-in fade-in zoom-in-95 duration-200 origin-top">
+                                    {statusOptions.map(option => (
+                                      <div 
+                                        key={option.value}
+                                        onClick={() => { setStatusFilter(option.value); setCurrentPage(1); setIsStatusDropdownOpen(false); }}
+                                        className={`px-5 py-3.5 text-sm font-bold cursor-pointer transition-colors ${statusFilter === option.value ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+                                      >
+                                        {option.label}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                           </div>
+                           <div className="space-y-2 relative">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Loại phương tiện</label>
+                              <div className="relative">
+                                <div 
+                                  onClick={() => { setIsVehicleDropdownOpen(!isVehicleDropdownOpen); setIsStatusDropdownOpen(false); setIsLocationDropdownOpen(false); }}
+                                  className={`w-full bg-slate-50/50 border ${isVehicleDropdownOpen ? 'border-blue-500 ring-4 ring-blue-500/10' : 'border-slate-200/80'} rounded-2xl pl-4 pr-4 py-3.5 text-sm font-bold text-slate-700 cursor-pointer hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center justify-between`}
+                                >
+                                   <span>{vehicleOptions.find(o => o.value === vehicleFilter)?.label}</span>
+                                   <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${isVehicleDropdownOpen ? 'rotate-180 text-blue-500' : ''}`} />
+                                </div>
+                                
+                                {isVehicleDropdownOpen && (
+                                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-[0_12px_40px_-12px_rgba(0,0,0,0.15)] overflow-hidden z-[70] animate-in fade-in zoom-in-95 duration-200 origin-top">
+                                    {vehicleOptions.map(option => (
+                                      <div 
+                                        key={option.value}
+                                        onClick={() => { setVehicleFilter(option.value); setCurrentPage(1); setIsVehicleDropdownOpen(false); }}
+                                        className={`px-5 py-3.5 text-sm font-bold cursor-pointer transition-colors ${vehicleFilter === option.value ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+                                      >
+                                        {option.label}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                           </div>
+                           <div className="space-y-2 relative">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Khu vực / Tòa nhà</label>
+                              <div className="relative">
+                                <div 
+                                  onClick={() => { setIsLocationDropdownOpen(!isLocationDropdownOpen); setIsStatusDropdownOpen(false); setIsVehicleDropdownOpen(false); }}
+                                  className={`w-full bg-slate-50/50 border ${isLocationDropdownOpen ? 'border-blue-500 ring-4 ring-blue-500/10' : 'border-slate-200/80'} rounded-2xl pl-4 pr-4 py-3.5 text-sm font-bold text-slate-700 cursor-pointer hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center justify-between`}
+                                >
+                                   <span>{locationOptions.find(o => o.value === locationFilter)?.label || locationFilter}</span>
+                                   <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${isLocationDropdownOpen ? 'rotate-180 text-blue-500' : ''}`} />
+                                </div>
+                                
+                                {isLocationDropdownOpen && (
+                                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-[0_12px_40px_-12px_rgba(0,0,0,0.15)] z-[70] max-h-48 overflow-y-auto overflow-x-hidden animate-in fade-in zoom-in-95 duration-200 origin-top scrollbar-thin scrollbar-thumb-slate-200">
+                                    {locationOptions.map(option => (
+                                      <div 
+                                        key={option.value}
+                                        onClick={() => { setLocationFilter(option.value); setCurrentPage(1); setIsLocationDropdownOpen(false); }}
+                                        className={`px-5 py-3.5 text-sm font-bold cursor-pointer transition-colors ${locationFilter === option.value ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+                                      >
+                                        {option.label}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                           </div>
+                        </div>
+                     </div>
+                   )}
+                 </div>
+                 <button onClick={exportToExcel} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3.5 bg-slate-900 border border-slate-900 rounded-full text-sm font-bold text-white hover:bg-slate-800 hover:shadow-lg hover:shadow-slate-900/20 hover:-translate-y-0.5 transition-all">
                     <FileDown className="w-4 h-4" />
-                    Xuất File
+                    Xuất File Excel
                  </button>
               </div>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
+            <div className="w-full overflow-x-auto relative z-30">
+              <table className="w-full min-w-[1000px] text-left">
                 <thead>
                   <tr className="border-b border-slate-100">
                     <th className="px-8 py-6 text-[11px] font-bold text-slate-400 uppercase tracking-[0.1em] bg-slate-50/30">Mã QR / Đặt chỗ</th>
@@ -192,9 +512,9 @@ const AdminReservations = () => {
                 <tbody className="divide-y divide-slate-50">
                   {loading ? (
                     <tr><td colSpan={6} className="text-center py-10 text-slate-500">Đang tải dữ liệu...</td></tr>
-                  ) : filteredReservations.length === 0 ? (
+                  ) : currentReservations.length === 0 ? (
                     <tr><td colSpan={6} className="text-center py-10 text-slate-500">Không tìm thấy kết quả phù hợp</td></tr>
-                  ) : filteredReservations.map((row, i) => {
+                  ) : currentReservations.map((row, i) => {
                     const userName = row.user ? `${row.user.firstName || ''} ${row.user.lastName || ''}`.trim() || 'Khách hàng' : 'Khách vãng lai';
                     const userInitials = row.user ? getUserInitials({ firstName: row.user.firstName, lastName: row.user.lastName, username: userName } as any) : 'KV';
                     
@@ -277,16 +597,44 @@ const AdminReservations = () => {
               </table>
             </div>
             
-            <div className="px-8 py-6 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-400">Hiển thị 1-5 của 1,284 đặt chỗ</span>
+            <div className="px-8 py-6 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between rounded-b-3xl">
+              <span className="text-xs font-bold text-slate-400">Hiển thị {filteredReservations.length > 0 ? startIndex : 0}-{endIndex} của {filteredReservations.length.toLocaleString('vi-VN')} đặt chỗ</span>
               <div className="flex items-center gap-2">
-                <button className="p-2 rounded-lg border border-slate-200 hover:bg-white disabled:opacity-30 transition-all">
+                <button 
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="p-2 rounded-lg border border-slate-200 hover:bg-white disabled:opacity-30 transition-all">
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-                <button className="w-9 h-9 rounded-lg bg-blue-600 text-white font-black text-xs shadow-lg shadow-blue-600/20">1</button>
-                <button className="w-9 h-9 rounded-lg hover:bg-white font-black text-xs text-slate-400">2</button>
-                <button className="w-9 h-9 rounded-lg hover:bg-white font-black text-xs text-slate-400">3</button>
-                <button className="p-2 rounded-lg border border-slate-200 hover:bg-white transition-all">
+                {(() => {
+                  let startPage = Math.max(1, currentPage - 2);
+                  let endPage = Math.min(totalPages, currentPage + 2);
+                  if (endPage - startPage < 4) {
+                    if (startPage === 1) endPage = Math.min(totalPages, 5);
+                    else if (endPage === totalPages) startPage = Math.max(1, totalPages - 4);
+                  }
+                  const pages = [];
+                  for (let i = startPage; i <= endPage; i++) {
+                    pages.push(i);
+                  }
+                  return pages.map(page => (
+                    <button 
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`w-9 h-9 rounded-lg font-black text-xs transition-all ${
+                        currentPage === page 
+                          ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
+                          : 'hover:bg-white text-slate-400'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ));
+                })()}
+                <button 
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-2 rounded-lg border border-slate-200 hover:bg-white disabled:opacity-30 transition-all">
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>

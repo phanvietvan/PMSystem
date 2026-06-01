@@ -62,6 +62,12 @@ const App = () => {
   const [gateMode, setGateMode] = useState<'ENTRY' | 'EXIT'>('ENTRY');
   const [isOcrLoading, setIsOcrLoading] = useState(false);
   
+  // Báo cáo xe states
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportLogData, setReportLogData] = useState<any>(null);
+  const [reportPlate, setReportPlate] = useState('');
+  const [reportReason, setReportReason] = useState('');
+  
   // Gate workflow state machine: 'SCANNING' -> 'COMPARING' -> 'GATE_OPEN'
   const [gateState, setGateState] = useState<'SCANNING' | 'COMPARING' | 'GATE_OPEN'>('SCANNING');
   const [isTouchDevice, setIsTouchDevice] = useState(false);
@@ -218,8 +224,8 @@ const getAudioContext = () => {
   // Keyboard Hotkeys: SPACE = quick scan, F4 = visitor modal, F8 = manual confirm, Esc = stop countdown / alert
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Avoid hotkeys when typing in text inputs
-      if (document.activeElement?.tagName === 'INPUT') return;
+      // Avoid hotkeys when typing in text inputs or textareas
+      if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName || '')) return;
 
       if (e.code === 'Space') {
         e.preventDefault();
@@ -620,6 +626,42 @@ const getAudioContext = () => {
       });
     } finally {
       setIsGeneratingTicket(false);
+    }
+  };
+
+  const handleReportVehicle = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const plateToSend = reportLogData ? reportLogData.plate : reportPlate.trim().toUpperCase();
+    if (!plateToSend || !reportReason.trim()) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/Incidents`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'BlacklistReport',
+          title: `Báo cáo xe vi phạm: ${plateToSend}`,
+          description: JSON.stringify({
+            reason: reportReason.trim(),
+            photo: reportLogData?.photo || '',
+            customerName: reportLogData?.customerName || '',
+            customerPhone: reportLogData?.customerPhone || '',
+            entryTime: reportLogData?.entryTimeStr || '',
+            parkingLot: reportLogData?.parkingLotName ? `${reportLogData.parkingLotName} • Slot ${reportLogData.parkingSlot || '--'}` : ''
+          }),
+          reporter: currentUser?.email || 'Nhân viên cổng',
+          role: 'Staff'
+        })
+      });
+      if (res.ok) {
+        setShowReportModal(false);
+        setReportPlate('');
+        setReportReason('');
+        setReportLogData(null);
+        showAlert('✅ Đã gửi báo cáo cho Admin xem xét!');
+      }
+    } catch (err) {
+      console.error(err);
+      showAlert('❌ Lỗi gửi báo cáo!');
     }
   };
 
@@ -1088,6 +1130,18 @@ const getAudioContext = () => {
 
           {/* Auth Buttons or User Menu */}
           <div className="flex items-center gap-4">
+            <button 
+              onClick={() => {
+                setReportLogData(null);
+                setReportPlate('');
+                setReportReason('');
+                setShowReportModal(true);
+              }}
+              className="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-full font-bold text-[11px] uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-sm active:scale-95 border border-red-100"
+            >
+              <AlertTriangle size={14} />
+              Báo cáo xe
+            </button>
             <a
               href="https://localhost:5173/"
               className="w-10 h-10 flex items-center justify-center bg-white hover:bg-blue-50 text-blue-600 rounded-full transition-all duration-300 font-black text-sm border border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-0.5"
@@ -1170,6 +1224,112 @@ const getAudioContext = () => {
           </div>
         </div>
       </header>
+
+      {/* Report Vehicle Modal */}
+      <AnimatePresence>
+        {showReportModal && (
+          <>
+            <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 transition-opacity" onClick={() => setShowReportModal(false)} />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md z-50 border border-slate-100"
+            >
+              <div className="flex items-center gap-3 mb-5 text-red-600">
+                <AlertTriangle size={24} />
+                <h3 className="text-lg font-black text-slate-800">Báo cáo xe vi phạm</h3>
+              </div>
+              
+              {/* Full Information Display */}
+              {reportLogData && (
+                <div className="mb-5 bg-slate-50 rounded-xl border border-slate-200 p-4 shadow-inner">
+                  <div className="flex items-start gap-4">
+                    <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 border-2 border-white shadow-sm bg-slate-200">
+                      <img src={reportLogData.photo || FALLBACK_CAR_CAPTURES[0]} alt="Xe" className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-base font-black text-slate-800 uppercase tracking-widest">{reportLogData.plate}</h4>
+                      <p className="text-xs font-bold text-slate-500 uppercase mt-1 truncate">{reportLogData.customerName || 'KHÁCH VÃNG LAI'}</p>
+                      {reportLogData.customerPhone && (
+                        <p className="text-xs font-semibold text-slate-400 mt-0.5">{reportLogData.customerPhone}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 mt-4">
+                    <div className="bg-white rounded-lg p-2.5 border border-slate-100">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Loại vé / Trạng thái</p>
+                      <p className="text-[11px] font-bold text-slate-700">{reportLogData.ticketType || 'N/A'}</p>
+                    </div>
+                    <div className="bg-white rounded-lg p-2.5 border border-slate-100">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Khu vực / Slot</p>
+                      <p className="text-[11px] font-bold text-slate-700 truncate">{reportLogData.parkingLotName || 'Chung'} • {reportLogData.parkingSlot || '--'}</p>
+                    </div>
+                    {reportLogData.owner === 'KHÁCH ĐẶT TRƯỚC' && (
+                      <div className="bg-white rounded-lg p-2.5 border border-slate-100">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Thời gian đặt chỗ</p>
+                        <p className="text-[11px] font-bold text-blue-600 truncate">{reportLogData.createdTimeStr || 'N/A'} {reportLogData.createdDateStr || ''}</p>
+                      </div>
+                    )}
+                    <div className="bg-white rounded-lg p-2.5 border border-slate-100">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Thời gian vào</p>
+                      <p className="text-[11px] font-bold text-emerald-600 truncate">{reportLogData.entryTimeStr || 'Chưa vào'} {reportLogData.entryDateStr || ''}</p>
+                    </div>
+                    <div className="bg-white rounded-lg p-2.5 border border-slate-100">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Thời gian ra</p>
+                      <p className="text-[11px] font-bold text-rose-600 truncate">{reportLogData.exitTimeStr || 'Chưa ra'} {reportLogData.exitDateStr || ''}</p>
+                    </div>
+                    {reportLogData.totalFee != null && (
+                      <div className="bg-white rounded-lg p-2.5 border border-slate-100">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Tổng phí</p>
+                        <p className="text-[11px] font-bold text-amber-600 truncate">{(reportLogData.totalFee).toLocaleString()} ₫</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <form onSubmit={handleReportVehicle} className="space-y-4">
+                {!reportLogData && (
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Biển số xe</label>
+                    <input 
+                      type="text" 
+                      required 
+                      value={reportPlate}
+                      onChange={e => setReportPlate(e.target.value)}
+                      placeholder="VD: 51A-123.45"
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all shadow-sm bg-white uppercase"
+                    />
+                  </div>
+                )}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Lý do vi phạm</label>
+                  <textarea 
+                    required 
+                    value={reportReason}
+                    onChange={e => setReportReason(e.target.value)}
+                    placeholder="Nhập chi tiết lý do (đỗ sai quy định, gây rối, vv...)"
+                    rows={3}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all shadow-sm bg-white resize-none"
+                  />
+                </div>
+                <div className="flex items-center gap-3 mt-6">
+                  <button type="button" onClick={() => {
+                    setShowReportModal(false);
+                    setReportLogData(null);
+                  }} className="flex-1 py-3 text-sm font-bold text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors">
+                    Hủy
+                  </button>
+                  <button type="submit" className="flex-1 py-3 text-sm font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 transition-colors shadow-md">
+                    Gửi Báo Cáo
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Main 2-Column Spacious Layout */}
       {activeTab === "home" ? (
@@ -2289,6 +2449,17 @@ const getAudioContext = () => {
                             <span className="text-[10px] font-bold text-blue-500 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-100">{log.ticketType}</span>
                           </>
                         )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setReportPlate(log.plate);
+                            setReportLogData(log);
+                            setShowReportModal(true);
+                          }}
+                          className="mt-auto text-[9px] font-bold uppercase tracking-widest px-2.5 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-colors flex items-center gap-1.5 border border-red-100 shadow-sm w-full justify-center"
+                        >
+                          <AlertTriangle size={12} /> Báo cáo
+                        </button>
                       </div>
                     </div>
                   ))
