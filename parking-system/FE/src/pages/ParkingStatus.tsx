@@ -300,30 +300,21 @@ const ParkingStatus: React.FC = () => {
               <p className="text-[10px] font-black uppercase tracking-wide text-slate-400 mb-3 ml-1">Chú thích</p>
               <div className="bg-slate-50/30 border border-slate-200/40 rounded-2xl p-4.5 space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-5 h-5 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                  </div>
-                  <span className="text-[11px] font-bold text-slate-600">Đang trống</span>
+                  <div className="w-4 h-4 rounded-full bg-emerald-100 border border-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]" />
+                  <span className="text-[11px] font-bold text-slate-600">Trống</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="w-5 h-5 rounded-full bg-slate-100 border border-slate-200/60 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-[12px] text-slate-500">directions_car</span>
-                  </div>
-                  <span className="text-[11px] font-bold text-slate-600">Xe đang đỗ</span>
+                  <div className="w-4 h-4 rounded-full bg-amber-100 border border-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.3)]" />
+                  <span className="text-[11px] font-bold text-slate-600">Đã Đặt</span>
                 </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-5 h-5 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
-                      <div className="w-2 h-2 rounded-full bg-blue-500" />
-                    </div>
-                    <span className="text-[11px] font-bold text-slate-600">Đã đặt chỗ</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-5 h-5 rounded-full bg-slate-100 border border-slate-200/60 flex items-center justify-center relative overflow-hidden">
-                      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPgo8cmVjdCB3aWR0aD0iOCIgaGVpZ2h0PSI4IiBmaWxsPSIjZmZmIi8+Cjxwb2x5Z29uIHBvaW50cz0iMCwwIDgsOCAwLDggOCwwIiBzdHJva2U9IiNlMmU4ZjAiIHN0cm9rZS13aWR0aD0iMiIvPgo8L3N2Zz4=')] opacity-50" />
-                      <span className="material-symbols-outlined text-[12px] text-slate-400 z-10">lock</span>
-                    </div>
-                    <span className="text-[11px] font-bold text-slate-500">Bảo trì / Khóa</span>
-                  </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-4 h-4 rounded-full bg-red-100 border border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.3)]" />
+                  <span className="text-[11px] font-bold text-slate-600">Có Xe</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-4 h-4 rounded-full bg-slate-200 border border-slate-400 shadow-[0_0_10px_rgba(148,163,184,0.3)]" />
+                  <span className="text-[11px] font-bold text-slate-500">Bảo Trì</span>
+                </div>
               </div>
             </div>
           </div>
