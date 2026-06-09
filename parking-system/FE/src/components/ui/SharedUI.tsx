@@ -1,8 +1,30 @@
-  import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { C } from "../../config/theme";
 
-export function InputField({ label, type = "text", placeholder, value, onChange, icon, error, showToggle, id }) {
-  const [show, setShow] = useState(false);
+interface InputFieldProps {
+  label?: string;
+  type?: string;
+  placeholder?: string;
+  value: string;
+  onChange: (val: string) => void;
+  icon?: React.ReactNode;
+  error?: string;
+  showToggle?: boolean;
+  id?: string;
+}
+
+export function InputField({
+  label,
+  type = "text",
+  placeholder,
+  value,
+  onChange,
+  icon,
+  error,
+  showToggle,
+  id
+}: InputFieldProps) {
+  const [show, setShow] = useState<boolean>(false);
   const inputType = showToggle ? (show ? "text" : "password") : type;
 
   return (
@@ -30,7 +52,7 @@ export function InputField({ label, type = "text", placeholder, value, onChange,
           }}
         />
         {showToggle && (
-          <button onClick={() => setShow(p => !p)} style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.muted, fontSize: 14, padding: 0, transition: "color 0.2s" }}>
+          <button onClick={() => setShow(p => !p)} style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.muted, fontSize: 14, padding: 0, transition: "color 0.2s", cursor: "pointer" }}>
             {show ? "🙈" : "👁"}
           </button>
         )}
@@ -40,7 +62,13 @@ export function InputField({ label, type = "text", placeholder, value, onChange,
   );
 }
 
-export function BtnPrimary({ children, onClick, style = {} }) {
+interface BtnPrimaryProps {
+  children: React.ReactNode;
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  style?: React.CSSProperties;
+}
+
+export function BtnPrimary({ children, onClick, style = {} }: BtnPrimaryProps) {
   return (
     <button className="btn-primary" onClick={onClick} style={{
       width: "100%", padding: "16px", background: "linear-gradient(135deg, #3b82f6, #2563eb)",
@@ -53,7 +81,12 @@ export function BtnPrimary({ children, onClick, style = {} }) {
   );
 }
 
-export function BtnSecondary({ children, onClick }) {
+interface BtnSecondaryProps {
+  children: React.ReactNode;
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+}
+
+export function BtnSecondary({ children, onClick }: BtnSecondaryProps) {
   return (
     <button className="btn-secondary" onClick={onClick} style={{
       width: "100%", padding: "13px", background: "transparent",
@@ -65,7 +98,12 @@ export function BtnSecondary({ children, onClick }) {
   );
 }
 
-export function Alert({ type = "info", children }) {
+interface AlertProps {
+  type?: "info" | "success" | "error" | "warn";
+  children: React.ReactNode;
+}
+
+export function Alert({ type = "info", children }: AlertProps) {
   const colors = {
     info:    { bg: "rgba(59,130,246,0.1)",  border: "rgba(59,130,246,0.2)",  color: "#93c5fd" },
     success: { bg: "rgba(52,211,153,0.1)",  border: "rgba(52,211,153,0.2)",  color: "#6ee7b7" },
@@ -80,7 +118,12 @@ export function Alert({ type = "info", children }) {
   );
 }
 
-export function StepDots({ total, current }) {
+interface StepDotsProps {
+  total: number;
+  current: number;
+}
+
+export function StepDots({ total, current }: StepDotsProps) {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 28 }}>
       {Array.from({ length: total }).map((_, i) => (
@@ -96,7 +139,11 @@ export function StepDots({ total, current }) {
   );
 }
 
-export function BackLink({ onClick }) {
+interface BackLinkProps {
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+}
+
+export function BackLink({ onClick }: BackLinkProps) {
   return (
     <button className="back-link" onClick={onClick} style={{ display: "flex", alignItems: "center", gap: 6, color: C.muted, fontSize: 13, marginBottom: 28, background: "none", border: "none", padding: 0, transition: "color 0.2s" }}>
       ← Quay lại
@@ -104,8 +151,13 @@ export function BackLink({ onClick }) {
   );
 }
 
-export function StrengthBar({ password, prefix = "s" }) {
-  const calc = (pw) => {
+interface StrengthBarProps {
+  password?: string;
+  prefix?: string;
+}
+
+export function StrengthBar({ password = "", prefix = "s" }: StrengthBarProps) {
+  const calc = (pw: string) => {
     let s = 0;
     if (pw.length >= 8) s++;
     if (/[A-Z]/.test(pw)) s++;
@@ -130,11 +182,15 @@ export function StrengthBar({ password, prefix = "s" }) {
   );
 }
 
-export function OtpInputRow({ onComplete }) {
-  const [vals, setVals] = useState(["", "", "", "", "", ""]);
-  const refs = useRef([]);
+interface OtpInputRowProps {
+  onComplete?: (code: string) => void;
+}
 
-  const handleChange = (i, v) => {
+export function OtpInputRow({ onComplete }: OtpInputRowProps) {
+  const [vals, setVals] = useState<string[]>(["", "", "", "", "", ""]);
+  const refs = useRef<(HTMLInputElement | null)[]>([]);
+
+  const handleChange = (i: number, v: string) => {
     if (!/^\d?$/.test(v)) return;
     const next = [...vals];
     next[i] = v;
@@ -143,7 +199,7 @@ export function OtpInputRow({ onComplete }) {
     if (next.every(x => x) && onComplete) onComplete(next.join(""));
   };
 
-  const handleKeyDown = (i, e) => {
+  const handleKeyDown = (i: number, e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Backspace" && !vals[i] && i > 0) refs.current[i - 1]?.focus();
   };
 
@@ -152,7 +208,7 @@ export function OtpInputRow({ onComplete }) {
       {vals.map((v, i) => (
         <input
           key={i}
-          ref={el => refs.current[i] = el}
+          ref={el => { refs.current[i] = el; }}
           className="otp-input"
           type="text"
           maxLength={1}
@@ -166,8 +222,12 @@ export function OtpInputRow({ onComplete }) {
   );
 }
 
-export function ResendTimer({ onResend }) {
-  const [secs, setSecs] = useState(0);
+interface ResendTimerProps {
+  onResend?: () => void;
+}
+
+export function ResendTimer({ onResend }: ResendTimerProps) {
+  const [secs, setSecs] = useState<number>(0);
 
   const start = () => {
     setSecs(60);
@@ -190,7 +250,15 @@ export function ResendTimer({ onResend }) {
   );
 }
 
-export function SuccessScreen({ icon, title, desc, btnText, onBtn }) {
+interface SuccessScreenProps {
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+  btnText: string;
+  onBtn: () => void;
+}
+
+export function SuccessScreen({ icon, title, desc, btnText, onBtn }: SuccessScreenProps) {
   return (
     <div className="slide-in" style={{ textAlign: "center" }}>
       <div className="pulse-icon" style={{ width: 72, height: 72, background: "rgba(52,211,153,0.12)", border: "2px solid rgba(52,211,153,0.3)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, margin: "0 auto 24px" }}>

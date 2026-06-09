@@ -2,13 +2,39 @@ import { useState } from "react";
 import { C } from "../../config/theme";
 import { InputField, BtnPrimary, Alert, StepDots, BackLink, StrengthBar, OtpInputRow, ResendTimer } from "../../components/ui/SharedUI";
 
-export default function RegisterScreen({ onNavigate }) {
-  const [step, setStep] = useState(0);
-  const [form, setForm] = useState({ firstName: "", lastName: "", email: "", phone: "", pw: "", pw2: "", terms: false });
-  const [errors, setErrors] = useState({});
+interface RegisterScreenProps {
+  onNavigate: (screen: string) => void;
+}
 
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  const setErr = (k, v) => setErrors(e => ({ ...e, [k]: v }));
+interface RegisterForm {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  pw: string;
+  pw2: string;
+  terms: boolean;
+}
+
+export default function RegisterScreen({ onNavigate }: RegisterScreenProps) {
+  const [step, setStep] = useState<number>(0);
+  const [form, setForm] = useState<RegisterForm>({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    pw: "",
+    pw2: "",
+    terms: false
+  });
+  const [errors, setErrors] = useState<Partial<Record<keyof RegisterForm, string>>>({});
+
+  const set = <K extends keyof RegisterForm>(k: K, v: RegisterForm[K]) => {
+    setForm(f => ({ ...f, [k]: v }));
+  };
+  const setErr = <K extends keyof RegisterForm>(k: K, v: string) => {
+    setErrors(e => ({ ...e, [k]: v }));
+  };
 
   const next1 = () => {
     if (!form.email) { setErr("email", "Vui lòng nhập email."); return; }
@@ -32,7 +58,7 @@ export default function RegisterScreen({ onNavigate }) {
         <h2 style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 26, letterSpacing: "-0.5px", marginBottom: 6 }}>Tạo tài khoản 🚗</h2>
         <p style={{ fontSize: 13, color: C.muted, fontWeight: 300 }}>
           Đã có tài khoản?{" "}
-          <a onClick={() => onNavigate("login")} style={{ color: C.accent2, fontWeight: 500 }}>Đăng nhập</a>
+          <a onClick={() => onNavigate("login")} style={{ color: C.accent2, fontWeight: 500, cursor: "pointer" }}>Đăng nhập</a>
         </p>
       </div>
 
@@ -65,7 +91,7 @@ export default function RegisterScreen({ onNavigate }) {
           <InputField label="Xác nhận mật khẩu" type="password" placeholder="Nhập lại mật khẩu" value={form.pw2} onChange={v => { set("pw2", v); setErr("pw2", ""); }} icon="🔒" showToggle error={errors.pw2} />
 
           <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 20 }}>
-            <input type="checkbox" checked={form.terms} onChange={e => { set("terms", e.target.checked); setErr("terms", ""); }} style={{ marginTop: 2, accentColor: C.accent, width: 16, height: 16 }} />
+            <input type="checkbox" checked={form.terms} onChange={e => { set("terms", e.target.checked); setErr("terms", ""); }} style={{ marginTop: 2, accentColor: C.accent, width: 16, height: 16, cursor: "pointer" }} />
             <label style={{ fontSize: 12, color: C.muted, fontWeight: 400, cursor: "pointer", lineHeight: 1.5 }}>
               Tôi đồng ý với <a style={{ color: C.accent2 }}>Điều khoản sử dụng</a> và <a style={{ color: C.accent2 }}>Chính sách bảo mật</a> của ParkVault
             </label>

@@ -2,13 +2,17 @@ import { useState } from "react";
 import { C } from "../../config/theme";
 import { InputField, BtnPrimary, Alert, StepDots, BackLink, StrengthBar, OtpInputRow, ResendTimer } from "../../components/ui/SharedUI";
 
-export default function ForgotScreen({ onNavigate }) {
-  const [step, setStep] = useState(0);
-  const [email, setEmail] = useState("");
-  const [emailErr, setEmailErr] = useState("");
-  const [pw1, setPw1] = useState("");
-  const [pw2, setPw2] = useState("");
-  const [pwErr, setPwErr] = useState("");
+interface ForgotScreenProps {
+  onNavigate: (screen: string) => void;
+}
+
+export default function ForgotScreen({ onNavigate }: ForgotScreenProps) {
+  const [step, setStep] = useState<number>(0);
+  const [email, setEmail] = useState<string>("");
+  const [emailErr, setEmailErr] = useState<string>("");
+  const [pw1, setPw1] = useState<string>("");
+  const [pw2, setPw2] = useState<string>("");
+  const [pwErr, setPwErr] = useState<string>("");
 
   const next1 = () => {
     if (!email) { setEmailErr("Vui lòng nhập email."); return; }
