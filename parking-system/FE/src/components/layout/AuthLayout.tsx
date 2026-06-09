@@ -1,3 +1,4 @@
+import React from "react";
 import { C } from "../../config/theme";
 
 function LeftPanel() {
@@ -35,7 +36,11 @@ function LeftPanel() {
   );
 }
 
-export default function AuthLayout({ children }) {
+interface AuthLayoutProps {
+  children: React.ReactNode;
+}
+
+export default function AuthLayout({ children }: AuthLayoutProps) {
   return (
     <div style={{ display: "flex", minHeight: "100vh", overflow: "hidden" }}>
       <LeftPanel />
