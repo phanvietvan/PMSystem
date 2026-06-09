@@ -5,8 +5,10 @@ import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 import api from '../services/api';
 import { getActiveQrs } from '../utils/auth';
+import { useSettings } from '../hooks/useSettings.tsx';
 
 const GateScanPage = () => {
+  const { language } = useSettings();
   const navigate = useNavigate();
   const [scanStatus, setScanStatus] = useState<'idle' | 'scanning' | 'success'>('idle');
 
@@ -22,7 +24,7 @@ const GateScanPage = () => {
         await api.post('/ParkingSessions/gate-scan', { qrCode: activeQr });
       } else {
         const storedParking = localStorage.getItem('selectedParking');
-        let selectedParkingName = 'Landmark 81 - Bãi đỗ A1';
+        let selectedParkingName = language === 'en' ? 'Landmark 81 - Parking Lot A1' : 'Landmark 81 - Bãi đỗ A1';
         if (storedParking) {
           try {
             selectedParkingName = JSON.parse(storedParking).name;
@@ -86,9 +88,13 @@ const GateScanPage = () => {
                   <Scan className="w-12 h-12" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-display font-bold text-on-surface mb-3">Xác thực tại cổng</h1>
+                  <h1 className="text-3xl font-display font-bold text-on-surface mb-3">
+                    {language === 'en' ? 'Gate Verification' : 'Xác thực tại cổng'}
+                  </h1>
                   <p className="text-on-surface-variant text-sm font-medium max-w-sm mx-auto">
-                    Vui lòng đưa mã QR trong ứng dụng của bạn trước Camera tại cổng để xác nhận quyền vào bãi đỗ.
+                    {language === 'en' 
+                      ? 'Please present the QR code in your app in front of the gate camera to verify entry.' 
+                      : 'Vui lòng đưa mã QR trong ứng dụng của bạn trước Camera tại cổng để xác nhận quyền vào bãi đỗ.'}
                   </p>
                 </div>
 
@@ -97,17 +103,21 @@ const GateScanPage = () => {
                    <div className="bg-surface-container-low border-2 border-dashed border-primary/40 rounded-[2.5rem] aspect-square w-64 mx-auto flex items-center justify-center relative overflow-hidden group-hover:border-primary transition-colors">
                       <QrCode className="w-32 h-32 text-on-surface-variant/20 group-hover:text-primary/30 transition-colors" />
                       <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-primary/0 group-hover:bg-primary/5 transition-colors">
-                        <div className="w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                          <ArrowRight className="w-6 h-6" />
-                        </div>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-primary opacity-0 group-hover:opacity-100 transition-opacity">Nhấp để mô phỏng quét</span>
+                         <div className="w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                           <ArrowRight className="w-6 h-6" />
+                         </div>
+                         <span className="text-[10px] font-black uppercase tracking-widest text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+                           {language === 'en' ? 'Click to simulate scan' : 'Nhấp để mô phỏng quét'}
+                         </span>
                       </div>
                    </div>
                 </div>
 
                 <div className="flex items-center justify-center gap-2 text-emerald-600 bg-emerald-50 w-fit mx-auto px-4 py-2 rounded-full border border-emerald-100">
                   <ShieldCheck className="w-4 h-4" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">Hệ thống bảo mật TLS 1.3</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest">
+                    {language === 'en' ? 'TLS 1.3 Security Protocol' : 'Hệ thống bảo mật TLS 1.3'}
+                  </span>
                 </div>
               </motion.div>
             )}
@@ -129,8 +139,12 @@ const GateScanPage = () => {
                   </div>
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-on-surface mb-2">Đang xác thực...</h2>
-                  <p className="text-on-surface-variant text-sm font-medium italic">Đang kiểm tra thông tin đặt chỗ PKI-88902-Z1</p>
+                  <h2 className="text-2xl font-bold text-on-surface mb-2">
+                    {language === 'en' ? 'Verifying...' : 'Đang xác thực...'}
+                  </h2>
+                  <p className="text-on-surface-variant text-sm font-medium italic">
+                    {language === 'en' ? 'Checking reservation info PKI-88902-Z1' : 'Đang kiểm tra thông tin đặt chỗ PKI-88902-Z1'}
+                  </p>
                 </div>
               </motion.div>
             )}
@@ -145,9 +159,12 @@ const GateScanPage = () => {
                   <CheckCircle2 className="w-12 h-12" />
                 </div>
                 <div>
-                  <h2 className="text-4xl font-display font-black text-emerald-600 mb-2 tracking-tighter">Barrier Đã Mở</h2>
+                  <h2 className="text-4xl font-display font-black text-emerald-600 mb-2 tracking-tighter">
+                    {language === 'en' ? 'Barrier Opened' : 'Barrier Đã Mở'}
+                  </h2>
                   <p className="text-on-surface-variant text-sm font-bold">
-                    Chào mừng bạn đến với {(() => {
+                    {language === 'en' ? 'Welcome to ' : 'Chào mừng bạn đến với '}
+                    {(() => {
                       const storedParking = localStorage.getItem('selectedParking');
                       if (storedParking) {
                         try {
@@ -160,9 +177,11 @@ const GateScanPage = () => {
                 </div>
                 <div className="bg-surface-container rounded-2xl p-6 border border-outline-variant/10 text-left space-y-3">
                    <div className="flex justify-between items-center">
-                     <span className="text-[9px] font-black text-outline uppercase tracking-widest">Vị trí đỗ của bạn</span>
+                     <span className="text-[9px] font-black text-outline uppercase tracking-widest">
+                       {language === 'en' ? 'Your parking slot' : 'Vị trí đỗ của bạn'}
+                     </span>
                      <span className="text-sm font-black text-primary">
-                       Tầng {(localStorage.getItem('selectedLevel') || '3').padStart(2, '0')} • Ô {localStorage.getItem('selectedSlot') || 'A3'}
+                       {language === 'en' ? 'Floor ' : 'Tầng '}{(localStorage.getItem('selectedLevel') || '3').padStart(2, '0')} • {language === 'en' ? 'Slot ' : 'Ô '}{localStorage.getItem('selectedSlot') || 'A3'}
                      </span>
                    </div>
                    <div className="w-full h-1 bg-outline-variant/10 rounded-full overflow-hidden">
@@ -171,7 +190,9 @@ const GateScanPage = () => {
                       className="h-full bg-emerald-500"
                      />
                    </div>
-                   <p className="text-[10px] text-on-surface-variant font-medium text-center italic">Đang tải bản đồ chỉ đường...</p>
+                   <p className="text-[10px] text-on-surface-variant font-medium text-center italic">
+                     {language === 'en' ? 'Loading navigation map...' : 'Đang tải bản đồ chỉ đường...'}
+                   </p>
                 </div>
               </motion.div>
             )}

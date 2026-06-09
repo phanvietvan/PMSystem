@@ -3,10 +3,12 @@ import { motion } from 'framer-motion';
 import { MapPin, Navigation, Info, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
+import { useSettings } from '../hooks/useSettings.tsx';
 
 const NavigationPage = () => {
   const navigate = useNavigate();
   const [isVerified, setIsVerified] = useState(false);
+  const { language } = useSettings();
 
   const selectedSlot = localStorage.getItem('selectedSlot') || 'A3';
   const selectedLevel = localStorage.getItem('selectedLevel') || '3';
@@ -62,9 +64,9 @@ const NavigationPage = () => {
                     <Navigation className="text-blue-600 w-5 h-5 animate-bounce" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-on-surface">Chỉ đường tới ô đỗ</h2>
+                    <h2 className="text-xl font-bold text-on-surface">{language === 'en' ? 'Directions to Slot' : 'Chỉ đường tới ô đỗ'}</h2>
                     <p className="text-[10px] text-slate-500 font-medium uppercase tracking-widest mt-1">
-                      Đang hướng dẫn bạn đến Tầng {selectedLevel.padStart(2, '0')} • Ô {selectedSlot}
+                      {language === 'en' ? `Navigating to Floor ${selectedLevel.padStart(2, '0')} • Slot ${selectedSlot}` : `Đang hướng dẫn bạn đến Tầng ${selectedLevel.padStart(2, '0')} • Ô ${selectedSlot}`}
                     </p>
                   </div>
                 </div>
@@ -80,7 +82,7 @@ const NavigationPage = () => {
                   
                   {/* Central Lobby Core (Sảnh thang máy) */}
                   <rect x="345" y="180" width="110" height="140" rx="15" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="1.5" />
-                  <text x="400" y="245" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#64748b" letterSpacing="1">SẢNH THANG</text>
+                  <text x="400" y="245" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#64748b" letterSpacing="1">{language === 'en' ? 'LOBBY' : 'SẢNH THANG'}</text>
                   <text x="400" y="260" textAnchor="middle" fontSize="8" fill="#94a3b8">LIFT & STAIRS</text>
 
                   {/* Render West Zone Slots */}
@@ -184,7 +186,11 @@ const NavigationPage = () => {
             <div className="bg-blue-50/50 p-5 rounded-2xl border border-blue-100 flex items-start gap-4">
               <Info className="w-5 h-5 text-blue-600 mt-1" />
               <p className="text-xs text-slate-600 font-medium leading-relaxed">
-                Vui lòng di chuyển xe và đỗ đúng vào ô <strong className="text-blue-600">{selectedSlot}</strong>. Sau khi đỗ xe an toàn, bấm xác nhận ở bảng bên phải để kích hoạt hệ thống giám sát an ninh AI bảo vệ xe của bạn.
+                {language === 'en' ? (
+                  <>Please drive and park precisely at slot <strong className="text-blue-600">{selectedSlot}</strong>. After parking safely, click confirm on the right panel to activate the AI security monitoring system to protect your vehicle.</>
+                ) : (
+                  <>Vui lòng di chuyển xe và đỗ đúng vào ô <strong className="text-blue-600">{selectedSlot}</strong>. Sau khi đỗ xe an toàn, bấm xác nhận ở bảng bên phải để kích hoạt hệ thống giám sát an ninh AI bảo vệ xe của bạn.</>
+                )}
               </p>
             </div>
           </div>
@@ -192,7 +198,7 @@ const NavigationPage = () => {
           {/* Right: Verification Action */}
           <div className="lg:col-span-4 space-y-6">
             <div className="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-xl shadow-blue-500/5 text-center">
-              <h3 className="text-lg font-bold text-slate-800 mb-6">Trạng thái đỗ xe</h3>
+              <h3 className="text-lg font-bold text-slate-800 mb-6">{language === 'en' ? 'Parking Status' : 'Trạng thái đỗ xe'}</h3>
               
               <div className="space-y-6">
                 {/* Visual Status Indicator */}
@@ -214,19 +220,23 @@ const NavigationPage = () => {
                         ? 'bg-emerald-100 text-emerald-800 border-emerald-200' 
                         : 'bg-blue-100 text-blue-800 border-blue-200'}`}
                     >
-                      {isVerified ? 'ĐÃ KÍCH HOẠT AN NINH' : 'ĐANG CHỜ ĐỖ XE'}
+                      {isVerified ? (language === 'en' ? 'SECURITY ACTIVATED' : 'ĐÃ KÍCH HOẠT AN NINH') : (language === 'en' ? 'AWAITING PARKING' : 'ĐANG CHỜ ĐỖ XE')}
                     </span>
                   </div>
                 </div>
 
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/60 text-left space-y-3">
                   <div>
-                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Vị trí đỗ chỉ định</span>
-                    <span className="text-sm font-black text-slate-800">Tầng {selectedLevel.padStart(2, '0')} • Ô {selectedSlot}</span>
+                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">{language === 'en' ? 'Assigned Slot' : 'Vị trí đỗ chỉ định'}</span>
+                    <span className="text-sm font-black text-slate-800">
+                      {language === 'en' ? `Floor ${selectedLevel.padStart(2, '0')} • Slot ${selectedSlot}` : `Tầng ${selectedLevel.padStart(2, '0')} • Ô ${selectedSlot}`}
+                    </span>
                   </div>
                   <div>
-                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Hệ thống an ninh AI</span>
-                    <span className="text-xs text-slate-600 font-medium">Tự động kích hoạt giám sát an ninh camera SecureNode bảo vệ xe của bạn sau khi xác nhận.</span>
+                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">{language === 'en' ? 'AI Security System' : 'Hệ thống an ninh AI'}</span>
+                    <span className="text-xs text-slate-600 font-medium">
+                      {language === 'en' ? 'Automatically activates SecureNode camera security monitoring to protect your vehicle after confirmation.' : 'Tự động kích hoạt giám sát an ninh camera SecureNode bảo vệ xe của bạn sau khi xác nhận.'}
+                    </span>
                   </div>
                 </div>
 
@@ -238,7 +248,7 @@ const NavigationPage = () => {
                       ? 'bg-emerald-500 text-white shadow-emerald-200' 
                       : 'bg-blue-600 hover:bg-blue-500 text-white hover:scale-[1.02] shadow-blue-200'}`}
                 >
-                  {isVerified ? 'ĐANG KẾT NỐI GIÁM SÁT...' : 'XÁC NHẬN ĐÃ ĐỖ AN TOÀN'}
+                  {isVerified ? (language === 'en' ? 'CONNECTING MONITOR...' : 'ĐANG KẾT NỐI GIÁM SÁT...') : (language === 'en' ? 'CONFIRM SECURED PARKING' : 'XÁC NHẬN ĐÃ ĐỖ AN TOÀN')}
                 </button>
               </div>
             </div>

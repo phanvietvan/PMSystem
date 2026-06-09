@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { SettingsProvider } from './hooks/useSettings.tsx';
 import LandingPage from './pages/LandingPage';
 import ParkingStatus from './pages/ParkingStatus';
 import ReservationPage from './pages/ReservationPage';
@@ -57,7 +58,8 @@ function ProfileCheckWrapper({ children }: { children: React.ReactNode }) {
 
 function App() {
   return (
-    <Router>
+    <SettingsProvider>
+      <Router>
       <ProfileCheckWrapper>
         <Routes>
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
@@ -93,7 +95,8 @@ function App() {
           <Route path="*" element={<LandingPage />} />
         </Routes>
       </ProfileCheckWrapper>
-    </Router>
+      </Router>
+    </SettingsProvider>
   );
 }
 

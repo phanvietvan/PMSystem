@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { AlertTriangle, Send, Check, MapPin, Layers } from 'lucide-react';
 import Navbar from '../components/layout/Navbar';
 import api from '../services/api';
+import { useSettings } from '../hooks/useSettings.tsx';
 
 interface Incident {
   id: string;
@@ -80,6 +81,7 @@ const ReportIncidentPage = () => {
   const [floor, setFloor] = useState('Tầng 1');
   const [urgency, setUrgency] = useState<'Bình thường' | 'Cao' | 'Khẩn cấp'>('Bình thường');
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const { t, language } = useSettings();
 
   // Available branches from localStorage or default
   const [branches, setBranches] = useState<any[]>([]);
@@ -170,20 +172,35 @@ const ReportIncidentPage = () => {
       setTimeout(() => {
         setIsSubmitted(false);
       }, 5000);
-      setIsSubmitted(true);
-      setTitle('');
-      setDescription('');
-      
-      // Reload incidents from API
-      await loadMyIncidents();
-      
-      setTimeout(() => {
-        setIsSubmitted(false);
-      }, 5000);
     } catch (error) {
       console.error('Error submitting incident to database:', error);
-      alert('Không thể gửi báo cáo sự cố lúc này. Vui lòng thử lại sau.');
+      alert(language === 'en' ? 'Could not submit incident report at this time. Please try again later.' : 'Không thể gửi báo cáo sự cố lúc này. Vui lòng thử lại sau.');
     }
+  };
+
+  const getLocalizedUrgency = (urg: string) => {
+    if (urg === 'Khẩn cấp') return language === 'en' ? 'Emergency' : 'Khẩn cấp';
+    if (urg === 'Cao') return language === 'en' ? 'High' : 'Cao';
+    return language === 'en' ? 'Normal' : 'Bình thường';
+  };
+
+  const getLocalizedStatus = (status: string) => {
+    if (status === 'Đã xử lý') return language === 'en' ? 'Resolved' : 'Đã xử lý';
+    return language === 'en' ? 'Pending' : 'Chờ xử lý';
+  };
+
+  const getLocalizedFloor = (fl: string) => {
+    if (!fl) return '';
+    return fl.replace('Tầng', language === 'en' ? 'Floor' : 'Tầng');
+  };
+
+  const getLocalizedType = (tType: string) => {
+    if (tType === 'Thiết bị hỏng') return language === 'en' ? 'Broken Equipment' : 'Thiết bị hỏng';
+    if (tType === 'Lỗi thanh toán') return language === 'en' ? 'Payment Issue' : 'Lỗi thanh toán';
+    if (tType === 'Xe đỗ sai vị trí') return language === 'en' ? 'Wrongly Parked Vehicle' : 'Xe đỗ sai vị trí';
+    if (tType === 'Vấn đề thẻ/vé') return language === 'en' ? 'Card/Ticket Problem' : 'Vấn đề thẻ/vé';
+    if (tType === 'Khác') return language === 'en' ? 'Other' : 'Khác';
+    return tType;
   };
 
   return (
@@ -206,8 +223,14 @@ const ReportIncidentPage = () => {
                 <AlertTriangle className="w-8 h-8" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Báo cáo Sự cố Hệ thống</h2>
-                <p className="text-[13px] text-slate-500 font-medium mt-1">Gửi thông tin sự cố trực tiếp đến Quản trị viên (Admin) để xử lý kịp thời.</p>
+                <h2 className="text-2xl font-bold text-slate-800 tracking-tight">
+                  {language === 'en' ? 'Report System Incident' : 'Báo cáo Sự cố Hệ thống'}
+                </h2>
+                <p className="text-[13px] text-slate-500 font-medium mt-1">
+                  {language === 'en'
+                    ? 'Send incident information directly to the Administrator (Admin) for timely resolution.'
+                    : 'Gửi thông tin sự cố trực tiếp đến Quản trị viên (Admin) để xử lý kịp thời.'}
+                </p>
               </div>
             </div>
 
@@ -220,13 +243,19 @@ const ReportIncidentPage = () => {
                 <div className="w-12 h-12 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20">
                   <Check className="w-6 h-6" />
                 </div>
-                <h3 className="text-base font-bold text-slate-850">Báo cáo của bạn đã được gửi thành công!</h3>
-                <p className="text-xs text-slate-500 max-w-md">Cảm ơn sự đóng góp của bạn. Ban quản lý bãi xe đã nhận được thông tin và sẽ kiểm tra khắc phục trong thời gian sớm nhất.</p>
+                <h3 className="text-base font-bold text-slate-850">
+                  {language === 'en' ? 'Your report has been submitted successfully!' : 'Báo cáo của bạn đã được gửi thành công!'}
+                </h3>
+                <p className="text-xs text-slate-500 max-w-md">
+                  {language === 'en'
+                    ? 'Thank you for your contribution. The parking management team has received the information and will inspect and resolve it as soon as possible.'
+                    : 'Cảm ơn sự đóng góp của bạn. Ban quản lý bãi xe đã nhận được thông tin và sẽ kiểm tra khắc phục trong thời gian sớm nhất.'}
+                </p>
                 <button
                   onClick={() => setIsSubmitted(false)}
                   className="mt-4 px-6 py-2.5 bg-white border border-slate-200 hover:border-slate-350 text-xs font-bold text-slate-700 rounded-full shadow-sm transition-all cursor-pointer"
                 >
-                  Gửi thêm báo cáo khác
+                  {language === 'en' ? 'Submit another report' : 'Gửi thêm báo cáo khác'}
                 </button>
               </motion.div>
             ) : (
@@ -235,17 +264,19 @@ const ReportIncidentPage = () => {
                   {/* Left Column */}
                   <div className="flex flex-col gap-6">
                     <div>
-                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">LOẠI SỰ CỐ</label>
+                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
+                        {language === 'en' ? 'INCIDENT TYPE' : 'LOẠI SỰ CỐ'}
+                      </label>
                       <CustomSelect
                         value={type}
                         onChange={(val: string) => setType(val)}
                         isError={true} // Giữ viền đỏ theo mockup
                         options={[
-                          { value: 'Thiết bị hỏng', label: 'Thiết bị hỏng' },
-                          { value: 'Lỗi thanh toán', label: 'Lỗi thanh toán' },
-                          { value: 'Xe đỗ sai vị trí', label: 'Xe đỗ sai vị trí' },
-                          { value: 'Vấn đề thẻ/vé', label: 'Vấn đề thẻ/vé' },
-                          { value: 'Khác', label: 'Khác' }
+                          { value: 'Thiết bị hỏng', label: language === 'en' ? 'Broken Equipment' : 'Thiết bị hỏng' },
+                          { value: 'Lỗi thanh toán', label: language === 'en' ? 'Payment Issue' : 'Lỗi thanh toán' },
+                          { value: 'Xe đỗ sai vị trí', label: language === 'en' ? 'Wrongly Parked Vehicle' : 'Xe đỗ sai vị trí' },
+                          { value: 'Vấn đề thẻ/vé', label: language === 'en' ? 'Card/Ticket Problem' : 'Vấn đề thẻ/vé' },
+                          { value: 'Khác', label: language === 'en' ? 'Other' : 'Khác' }
                         ]}
                       />
                     </div>
@@ -254,7 +285,7 @@ const ReportIncidentPage = () => {
                       <input
                         type="text"
                         required
-                        placeholder="Ví dụ: Rào chắn bãi đỗ xe tầng 2 Landmark 81 bị kẹt"
+                        placeholder={language === 'en' ? 'Example: Entrance barrier on Landmark 81 Floor 2 is stuck' : 'Ví dụ: Rào chắn bãi đỗ xe tầng 2 Landmark 81 bị kẹt'}
                         value={title}
                         onChange={e => setTitle(e.target.value)}
                         className="w-full px-5 py-3.5 bg-white border border-slate-200 rounded-full text-sm font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm"
@@ -262,7 +293,9 @@ const ReportIncidentPage = () => {
                     </div>
 
                     <div>
-                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">CHI NHÁNH</label>
+                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
+                        {language === 'en' ? 'BRANCH' : 'CHI NHÁNH'}
+                      </label>
                       <CustomSelect
                         icon={MapPin}
                         value={branch}
@@ -275,7 +308,9 @@ const ReportIncidentPage = () => {
                   {/* Right Column */}
                   <div className="flex flex-col gap-6">
                     <div>
-                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">MỨC ĐỘ KHẨN CẤP</label>
+                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
+                        {language === 'en' ? 'URGENCY LEVEL' : 'MỨC ĐỘ KHẨN CẤP'}
+                      </label>
                       <div className="grid grid-cols-3 gap-3">
                         {(['Bình thường', 'Cao', 'Khẩn cấp'] as const).map(level => {
                           const isSelected = urgency === level;
@@ -284,6 +319,9 @@ const ReportIncidentPage = () => {
                             'Cao': isSelected ? 'bg-amber-500 text-white border-amber-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200',
                             'Khẩn cấp': isSelected ? 'bg-rose-600 text-white border-rose-600' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
                           };
+                          const levelLabel = level === 'Bình thường' ? (language === 'en' ? 'Normal' : 'Bình thường') :
+                                             level === 'Cao' ? (language === 'en' ? 'High' : 'Cao') :
+                                             (language === 'en' ? 'Emergency' : 'Khẩn cấp');
                           return (
                             <button
                               key={level}
@@ -291,7 +329,7 @@ const ReportIncidentPage = () => {
                               onClick={() => setUrgency(level)}
                               className={`py-3 text-[11px] font-bold rounded-full border transition-all cursor-pointer shadow-sm ${levelColors[level]}`}
                             >
-                              {level}
+                              {levelLabel}
                             </button>
                           );
                         })}
@@ -299,7 +337,9 @@ const ReportIncidentPage = () => {
                     </div>
 
                     <div>
-                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">KHU VỰC TẦNG</label>
+                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
+                        {language === 'en' ? 'FLOOR LEVEL' : 'KHU VỰC TẦNG'}
+                      </label>
                       <CustomSelect
                         icon={Layers}
                         value={floor}
@@ -307,7 +347,10 @@ const ReportIncidentPage = () => {
                         options={(() => {
                           const selectedObj = branches.find(b => b.name === branch);
                           const floorList = selectedObj && selectedObj.floors ? selectedObj.floors : [1, 2, 3];
-                          return floorList.map((f: any) => ({ value: `Tầng ${f}`, label: `Tầng ${f}` }));
+                          return floorList.map((f: any) => ({ 
+                            value: `Tầng ${f}`, 
+                            label: language === 'en' ? `Floor ${f}` : `Tầng ${f}` 
+                          }));
                         })()}
                       />
                     </div>
@@ -315,11 +358,13 @@ const ReportIncidentPage = () => {
                 </div>
 
                 <div className="mt-6">
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">MÔ TẢ CHI TIẾT</label>
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
+                    {language === 'en' ? 'DETAILED DESCRIPTION' : 'MÔ TẢ CHI TIẾT'}
+                  </label>
                   <textarea
                     required
                     rows={4}
-                    placeholder="Vui lòng mô tả chi tiết sự cố gặp phải (vị trí cụ thể, hiện tượng xảy ra, lỗi màn hình nếu có...)"
+                    placeholder={language === 'en' ? 'Please describe the incident in detail (specific location, symptoms, screen errors if any...)' : 'Vui lòng mô tả chi tiết sự cố gặp phải (vị trí cụ thể, hiện tượng xảy ra, lỗi màn hình nếu có...)'}
                     value={description}
                     onChange={e => setDescription(e.target.value)}
                     className="w-full px-5 py-4 bg-white border border-slate-200 rounded-3xl text-sm font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm resize-none"
@@ -331,7 +376,7 @@ const ReportIncidentPage = () => {
                   className="w-full bg-[#f00] hover:bg-red-700 text-white font-bold py-4 px-6 rounded-full text-[13px] uppercase tracking-wider transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 flex items-center justify-center gap-2 mt-8 cursor-pointer"
                 >
                   <Send className="w-5 h-5" />
-                  GỬI BÁO CÁO SỰ CỐ
+                  {language === 'en' ? 'SUBMIT INCIDENT REPORT' : 'GỬI BÁO CÁO SỰ CỐ'}
                 </button>
               </form>
             )}
@@ -347,10 +392,14 @@ const ReportIncidentPage = () => {
         >
           <div className="absolute top-0 right-0 w-32 h-32 bg-blue-400/5 rounded-full blur-3xl pointer-events-none"></div>
           
-          <h3 className="text-lg font-black text-slate-800 tracking-tight mb-6">Lịch sử báo cáo của bạn</h3>
+          <h3 className="text-lg font-black text-slate-800 tracking-tight mb-6">
+            {language === 'en' ? 'Your report history' : 'Lịch sử báo cáo của bạn'}
+          </h3>
           
           {myIncidents.length === 0 ? (
-            <p className="text-xs text-slate-400 font-bold text-center py-8">Bạn chưa gửi báo cáo sự cố nào.</p>
+            <p className="text-xs text-slate-400 font-bold text-center py-8">
+              {language === 'en' ? 'You have not submitted any incident reports.' : 'Bạn chưa gửi báo cáo sự cố nào.'}
+            </p>
           ) : (
             <div className="space-y-4">
               {myIncidents.map(inc => (
@@ -365,17 +414,17 @@ const ReportIncidentPage = () => {
                         inc.urgency === 'Cao' ? 'bg-amber-100 text-amber-600' :
                         'bg-slate-200 text-slate-600'
                       }`}>
-                        {inc.urgency}
+                        {getLocalizedUrgency(inc.urgency)}
                       </span>
                       <span className={`px-2.5 py-0.5 rounded-md text-[9px] font-black uppercase ${
                         inc.status === 'Đã xử lý' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'
                       }`}>
-                        {inc.status}
+                        {getLocalizedStatus(inc.status)}
                       </span>
                     </div>
                     <span className="text-[10px] text-slate-400 font-bold">
                       {inc.createdAt.includes('T') || inc.createdAt.includes('-') 
-                        ? new Date(inc.createdAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) 
+                        ? new Date(inc.createdAt).toLocaleString(language === 'en' ? 'en-US' : 'vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) 
                         : inc.createdAt}
                     </span>
                   </div>
@@ -385,7 +434,7 @@ const ReportIncidentPage = () => {
                   
                   <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 mt-3 border-t border-slate-100 pt-2.5">
                     <MapPin className="w-3.5 h-3.5 text-blue-500/80" />
-                    <span>{inc.branch} • {inc.floor}</span>
+                    <span>{inc.branch} • {getLocalizedFloor(inc.floor)}</span>
                   </div>
                 </div>
               ))}

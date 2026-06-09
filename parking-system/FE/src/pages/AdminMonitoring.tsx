@@ -16,13 +16,13 @@ import {
   ArrowRight,
   Eye,
   EyeOff,
-  User,
   Phone,
   Mail
 } from 'lucide-react';
 import AdminLayout from '../components/admin/AdminLayout';
 import api from '../services/api';
 import { parseLicensePlate } from '../utils/auth';
+import { useSettings } from '../hooks/useSettings.tsx';
 
 const DEFAULT_LOTS = [
   { id: 1, name: "Landmark 81 - Bãi đỗ A1", floor: "Tầng 1", block: "Block A", capacity: 24 },
@@ -43,6 +43,7 @@ const AdminMonitoring = () => {
   const [showUserInfo, setShowUserInfo] = useState(false);
   const [newSlotInput, setNewSlotInput] = useState('');
   const [toast, setToast] = useState<{message: string, type: 'success'|'error'} | null>(null);
+  const { t } = useSettings();
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
@@ -64,7 +65,7 @@ const AdminMonitoring = () => {
              return { ...l, capacity: trueCapacity };
           });
           setParkingLots(lots);
-          setSelectedLot(prev => lots.find(l => l.id === prev.id) || lots[0]);
+          setSelectedLot((prev: any) => lots.find(l => l.id === prev.id) || lots[0]);
         }
 
         if (sessionsRes.data) {
@@ -94,7 +95,7 @@ const AdminMonitoring = () => {
               return { ...l, capacity: trueCapacity };
            });
            setParkingLots(lots);
-           setSelectedLot(prev => {
+           setSelectedLot((prev: any) => {
              const updated = lots.find((l: any) => l.id === prev?.id);
              if (updated) {
                // Update local storage too just in case
@@ -118,22 +119,6 @@ const AdminMonitoring = () => {
 
   const currentLotStats = getLotStats(selectedLot.name);
   const currentLotSessions = activeSessions.filter(s => s.parkingLotName === selectedLot.name);
-  const occupiedSessions = currentLotSessions.filter(s => s.isCheckedIn);
-  const reservedSessions = currentLotSessions.filter(s => !s.isCheckedIn);
-
-  const getSlotGlobalIndex = (slotName: string) => {
-    const prefix = slotName.charAt(0);
-    const num = parseInt(slotName.slice(1)) - 1;
-    let base = 0;
-    if (prefix === 'A') base = 0;
-    else if (prefix === 'B') base = 10;
-    else if (prefix === 'C') base = 20;
-    else if (prefix === 'D') base = 30;
-    else if (prefix === 'E') base = 40;
-    else if (prefix === 'F') base = 50;
-    return base + num;
-  };
-
   const getSlotStatus = (slotName: string) => {
     if (selectedLot.lockedSlots?.includes(slotName)) return 'locked';
 
@@ -141,30 +126,6 @@ const AdminMonitoring = () => {
     if (exactSession) return exactSession.isCheckedIn ? 'occupied' : 'reserved';
 
     return 'available';
-  };
-  
-  const toggleSlotLock = async (slotId: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const isLocked = selectedLot.lockedSlots?.includes(slotId);
-    try {
-      if (isLocked) {
-        await api.post(`/ParkingLots/${selectedLot.id}/unlock-slot/${slotId}`);
-      } else {
-        await api.post(`/ParkingLots/${selectedLot.id}/lock-slot/${slotId}`);
-      }
-      // Update local state instantly
-      const updatedLockedSlots = isLocked 
-        ? (selectedLot.lockedSlots || []).filter((id: string) => id !== slotId)
-        : [...(selectedLot.lockedSlots || []), slotId];
-        
-      const updatedLot = { ...selectedLot, lockedSlots: updatedLockedSlots };
-      setSelectedLot(updatedLot);
-      setParkingLots(parkingLots.map(l => l.id === selectedLot.id ? updatedLot : l));
-    } catch (err: any) {
-      console.error("Error toggling slot lock:", err);
-      alert("Lỗi khi khóa/mở khóa vị trí: " + (err.response?.data?.message || err.message));
-    }
   };
   
   const getSlotSession = (slotName: string) => {
@@ -183,52 +144,6 @@ const AdminMonitoring = () => {
     setNewSlotInput('');
     setShowUserInfo(false);
     setShowActionModal(true);
-  };
-
-  const handleCancelSession = async () => {
-    if (!actionModalSession) return;
-    if (confirm('Bạn có chắc chắn muốn hủy phiên đặt chỗ này?')) {
-      try {
-        await api.post(`/ParkingSessions/${actionModalSession.id}/cancel`);
-        alert('Hủy chỗ thành công!');
-        setShowActionModal(false);
-        // Force refresh sessions immediately
-        api.get('/ParkingSessions').then(res => {
-          if (res.data) {
-            const sessions = Array.isArray(res.data) ? res.data : (res.data.data || []);
-            setActiveSessions(sessions.filter((s: any) => s.status === 'Active'));
-          }
-        });
-      } catch (err: any) {
-        alert("Lỗi khi hủy chỗ: " + (err.response?.data?.message || err.message));
-      }
-    }
-  };
-
-  const handleChangeSlot = async () => {
-    if (!actionModalSession) {
-      alert("Lỗi: Không tìm thấy phiên đỗ xe này.");
-      return;
-    }
-    if (!newSlotInput.trim()) {
-      alert("Vui lòng nhập vị trí mới (ví dụ: B5) trước khi bấm Đổi.");
-      return;
-    }
-    
-    try {
-      await api.post(`/ParkingSessions/${actionModalSession.id}/change-slot`, { newSlot: newSlotInput.trim().toUpperCase() });
-      alert('Đổi vị trí thành công!');
-      setShowActionModal(false);
-      // Force refresh sessions immediately
-      api.get('/ParkingSessions').then(res => {
-        if (res.data) {
-          const sessions = Array.isArray(res.data) ? res.data : (res.data.data || []);
-          setActiveSessions(sessions.filter((s: any) => s.status === 'Active'));
-        }
-      });
-    } catch (err: any) {
-      alert("Lỗi khi đổi vị trí: " + (err.response?.data?.message || err.message));
-    }
   };
 
   const performLockToggle = async () => {
@@ -260,8 +175,8 @@ const AdminMonitoring = () => {
       <div className="p-6 h-[calc(100vh-64px)] flex flex-col">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-4 shrink-0 gap-4">
           <div>
-            <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Giám sát Bãi đỗ (Live Map)</h2>
-            <p className="text-sm text-slate-500 font-medium">Theo dõi thời gian thực trạng thái toàn bộ vị trí đỗ xe của hệ thống.</p>
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">{t('monitorTitle')}</h2>
+            <p className="text-sm text-slate-500 font-medium">{t('monitorSubtitle')}</p>
           </div>
 
           <div className="relative">
@@ -284,7 +199,7 @@ const AdminMonitoring = () => {
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setIsDropdownOpen(false)}></div>
                 <div className="absolute top-full right-0 mt-3 w-[360px] bg-white/95 backdrop-blur-xl rounded-[1.5rem] shadow-2xl shadow-slate-200/60 border border-slate-200/50 z-50 p-2 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-200">
-                  <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-3 py-3">Chọn Tòa nhà để giám sát</h3>
+                  <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-3 py-3">{t('selectBuilding')}</h3>
                   <div className="max-h-[60vh] overflow-y-auto custom-scrollbar pr-1 space-y-1">
                     {parkingLots.map(lot => {
                       const stats = getLotStats(lot.name);
@@ -331,7 +246,7 @@ const AdminMonitoring = () => {
                   <div className="flex items-center gap-4">
                      {(() => {
                         const currentFloorCapacity = selectedLot.floorCapacities?.[selectedLevel.toString()] || (selectedLot.capacity ? Math.floor(selectedLot.capacity / (selectedLot.floors?.length || 1)) : 24);
-                        return <p className="text-sm font-medium text-slate-500">Sơ đồ chi tiết ({currentFloorCapacity} vị trí / Tầng)</p>;
+                        return <p className="text-sm font-medium text-slate-500">{t('floorMap')} ({currentFloorCapacity} {t('spotsPerFloor')})</p>;
                      })()}
                      
                      {/* Floor Selector */}
@@ -342,7 +257,7 @@ const AdminMonitoring = () => {
                              onClick={() => setSelectedLevel(floor)}
                              className={`px-4 py-1.5 text-[11px] font-extrabold rounded-xl transition-all ${selectedLevel === floor ? 'bg-white text-blue-600 shadow-md shadow-slate-200/50' : 'text-slate-500 hover:text-slate-700'}`}
                            >
-                             Tầng {floor}
+                             {t('floorLabel')} {floor}
                            </button>
                         ))}
                      </div>
@@ -353,19 +268,19 @@ const AdminMonitoring = () => {
                 <div className="flex gap-4 bg-white p-2 rounded-xl border border-slate-100 shadow-sm">
                   <div className="flex items-center gap-2 px-3 py-1.5">
                     <div className="w-3 h-3 rounded-full bg-emerald-100 border border-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]"></div>
-                    <span className="text-xs font-bold text-slate-600 uppercase">Trống</span>
+                    <span className="text-xs font-bold text-slate-600 uppercase">{t('legendAvailable')}</span>
                   </div>
                   <div className="flex items-center gap-2 px-3 py-1.5">
                     <div className="w-3 h-3 rounded-full bg-amber-100 border border-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.3)]"></div>
-                    <span className="text-xs font-bold text-slate-600 uppercase">Đã Đặt</span>
+                    <span className="text-xs font-bold text-slate-600 uppercase">{t('legendReserved')}</span>
                   </div>
                   <div className="flex items-center gap-2 px-3 py-1.5">
                     <div className="w-3 h-3 rounded-full bg-red-100 border border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.3)]"></div>
-                    <span className="text-xs font-bold text-slate-600 uppercase">Có Xe</span>
+                    <span className="text-xs font-bold text-slate-600 uppercase">{t('legendOccupied')}</span>
                   </div>
                   <div className="flex items-center gap-2 px-3 py-1.5">
                     <div className="w-3 h-3 rounded-full bg-slate-200 border border-slate-400 shadow-[0_0_10px_rgba(148,163,184,0.3)]"></div>
-                    <span className="text-xs font-bold text-slate-600 uppercase">Bảo trì</span>
+                    <span className="text-xs font-bold text-slate-600 uppercase">{t('legendMaintenance')}</span>
                   </div>
                 </div>
               </div>
@@ -380,8 +295,8 @@ const AdminMonitoring = () => {
                       {/* Central Lift/Stairs Core */}
                       <g transform="translate(500, 250)">
                         <rect x="-40" y="-70" width="80" height="140" rx="15" fill="#ffffff" stroke="#e2e8f0" strokeWidth="2" />
-                        <text x="0" y="-15" textAnchor="middle" fontSize="10" fontWeight="900" fill="#64748b" letterSpacing="1">SẢNH THANG</text>
-                        <text x="0" y="0" textAnchor="middle" fontSize="7" fontWeight="bold" fill="#94a3b8">LIFT & STAIRS</text>
+                        <text x="0" y="-15" textAnchor="middle" fontSize="10" fontWeight="900" fill="#64748b" letterSpacing="1">{t('sanhThang')}</text>
+                        <text x="0" y="0" textAnchor="middle" fontSize="7" fontWeight="bold" fill="#94a3b8">{t('liftAndStairs')}</text>
                         
                         {/* Elevator Icon */}
                         <g transform="translate(-15, 20)">
@@ -539,7 +454,7 @@ const AdminMonitoring = () => {
                                   <foreignObject x={coords.centerX - 75} y={coords.isRow1 ? coords.y - 45 : coords.y + 80} width="150" height="40" className="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
                                      <div className="bg-slate-900 text-white text-[10px] font-medium px-3 py-1.5 rounded-lg text-center shadow-xl truncate">
                                         {parseLicensePlate(session.licensePlate)}<br/>
-                                        <span className="text-slate-400">{session.user ? `${session.user.firstName || ''} ${session.user.lastName || ''}` : 'Khách'}</span>
+                                        <span className="text-slate-400">{session.user ? `${session.user.firstName || ''} ${session.user.lastName || ''}` : t('guestLabel')}</span>
                                      </div>
                                   </foreignObject>
                                )}
@@ -557,7 +472,7 @@ const AdminMonitoring = () => {
                     <div className="flex items-center gap-3">
                        <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg"><LayoutDashboard className="w-4 h-4"/></div>
                        <div>
-                          <p className="text-[10px] font-black text-slate-400 uppercase">Còn Trống</p>
+                          <p className="text-[10px] font-black text-slate-400 uppercase">{t('availableCount')}</p>
                           <p className="text-xl font-black text-slate-900">{selectedLot.capacity - currentLotStats.occupied - currentLotStats.reserved}</p>
                        </div>
                     </div>
@@ -565,7 +480,7 @@ const AdminMonitoring = () => {
                     <div className="flex items-center gap-3">
                        <div className="p-2 bg-red-50 text-red-600 rounded-lg"><Car className="w-4 h-4"/></div>
                        <div>
-                          <p className="text-[10px] font-black text-slate-400 uppercase">Tỷ lệ lấp đầy</p>
+                          <p className="text-[10px] font-black text-slate-400 uppercase">{t('occupancyPercent')}</p>
                           <p className="text-xl font-black text-slate-900">{((currentLotStats.occupied + currentLotStats.reserved) / selectedLot.capacity * 100).toFixed(0)}%</p>
                        </div>
                     </div>
@@ -599,8 +514,8 @@ const AdminMonitoring = () => {
                       <MapPin className="w-5 h-5" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">Thao tác vị trí</h3>
-                      <p className="text-xs font-bold text-slate-500">Ô đỗ xe: <span className="text-blue-600">{actionModalSlot}</span></p>
+                      <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">{t('slotActions')}</h3>
+                      <p className="text-xs font-bold text-slate-500">{t('parkingSlot')}: <span className="text-blue-600">{actionModalSlot}</span></p>
                     </div>
                   </div>
                   <button 
@@ -613,17 +528,17 @@ const AdminMonitoring = () => {
                 
                 <div className="p-8 space-y-6">
                   <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Trạng thái</span>
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{t('statusLabel')}</span>
                     <div className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest flex items-center gap-2 ${
                       actionModalStatus === 'available' ? 'bg-green-100 text-green-700' :
                       actionModalStatus === 'occupied' ? 'bg-orange-100 text-orange-700' :
                       actionModalStatus === 'reserved' ? 'bg-blue-100 text-blue-700' :
                       'bg-red-100 text-red-700'
                     }`}>
-                      {actionModalStatus === 'available' && <><CheckCircle className="w-4 h-4" /> Trống</>}
-                      {actionModalStatus === 'occupied' && <><Car className="w-4 h-4" /> Đang có xe</>}
-                      {actionModalStatus === 'reserved' && <><Calendar className="w-4 h-4" /> Đã đặt chỗ</>}
-                      {actionModalStatus === 'locked' && <><Lock className="w-4 h-4" /> Bảo trì</>}
+                      {actionModalStatus === 'available' && <><CheckCircle className="w-4 h-4" /> {t('statusAvailable')}</>}
+                      {actionModalStatus === 'occupied' && <><Car className="w-4 h-4" /> {t('statusOccupied')}</>}
+                      {actionModalStatus === 'reserved' && <><Calendar className="w-4 h-4" /> {t('statusReserved')}</>}
+                      {actionModalStatus === 'locked' && <><Lock className="w-4 h-4" /> {t('statusMaintenance')}</>}
                     </div>
                   </div>
 
@@ -637,9 +552,9 @@ const AdminMonitoring = () => {
                     }`}
                   >
                     {actionModalStatus === 'locked' ? (
-                      <><Unlock className="w-5 h-5" /> Mở khóa vị trí</>
+                      <><Unlock className="w-5 h-5" /> {t('unlockSlot')}</>
                     ) : (
-                      <><Lock className="w-5 h-5" /> Khóa bảo trì vị trí này</>
+                      <><Lock className="w-5 h-5" /> {t('lockSlot')}</>
                     )}
                   </button>
 
@@ -651,7 +566,7 @@ const AdminMonitoring = () => {
                       </div>
                       <div className="relative flex justify-center pointer-events-none">
                         <span className="px-3 bg-white text-[10px] font-black uppercase tracking-widest text-slate-400">
-                          Quản lý vé đỗ
+                          {t('ticketManagement')}
                         </span>
                       </div>
 
@@ -664,7 +579,7 @@ const AdminMonitoring = () => {
                               className="w-full py-3 px-6 rounded-xl font-bold bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all text-sm flex items-center justify-center gap-2 cursor-pointer shadow-sm border border-blue-100"
                             >
                               {showUserInfo ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                              {showUserInfo ? "Ẩn thông tin khách hàng" : "Xem thông tin người đặt"}
+                              {showUserInfo ? t('hideCustomerInfo') : t('viewCustomerInfo')}
                             </button>
                             
                             {/* User Info Panel */}
@@ -682,9 +597,9 @@ const AdminMonitoring = () => {
                                     <p className="text-sm font-bold text-slate-800">
                                       {actionModalSession.user.firstName || actionModalSession.user.lastName 
                                         ? `${actionModalSession.user.firstName || ''} ${actionModalSession.user.lastName || ''}`.trim() 
-                                        : "Khách hàng"}
+                                        : t('guestLabel')}
                                     </p>
-                                    <p className="text-xs text-slate-500 font-medium tracking-tight">Người đặt chỗ</p>
+                                    <p className="text-xs text-slate-500 font-medium tracking-tight">{t('booker')}</p>
                                   </div>
                                 </div>
                                 <div className="space-y-2 pt-1">
@@ -694,7 +609,7 @@ const AdminMonitoring = () => {
                                   </div>
                                   <div className="flex items-center gap-2.5 text-slate-600">
                                     <Phone className="w-4 h-4 text-slate-400" />
-                                    <span className="text-sm font-medium">{actionModalSession.user.phoneNumber || "Không có SĐT"}</span>
+                                    <span className="text-sm font-medium">{actionModalSession.user.phoneNumber || t('noPhone')}</span>
                                   </div>
                                 </div>
                               </div>
@@ -720,21 +635,21 @@ const AdminMonitoring = () => {
                             }}
                             className="w-full py-3 px-6 rounded-2xl font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-all text-sm flex items-center justify-center gap-2 cursor-pointer"
                           >
-                            <XCircle className="w-5 h-5" /> Hủy bỏ vé đặt chỗ
+                            <XCircle className="w-5 h-5" /> {t('cancelTicket')}
                           </button>
                         )}
 
                         <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-5 rounded-2xl border border-blue-100/50 space-y-4 shadow-inner">
                           <div className="flex items-center gap-2 text-blue-800">
                             <RefreshCw className="w-4 h-4" />
-                            <p className="text-xs font-black uppercase tracking-wider">Đổi sang vị trí khác</p>
+                            <p className="text-xs font-black uppercase tracking-wider">{t('changeSlot')}</p>
                           </div>
                           <div className="flex gap-3">
                             <div className="relative flex-1">
                               <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-400" />
                               <input 
                                 type="text" 
-                                placeholder="Nhập ô (VD: B5)"
+                                placeholder={t('enterSlot')}
                                 value={newSlotInput}
                                 onChange={(e) => setNewSlotInput(e.target.value)}
                                 className="w-full pl-10 pr-4 py-3 bg-white border border-blue-200 rounded-xl text-sm font-bold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all placeholder:text-slate-400 placeholder:font-medium uppercase"
@@ -756,7 +671,7 @@ const AdminMonitoring = () => {
                               }}
                               className="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-sm hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-600/20 active:scale-95 transition-all cursor-pointer flex items-center gap-2 relative z-20"
                             >
-                              Đổi <ArrowRight className="w-4 h-4" />
+                              {t('changeBtn')} <ArrowRight className="w-4 h-4" />
                             </button>
                           </div>
                         </div>
