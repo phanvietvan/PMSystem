@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
-import { AlertCircle, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import AdminLayout from '../components/admin/AdminLayout';
 import api from '../services/api';
+import { useSettings } from '../hooks/useSettings.tsx';
 
 const AdminIncidents = () => {
   const [incidents, setIncidents] = useState<any[]>([]);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const { t, language } = useSettings();
 
   const showToast = (text: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToastMessage({ text, type });
@@ -38,10 +40,10 @@ const AdminIncidents = () => {
     try {
       await api.put(`/Incidents/${id}/resolve`);
       await fetchIncidents();
-      showToast('Đã đánh dấu sự cố là Đã giải quyết!', 'success');
+      showToast(language === 'en' ? 'Incident marked as Resolved!' : 'Đã đánh dấu sự cố là Đã giải quyết!', 'success');
     } catch (error) {
       console.error('Error resolving incident in db:', error);
-      showToast('Lỗi khi đánh dấu giải quyết.', 'error');
+      showToast(language === 'en' ? 'Error resolving incident.' : 'Lỗi khi đánh dấu giải quyết.', 'error');
     }
   };
 
@@ -49,10 +51,10 @@ const AdminIncidents = () => {
     try {
       await api.delete(`/Incidents/${id}`);
       await fetchIncidents();
-      showToast('Đã xóa báo cáo sự cố thành công!', 'info');
+      showToast(language === 'en' ? 'Incident report deleted successfully!' : 'Đã xóa báo cáo sự cố thành công!', 'info');
     } catch (error) {
       console.error('Error deleting incident in db:', error);
-      showToast('Lỗi khi xóa báo cáo.', 'error');
+      showToast(language === 'en' ? 'Error deleting report.' : 'Lỗi khi xóa báo cáo.', 'error');
     }
   };
 
@@ -60,38 +62,38 @@ const AdminIncidents = () => {
     <AdminLayout>
       <div className="p-10 space-y-10">
         <div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Quản lý sự cố hệ thống</h2>
-          <p className="text-sm text-slate-500 font-medium">Theo dõi và giải quyết các báo cáo sự cố từ người dùng và nhân viên trực ban.</p>
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">{t('incidentsTitle')}</h2>
+          <p className="text-sm text-slate-500 font-medium">{t('incidentsSubtitle')}</p>
         </div>
 
         {/* Incident Reports Table */}
         <div className="bg-white p-8 rounded-[2rem] border border-slate-200/80 shadow-xl shadow-slate-200/40">
            <div className="flex justify-between items-center mb-8">
               <div>
-                 <h3 className="text-lg font-black text-slate-900 tracking-tight">Sự cố hệ thống cần xử lý</h3>
-                 <p className="text-xs text-slate-400 font-bold mt-1">Danh sách các báo cáo từ khách hàng & nhân viên trực ban</p>
+                 <h3 className="text-lg font-black text-slate-900 tracking-tight">{language === 'en' ? 'System Incidents' : 'Sự cố hệ thống cần xử lý'}</h3>
+                 <p className="text-xs text-slate-400 font-bold mt-1">{language === 'en' ? 'Reports from customers & on-duty staff' : 'Danh sách các báo cáo từ khách hàng & nhân viên trực ban'}</p>
               </div>
               <span className="text-[11px] font-black text-rose-600 bg-rose-50 px-4 py-2 rounded-full">
-                 {incidents.filter(inc => inc.status === 'Chờ xử lý').length} Chưa xử lý
+                 {incidents.filter(inc => inc.status === 'Chờ xử lý').length} {language === 'en' ? 'Unresolved' : 'Chưa xử lý'}
               </span>
            </div>
            
            {incidents.length === 0 ? (
               <div className="text-center py-12 text-slate-400 font-bold text-xs">
-                 Chưa ghi nhận sự cố nào trong hệ thống.
+                 {language === 'en' ? 'No incidents recorded in the system.' : 'Chưa ghi nhận sự cố nào trong hệ thống.'}
               </div>
            ) : (
               <div className="overflow-x-auto">
                  <table className="w-full text-left">
                    <thead>
                      <tr className="border-b border-slate-100">
-                       <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Mã sự cố</th>
-                       <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Loại & Tiêu đề</th>
-                       <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Vị trí</th>
-                       <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Người báo cáo</th>
-                       <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Độ khẩn cấp</th>
-                       <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Trạng thái</th>
-                       <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Thao tác</th>
+                       <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{language === 'en' ? 'Incident ID' : 'Mã sự cố'}</th>
+                       <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{language === 'en' ? 'Type & Title' : 'Loại & Tiêu đề'}</th>
+                       <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{language === 'en' ? 'Location' : 'Vị trí'}</th>
+                       <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{language === 'en' ? 'Reporter' : 'Người báo cáo'}</th>
+                       <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{language === 'en' ? 'Urgency' : 'Độ khẩn cấp'}</th>
+                       <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{language === 'en' ? 'Status' : 'Trạng thái'}</th>
+                       <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">{language === 'en' ? 'Actions' : 'Thao tác'}</th>
                      </tr>
                    </thead>
                    <tbody className="divide-y divide-slate-50">
@@ -144,13 +146,13 @@ const AdminIncidents = () => {
                                  onClick={() => handleResolveIncident(inc.id)}
                                  className="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full text-[10px] font-bold uppercase tracking-wider transition-all shadow-sm cursor-pointer"
                                >
-                                 Giải quyết
+                                 {t('resolve')}
                                </button>
                              )}
                              <button
                                onClick={() => handleDeleteIncident(inc.id)}
                                className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-full transition-colors cursor-pointer"
-                               title="Xóa báo cáo"
+                               title={language === 'en' ? 'Delete report' : 'Xóa báo cáo'}
                              >
                                <Trash2 className="w-3.5 h-3.5" />
                              </button>

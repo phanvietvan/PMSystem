@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import AdminLayout from '../components/admin/AdminLayout';
-import { Plus, ShieldAlert, AlertTriangle, Trash2, BellRing, Send, CheckCircle2, ShieldCheck, CalendarDays, Clock, History, Users, Megaphone, Check, X } from 'lucide-react';
+import { Plus, ShieldAlert, AlertTriangle, Trash2, BellRing, Send, CheckCircle2, ShieldCheck, CalendarDays, Clock, History, Megaphone, Check, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
+import { useSettings } from '../hooks/useSettings.tsx';
 
 const DarkCustomSelect = ({ value, onChange, options }: any) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -72,6 +73,7 @@ const AdminBlacklist = () => {
   const [newPlate, setNewPlate] = useState('');
   const [newReason, setNewReason] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const { t, language } = useSettings();
 
   const fetchBlacklist = async () => {
     try {
@@ -108,8 +110,10 @@ const AdminBlacklist = () => {
   }, []);
 
   const handleResolveReport = async (report: any, action: 'approve' | 'reject') => {
-    if (action === 'approve' && !window.confirm('Xác nhận đưa phương tiện này vào danh sách đen?')) return;
-    if (action === 'reject' && !window.confirm('Từ chối báo cáo này?')) return;
+    const confirmApprove = language === 'en' ? 'Confirm adding this vehicle to the blacklist?' : 'Xác nhận đưa phương tiện này vào danh sách đen?';
+    const confirmReject = language === 'en' ? 'Reject this report?' : 'Từ chối báo cáo này?';
+    if (action === 'approve' && !window.confirm(confirmApprove)) return;
+    if (action === 'reject' && !window.confirm(confirmReject)) return;
     
     let plate = report.title.replace('Báo cáo xe vi phạm:', '').trim();
     if (!plate) plate = 'KHONG_RO';
@@ -131,7 +135,7 @@ const AdminBlacklist = () => {
       fetchPendingReports();
     } catch (e) {
       console.error(e);
-      alert('Thao tác thất bại');
+      alert(language === 'en' ? 'Action failed' : 'Thao tác thất bại');
     }
   };
 
@@ -163,7 +167,7 @@ const AdminBlacklist = () => {
       }, 3000);
     } catch (error) {
       console.error('Error pushing notification', error);
-      alert('Gửi thông báo thất bại');
+      alert(language === 'en' ? 'Failed to send notification' : 'Gửi thông báo thất bại');
     }
   };
 
@@ -178,12 +182,13 @@ const AdminBlacklist = () => {
       fetchBlacklist();
     } catch (error) {
       console.error('Error adding to blacklist', error);
-      alert('Thêm thất bại');
+      alert(language === 'en' ? 'Failed to add' : 'Thêm thất bại');
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Bạn có chắc muốn xóa khỏi danh sách đen?')) return;
+    const confirmDelete = language === 'en' ? 'Are you sure you want to remove this from the blacklist?' : 'Bạn có chắc muốn xóa khỏi danh sách đen?';
+    if (!window.confirm(confirmDelete)) return;
     try {
       await api.delete(`/Blacklist/${id}`);
       fetchBlacklist();
@@ -196,7 +201,7 @@ const AdminBlacklist = () => {
 
   return (
     <AdminLayout
-      searchPlaceholder="Tìm biển số trong danh sách đen..."
+      searchPlaceholder={language === 'en' ? 'Search plate in blacklist...' : 'Tìm biển số trong danh sách đen...'}
       searchValue={searchTerm}
       onSearchChange={setSearchTerm}
     >
@@ -206,9 +211,11 @@ const AdminBlacklist = () => {
         <div className="mb-2">
           <h1 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-3">
             <ShieldAlert className="text-red-500" size={28} />
-            Danh Sách Đen & Thông Báo
+            {language === 'en' ? 'Blacklist & Notifications' : 'Danh Sách Đen & Thông Báo'}
           </h1>
-          <p className="text-[13px] text-slate-500 mt-1.5 font-medium">Quản lý các phương tiện bị cấm và gửi thông báo hệ thống</p>
+          <p className="text-[13px] text-slate-500 mt-1.5 font-medium">
+            {language === 'en' ? 'Manage banned vehicles and send system notifications' : 'Quản lý các phương tiện bị cấm và gửi thông báo hệ thống'}
+          </p>
         </div>
 
         {/* Summary Stats */}
@@ -218,7 +225,9 @@ const AdminBlacklist = () => {
               <AlertTriangle className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TỔNG BỊ CẤM</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                {language === 'en' ? 'TOTAL BANNED' : 'TỔNG BỊ CẤM'}
+              </p>
               <p className="text-2xl font-black text-slate-900 mt-0.5">{blacklist.length}</p>
             </div>
           </motion.div>
@@ -227,7 +236,9 @@ const AdminBlacklist = () => {
               <CalendarDays className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">THÊM TRONG TUẦN</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                {language === 'en' ? 'ADDED THIS WEEK' : 'THÊM TRONG TUẦN'}
+              </p>
               <p className="text-2xl font-black text-slate-900 mt-0.5">
                 {blacklist.filter((item: any) => {
                   const d = new Date(item.date);
@@ -243,7 +254,9 @@ const AdminBlacklist = () => {
               <Megaphone className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ĐÃ GỬi THÔNG BÁO</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                {language === 'en' ? 'NOTIFICATIONS SENT' : 'ĐÃ GỬI THÔNG BÁO'}
+              </p>
               <p className="text-2xl font-black text-slate-900 mt-0.5">{notifHistory.length}</p>
             </div>
           </motion.div>
@@ -262,8 +275,12 @@ const AdminBlacklist = () => {
                     <AlertTriangle size={20} />
                   </div>
                   <div>
-                    <h2 className="text-lg font-black text-slate-800">Báo cáo chờ duyệt ({pendingReports.length})</h2>
-                    <p className="text-xs font-bold text-amber-600">Admin cần xem xét để đưa vào danh sách đen</p>
+                    <h2 className="text-lg font-black text-slate-800">
+                      {language === 'en' ? `Pending reports (${pendingReports.length})` : `Báo cáo chờ duyệt (${pendingReports.length})`}
+                    </h2>
+                    <p className="text-xs font-bold text-amber-600">
+                      {language === 'en' ? 'Admin review required for blacklist entry' : 'Admin cần xem xét để đưa vào danh sách đen'}
+                    </p>
                   </div>
                 </div>
 
@@ -277,9 +294,7 @@ const AdminBlacklist = () => {
                       if (details && typeof details === 'object' && details.reason) {
                         displayReason = details.reason;
                       }
-                    } catch (e) {
-                      // plain string
-                    }
+                    } catch (e) {}
 
                     return (
                       <div key={report.id} className="bg-white rounded-2xl p-5 border border-amber-100 shadow-sm flex flex-col sm:flex-row gap-4 justify-between sm:items-start group hover:border-amber-300 transition-colors">
@@ -296,41 +311,49 @@ const AdminBlacklist = () => {
                               </span>
                               <span className="text-[11px] font-bold text-slate-400 flex items-center gap-1">
                                 <Clock size={12} />
-                                {new Date(report.createdAt).toLocaleString('vi-VN')}
+                                {new Date(report.createdAt).toLocaleString(language === 'en' ? 'en-US' : 'vi-VN')}
                               </span>
                             </div>
                             
                             {details && (
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3 bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs">
                                 <div>
-                                  <span className="text-slate-400 font-bold uppercase tracking-wider block text-[9px] mb-0.5">Chủ xe & Liên hệ</span>
-                                  <span className="font-semibold text-slate-700">{details.customerName || 'Khách vãng lai'} {details.customerPhone && <><br/>{details.customerPhone}</>}</span>
+                                  <span className="text-slate-400 font-bold uppercase tracking-wider block text-[9px] mb-0.5">
+                                    {language === 'en' ? 'Owner & Contact' : 'Chủ xe & Liên hệ'}
+                                  </span>
+                                  <span className="font-semibold text-slate-700">{details.customerName || (language === 'en' ? 'Walk-in Guest' : 'Khách vãng lai')} {details.customerPhone && <><br/>{details.customerPhone}</>}</span>
                                 </div>
                                 <div>
-                                  <span className="text-slate-400 font-bold uppercase tracking-wider block text-[9px] mb-0.5">Khu vực & Thời gian vào</span>
-                                  <span className="font-semibold text-slate-700">{details.parkingLot || 'Không rõ'} <br/>{details.entryTime || 'N/A'}</span>
+                                  <span className="text-slate-400 font-bold uppercase tracking-wider block text-[9px] mb-0.5">
+                                    {language === 'en' ? 'Zone & Entry Time' : 'Khu vực & Thời gian vào'}
+                                  </span>
+                                  <span className="font-semibold text-slate-700">{details.parkingLot || (language === 'en' ? 'Unknown' : 'Không rõ')} <br/>{details.entryTime || 'N/A'}</span>
                                 </div>
                               </div>
                             )}
 
-                            <p className="text-sm font-semibold text-slate-700">Lý do: <span className="font-medium text-slate-600">{displayReason}</span></p>
-                            <p className="text-[10px] text-slate-400 font-bold mt-2 uppercase">Người báo cáo: {report.reporter}</p>
+                            <p className="text-sm font-semibold text-slate-700">
+                              {language === 'en' ? 'Reason: ' : 'Lý do: '}<span className="font-medium text-slate-600">{displayReason}</span>
+                            </p>
+                            <p className="text-[10px] text-slate-400 font-bold mt-2 uppercase">
+                              {language === 'en' ? `Reporter: ${report.reporter}` : `Người báo cáo: ${report.reporter}`}
+                            </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <button 
                             onClick={() => handleResolveReport(report, 'reject')}
-                            className="w-10 h-10 rounded-xl bg-slate-50 text-slate-500 hover:bg-slate-200 hover:text-slate-700 flex items-center justify-center transition-colors tooltip"
-                            title="Từ chối báo cáo"
+                            className="w-10 h-10 rounded-xl bg-slate-50 text-slate-500 hover:bg-slate-200 hover:text-slate-700 flex items-center justify-center transition-colors tooltip cursor-pointer"
+                            title={language === 'en' ? 'Reject report' : 'Từ chối báo cáo'}
                           >
                             <X size={18} />
                           </button>
                           <button 
                             onClick={() => handleResolveReport(report, 'approve')}
-                            className="bg-red-50 text-red-600 hover:bg-red-600 hover:text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-colors flex items-center gap-2 border border-red-100 shadow-sm"
+                            className="bg-red-50 text-red-600 hover:bg-red-600 hover:text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-colors flex items-center gap-2 border border-red-100 shadow-sm cursor-pointer"
                           >
                             <Check size={18} />
-                            Đưa vào Blacklist
+                            {language === 'en' ? 'Add to Blacklist' : 'Đưa vào Blacklist'}
                           </button>
                         </div>
                       </div>
@@ -344,28 +367,32 @@ const AdminBlacklist = () => {
               <div className="flex justify-between items-center mb-8">
                 <h2 className="text-lg font-extrabold text-slate-800 flex items-center gap-2.5">
                   <AlertTriangle className="text-amber-500" size={22} />
-                  Phương tiện bị cấm (Blacklist)
+                  {language === 'en' ? 'Banned Vehicles (Blacklist)' : 'Phương tiện bị cấm (Blacklist)'}
                 </h2>
                 <button 
                   onClick={() => setShowAddModal(!showAddModal)}
-                  className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 shadow-md active:scale-95"
+                  className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 shadow-md active:scale-95 cursor-pointer"
                 >
-                  <Plus size={16} /> Thêm vào danh sách
+                  <Plus size={16} /> {language === 'en' ? 'Add to List' : 'Thêm vào danh sách'}
                 </button>
               </div>
 
               {showAddModal && (
-                <form onSubmit={handleAddBlacklist} className="mb-8 bg-white p-5 rounded-[1.5rem] border border-slate-200 flex flex-wrap gap-4 items-end shadow-sm">
+                <form onSubmit={handleAddBlacklist} className="mb-8 bg-white p-5 rounded-[1.5rem] border border-slate-200 flex flex-wrap gap-4 items-end shadow-sm animate-fade-in-up">
                   <div className="flex-1 min-w-[200px]">
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Biển số</label>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                      {language === 'en' ? 'License Plate' : 'Biển số'}
+                    </label>
                     <input type="text" required value={newPlate} onChange={e => setNewPlate(e.target.value)} placeholder="VD: 51A-123.45" className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all shadow-sm" />
                   </div>
                   <div className="flex-1 min-w-[200px]">
-                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Lý do</label>
-                    <input type="text" required value={newReason} onChange={e => setNewReason(e.target.value)} placeholder="Nhập lý do..." className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all shadow-sm" />
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                      {language === 'en' ? 'Reason' : 'Lý do'}
+                    </label>
+                    <input type="text" required value={newReason} onChange={e => setNewReason(e.target.value)} placeholder={language === 'en' ? 'Enter reason...' : 'Nhập lý do...'} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all shadow-sm" />
                   </div>
-                  <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl text-sm font-bold transition-colors shadow-md hover:shadow-lg">
-                    Lưu
+                  <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl text-sm font-bold transition-colors shadow-md hover:shadow-lg cursor-pointer">
+                    {language === 'en' ? 'Save' : 'Lưu'}
                   </button>
                 </form>
               )}
@@ -374,16 +401,16 @@ const AdminBlacklist = () => {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-slate-100 text-[11px] uppercase tracking-wider text-slate-500">
-                      <th className="pb-4 font-bold px-2">Biển số</th>
-                      <th className="pb-4 font-bold px-2">Lý do</th>
-                      <th className="pb-4 font-bold px-2">Ngày thêm</th>
-                      <th className="pb-4 font-bold px-2">Người thêm</th>
-                      <th className="pb-4 font-bold text-right px-2">Thao tác</th>
+                      <th className="pb-4 font-bold px-2">{language === 'en' ? 'License Plate' : 'Biển số'}</th>
+                      <th className="pb-4 font-bold px-2">{language === 'en' ? 'Reason' : 'Lý do'}</th>
+                      <th className="pb-4 font-bold px-2">{language === 'en' ? 'Date Added' : 'Ngày thêm'}</th>
+                      <th className="pb-4 font-bold px-2">{language === 'en' ? 'Added By' : 'Người thêm'}</th>
+                      <th className="pb-4 font-bold text-right px-2">{language === 'en' ? 'Action' : 'Thao tác'}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {isLoading ? (
-                      <tr><td colSpan={5} className="py-8 text-center text-slate-400">Đang tải...</td></tr>
+                      <tr><td colSpan={5} className="py-8 text-center text-slate-400">{language === 'en' ? 'Loading...' : 'Đang tải...'}</td></tr>
                     ) : filteredList.length === 0 ? (
                       <tr>
                         <td colSpan={5} className="py-12 text-center">
@@ -391,8 +418,12 @@ const AdminBlacklist = () => {
                             <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mb-4">
                               <ShieldCheck className="w-8 h-8 text-emerald-500" />
                             </div>
-                            <p className="text-sm font-bold text-slate-600">Không có phương tiện bị cấm</p>
-                            <p className="text-xs text-slate-400 mt-1">Hệ thống đang sạch, không có xe nào trong danh sách đen 🎉</p>
+                            <p className="text-sm font-bold text-slate-600">
+                              {language === 'en' ? 'No banned vehicles' : 'Không có phương tiện bị cấm'}
+                            </p>
+                            <p className="text-xs text-slate-400 mt-1">
+                              {language === 'en' ? 'The system is clean, no vehicles are in the blacklist 🎉' : 'Hệ thống đang sạch, không có xe nào trong danh sách đen 🎉'}
+                            </p>
                           </div>
                         </td>
                       </tr>
@@ -410,7 +441,7 @@ const AdminBlacklist = () => {
                           </td>
                           <td className="py-5 px-2 text-sm font-bold text-slate-700">{item.addedBy}</td>
                           <td className="py-5 px-2 text-right">
-                            <button onClick={() => handleDelete(item.id)} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors">
+                            <button onClick={() => handleDelete(item.id)} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer">
                               <Trash2 size={18} />
                             </button>
                           </td>
@@ -430,43 +461,49 @@ const AdminBlacklist = () => {
               
               <h2 className="text-lg font-bold flex items-center gap-2 mb-8 relative z-10">
                 <BellRing size={22} className="text-blue-200" />
-                Gửi Thông Báo Khẩn
+                {language === 'en' ? 'Send Urgent Notification' : 'Gửi Thông Báo Khẩn'}
               </h2>
 
               <form onSubmit={handleSendNotification} className="space-y-5 relative z-10">
                 <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-blue-200 uppercase tracking-wider">ĐỐI TƯỢNG NHẬN</label>
+                  <label className="text-[11px] font-bold text-blue-200 uppercase tracking-wider">
+                    {language === 'en' ? 'TARGET AUDIENCE' : 'ĐỐI TƯỢNG NHẬN'}
+                  </label>
                   <DarkCustomSelect 
                     value={notifRole}
                     onChange={(val: string) => setNotifRole(val)}
                     options={[
-                      { value: 'all', label: 'Tất cả mọi người (All)' },
-                      { value: 'user', label: 'Chỉ Khách hàng (User)' },
-                      { value: 'staff', label: 'Chỉ Nhân viên trực cổng (Staff)' },
-                      { value: 'admin', label: 'Chỉ Quản trị viên (Admin)' }
+                      { value: 'all', label: language === 'en' ? 'Everyone (All)' : 'Tất cả mọi người (All)' },
+                      { value: 'user', label: language === 'en' ? 'Customers only (User)' : 'Chỉ Khách hàng (User)' },
+                      { value: 'staff', label: language === 'en' ? 'Staff only (Staff)' : 'Chỉ Nhân viên trực cổng (Staff)' },
+                      { value: 'admin', label: language === 'en' ? 'Administrators only (Admin)' : 'Chỉ Quản trị viên (Admin)' }
                     ]}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-blue-200 uppercase tracking-wider">TIÊU ĐỀ</label>
+                  <label className="text-[11px] font-bold text-blue-200 uppercase tracking-wider">
+                    {language === 'en' ? 'TITLE' : 'TIÊU ĐỀ'}
+                  </label>
                   <input 
                     type="text" 
                     required
                     value={notifTitle}
                     onChange={(e) => setNotifTitle(e.target.value)}
-                    placeholder="VD: Cảnh báo sập hệ thống..."
+                    placeholder={language === 'en' ? 'e.g. System maintenance alert...' : 'VD: Cảnh báo sập hệ thống...'}
                     className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3.5 text-sm text-white placeholder:text-blue-200/50 focus:outline-none focus:ring-2 focus:ring-white/50 font-semibold shadow-sm"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-blue-200 uppercase tracking-wider">NỘI DUNG</label>
+                  <label className="text-[11px] font-bold text-blue-200 uppercase tracking-wider">
+                    {language === 'en' ? 'CONTENT' : 'NỘI DUNG'}
+                  </label>
                   <textarea 
                     required
                     value={notifMessage}
                     onChange={(e) => setNotifMessage(e.target.value)}
-                    placeholder="Nhập nội dung thông báo..."
+                    placeholder={language === 'en' ? 'Enter notification message...' : 'Nhập nội dung thông báo...'}
                     rows={4}
                     className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3.5 text-sm text-white placeholder:text-blue-200/50 focus:outline-none focus:ring-2 focus:ring-white/50 font-semibold resize-none shadow-sm"
                   ></textarea>
@@ -481,14 +518,14 @@ const AdminBlacklist = () => {
                       className="bg-emerald-500/20 border border-emerald-400/50 text-emerald-100 px-4 py-3.5 rounded-xl flex items-center justify-center gap-2 font-bold text-sm mt-4"
                     >
                       <CheckCircle2 size={18} />
-                      Đã gửi thành công!
+                      {language === 'en' ? 'Sent successfully!' : 'Đã gửi thành công!'}
                     </motion.div>
                   ) : (
                     <motion.button 
                       type="submit"
                       className="w-full bg-white text-[#4361ee] hover:bg-blue-50 px-4 py-4 rounded-xl text-sm font-black transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95 uppercase tracking-widest mt-4 cursor-pointer"
                     >
-                      <Send size={18} /> GỬI NGAY (PUSH)
+                      <Send size={18} /> {language === 'en' ? 'SEND NOW (PUSH)' : 'GỬI NGAY (PUSH)'}
                     </motion.button>
                   )}
                 </AnimatePresence>
@@ -500,7 +537,9 @@ const AdminBlacklist = () => {
                 <ShieldAlert size={18} />
               </div>
               <p className="leading-relaxed">
-                Hệ thống sẽ đẩy (Push Notification) thông báo trực tiếp đến giao diện của các <strong>{notifRole.toUpperCase()}</strong> đang online. Chuông thông báo của họ sẽ hiển thị chấm đỏ.
+                {language === 'en'
+                  ? `The system will push this notification directly to active online ${notifRole.toUpperCase()}s. Their notification icon will show a red badge.`
+                  : `Hệ thống sẽ đẩy (Push Notification) thông báo trực tiếp đến giao diện của các ${notifRole.toUpperCase()} đang online. Chuông thông báo của họ sẽ hiển thị chấm đỏ.`}
               </p>
             </div>
 
@@ -515,8 +554,12 @@ const AdminBlacklist = () => {
                     <History className="w-5 h-5" />
                   </div>
                   <div className="text-left">
-                    <h3 className="text-sm font-black text-slate-800">Lịch sử thông báo</h3>
-                    <p className="text-[11px] text-slate-400 font-medium">{notifHistory.length} thông báo đã gửi</p>
+                    <h3 className="text-sm font-black text-slate-800">
+                      {language === 'en' ? 'Notification History' : 'Lịch sử thông báo'}
+                    </h3>
+                    <p className="text-[11px] text-slate-400 font-medium">
+                      {language === 'en' ? `${notifHistory.length} sent notifications` : `${notifHistory.length} thông báo đã gửi`}
+                    </p>
                   </div>
                 </div>
                 <svg className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${showHistory ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -535,7 +578,9 @@ const AdminBlacklist = () => {
                   >
                     <div className="px-6 pb-6 space-y-3 max-h-[400px] overflow-y-auto">
                       {notifHistory.length === 0 ? (
-                        <p className="text-sm text-slate-400 text-center py-6 font-medium">Chưa có thông báo nào.</p>
+                        <p className="text-sm text-slate-400 text-center py-6 font-medium">
+                          {language === 'en' ? 'No notifications yet.' : 'Chưa có thông báo nào.'}
+                        </p>
                       ) : (
                         notifHistory.map((n: any, i: number) => (
                           <div key={n.id || i} className="p-4 bg-slate-50/80 rounded-2xl border border-slate-100/60 hover:bg-slate-50 transition-colors">

@@ -5,10 +5,12 @@ import { User, Mail, Phone, MapPin, Tag, Car, Save, AlertCircle, CheckCircle2, S
 import api from '../services/api';
 import Navbar from '../components/layout/Navbar';
 import BrandLogo from '../components/brand/BrandLogo';
+import { useSettings } from '../hooks/useSettings.tsx';
 
 const ProfilePage = () => {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const { t } = useSettings();
   
   // State fields
   const [firstName, setFirstName] = useState('');
@@ -270,15 +272,9 @@ const ProfilePage = () => {
         window.dispatchEvent(new Event('user-login'));
         
         setSuccess(true);
-        if (isForceUpdate) {
-          setTimeout(() => {
-            navigate('/');
-          }, 1500);
-        } else {
-          setTimeout(() => {
-            setSuccess(false);
-          }, 3000);
-        }
+        setTimeout(() => {
+          navigate('/');
+        }, 1500);
       } else {
         setError(response.data.message || 'Cập nhật thông tin thất bại.');
       }
@@ -316,7 +312,7 @@ const ProfilePage = () => {
             className="fixed top-0 left-1/2 z-[99999] flex items-center gap-2.5 px-4.5 py-2 bg-emerald-500 text-white rounded-full shadow-lg shadow-emerald-500/20 border border-emerald-400/20 whitespace-nowrap"
           >
             <CheckCircle2 className="text-white shrink-0" size={15} />
-            <span className="text-xs font-semibold tracking-normal text-white">Cập nhật thành công!</span>
+            <span className="text-xs font-semibold tracking-normal text-white">{t('profileSaved')}</span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -330,7 +326,7 @@ const ProfilePage = () => {
             <BrandLogo size="md" />
             <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-full border border-amber-200/50 text-xs font-bold uppercase tracking-wider animate-pulse">
               <ShieldAlert size={14} />
-              Bắt buộc cập nhật thông tin
+              {t('updateProfile')}
             </div>
           </nav>
         </header>
@@ -347,9 +343,9 @@ const ProfilePage = () => {
             <div className="mb-6 p-4 bg-amber-50/50 border border-amber-100 rounded-2xl flex items-start gap-3">
               <ShieldAlert className="text-amber-600 shrink-0 mt-0.5" size={20} />
               <div>
-                <h3 className="text-sm font-bold text-amber-900">Cập nhật thông tin bắt buộc</h3>
+                <h3 className="text-sm font-bold text-amber-900">{t('updateRequired')}</h3>
                 <p className="text-xs text-amber-700/90 mt-1 leading-relaxed">
-                  Để đảm bảo an ninh bãi xe, quý khách vui lòng cập nhật đầy đủ thông tin: Họ tên, Số điện thoại, Biển số xe, Loại xe và Địa chỉ trước khi tiếp tục.
+                  {t('updateRequiredDescription')}
                 </p>
               </div>
             </div>
@@ -396,7 +392,7 @@ const ProfilePage = () => {
                     const file = e.target.files?.[0];
                     if (file) {
                       if (file.size > 2 * 1024 * 1024) {
-                        setError('Kích thước ảnh không được vượt quá 2MB');
+                        setError(t('imageTooLarge'));
                         return;
                       }
                       const reader = new FileReader();
@@ -410,15 +406,15 @@ const ProfilePage = () => {
                 />
               </div>
             </div>
-            <h1 className="text-2xl font-extrabold text-slate-950">Thông tin cá nhân</h1>
-            <p className="text-xs text-slate-400 mt-1">Cập nhật thông tin hồ sơ tài khoản của bạn</p>
+            <h1 className="text-2xl font-extrabold text-slate-950">{t('basicInfo')}</h1>
+            <p className="text-xs text-slate-400 mt-1">{t('profileSubtitle')}</p>
           </div>
 
           <form onSubmit={handleUpdate} className="space-y-4">
             {/* Username & Email (Readonly in grid) */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400 ml-1">Tên đăng nhập</label>
+                <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400 ml-1">Username</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
                     <User size={16} />
@@ -433,7 +429,7 @@ const ProfilePage = () => {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400 ml-1">Địa chỉ Email</label>
+                <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400 ml-1">Email</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
                     <Mail size={16} />
@@ -451,7 +447,7 @@ const ProfilePage = () => {
             {/* Họ & Tên */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 ml-1">Họ</label>
+                <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 ml-1">{t('lastName') || 'Last Name'}</label>
                 <input
                   type="text"
                   placeholder="Nguyễn"
@@ -470,7 +466,7 @@ const ProfilePage = () => {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 ml-1">Tên</label>
+                <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 ml-1">{t('firstName') || 'First Name'}</label>
                 <input
                   type="text"
                   placeholder="Văn A"
@@ -491,14 +487,14 @@ const ProfilePage = () => {
 
             {/* Số điện thoại */}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 ml-1">Số điện thoại</label>
+              <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 ml-1">{t('phone')}</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
                   <Phone size={16} />
                 </div>
                 <input
                   type="tel"
-                  placeholder="Ví dụ: 0987654321"
+                  placeholder={t('phonePlaceholder')}
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
                   required
@@ -517,27 +513,27 @@ const ProfilePage = () => {
             {/* Vehicles List */}
             <div className="space-y-4">
               <div className="flex items-center justify-between ml-1">
-                <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">Thông tin phương tiện</label>
+                <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">{t('vehicleInfo')}</label>
                 <button
                   type="button"
                   onClick={handleAddVehicle}
                   className="text-[10px] font-black text-blue-600 uppercase tracking-wider hover:underline"
                 >
-                  + Thêm xe mới
+                  + {t('addOtherPlate')}
                 </button>
               </div>
 
               {vehicles.map((veh, index) => (
                 <div key={index} className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end p-4 bg-slate-50/40 rounded-3xl border border-slate-100/50 relative">
                   <div className="sm:col-span-6 space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 ml-1">Biển số xe #{index + 1}</label>
+                    <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 ml-1">{t('plateLabelShort')} #{index + 1}</label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
                         <Tag size={16} />
                       </div>
                       <input
                         type="text"
-                        placeholder="Ví dụ: 29A-12345"
+                        placeholder="29A-12345"
                         value={veh.plate}
                         onChange={(e) => {
                           const updated = [...vehicles];
@@ -558,7 +554,7 @@ const ProfilePage = () => {
                   </div>
 
                   <div className="sm:col-span-5 space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 ml-1">Loại phương tiện</label>
+                    <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 ml-1">{t('vehicleTypeLabel')}</label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
                         <Car size={16} />
@@ -573,9 +569,9 @@ const ProfilePage = () => {
                         required
                         className="premium-input block w-full pl-10 pr-4 py-2.5 rounded-full focus:outline-none transition-all text-xs font-medium appearance-none bg-white cursor-pointer"
                       >
-                        <option value="Car">Ô tô (Car)</option>
-                        <option value="Motorbike">Xe máy (Motorbike)</option>
-                        <option value="Bicycle">Xe đạp / Xe điện (Bicycle)</option>
+                        <option value="Car">{t('carLabel')}</option>
+                        <option value="Motorbike">{t('motorbikeLabel')}</option>
+                        <option value="Bicycle">{t('bikeLabel')}</option>
                       </select>
                     </div>
                   </div>
@@ -597,14 +593,14 @@ const ProfilePage = () => {
 
             {/* Địa chỉ */}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 ml-1">Địa chỉ</label>
+              <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 ml-1">{t('address')}</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
                   <MapPin size={16} />
                 </div>
                 <input
                   type="text"
-                  placeholder="Ví dụ: Căn hộ A12, Chung cư Sunrise, Quận 7, TP. HCM"
+                  placeholder={t('addressPlaceholder')}
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   required
@@ -643,7 +639,7 @@ const ProfilePage = () => {
               className={`group relative overflow-hidden w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-full transition-all duration-300 shadow-md shadow-blue-600/10 hover:shadow-lg hover:shadow-blue-600/20 transform hover:-translate-y-0.5 active:scale-[0.98] text-xs flex items-center justify-center gap-2 ${loading ? 'opacity-80 cursor-wait' : ''}`}
             >
               <Save size={16} />
-              <span>{loading ? 'ĐANG LƯU...' : 'LƯU THÔNG TIN'}</span>
+              <span>{loading ? t('saving') : t('saveChanges').toUpperCase()}</span>
             </button>
           </form>
         </motion.div>
@@ -659,9 +655,9 @@ const ProfilePage = () => {
               exit={{ opacity: 0, scale: 0.95 }}
               className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-xl border border-slate-100"
             >
-              <h3 className="text-sm font-bold text-slate-900 mb-2">Xác nhận xóa xe</h3>
+              <h3 className="text-sm font-bold text-slate-900 mb-2">{t('confirmDelete')}</h3>
               <p className="text-xs text-slate-500 mb-6 leading-relaxed">
-                Bạn có chắc chắn muốn xóa xe với biển số <span className="font-bold text-slate-800">"{vehicles[vehicleToDelete]?.plate || 'chưa nhập'}"</span> khỏi danh sách không?
+                {t('confirmDeleteDesc')} <span className="font-bold text-slate-800">"{vehicles[vehicleToDelete]?.plate || 'not entered'}"</span>?
               </p>
               <div className="flex justify-end gap-3">
                 <button
@@ -669,14 +665,14 @@ const ProfilePage = () => {
                   onClick={() => setVehicleToDelete(null)}
                   className="px-4 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-50 rounded-full transition-colors cursor-pointer border border-slate-200"
                 >
-                  Hủy
+                  {t('close')}
                 </button>
                 <button
                   type="button"
                   onClick={confirmRemoveVehicle}
                   className="px-4 py-2 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-full transition-colors cursor-pointer"
                 >
-                  Xác nhận xóa
+                  {t('confirm')}
                 </button>
               </div>
             </motion.div>
@@ -693,10 +689,10 @@ const ProfilePage = () => {
             >
               <div className="flex items-center gap-2 mb-3 text-amber-500">
                 <span className="material-symbols-outlined text-[24px]">warning</span>
-                <h3 className="text-sm font-bold text-slate-900">Thay đổi chưa lưu</h3>
+                <h3 className="text-sm font-bold text-slate-900">{t('unsavedChanges')}</h3>
               </div>
               <p className="text-xs text-slate-500 mb-6 leading-relaxed">
-                Bạn có thay đổi chưa lưu. Nếu rời đi bây giờ, thay đổi của bạn sẽ bị hủy bỏ. Bạn có muốn tiếp tục chỉnh sửa không?
+                {t('unsavedChangesDesc')}
               </p>
               <div className="flex justify-end gap-3">
                 <button
@@ -704,7 +700,7 @@ const ProfilePage = () => {
                   onClick={() => setPendingUrl(null)}
                   className="px-4 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-50 rounded-full transition-colors cursor-pointer border border-slate-200"
                 >
-                  Ở lại
+                  {t('stay')}
                 </button>
                 <button
                   type="button"
@@ -715,7 +711,7 @@ const ProfilePage = () => {
                   }}
                   className="px-4 py-2 text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded-full transition-colors cursor-pointer"
                 >
-                  Rời đi & Hủy lưu
+                  Leave & Discard
                 </button>
               </div>
             </motion.div>

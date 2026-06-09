@@ -5,6 +5,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 import { hasActiveSessions, addActiveQr } from '../utils/auth';
 import api from '../services/api';
+import { useSettings } from '../hooks/useSettings.tsx';
 
 /* ─── Types ─── */
 type SlotStatus = 'available' | 'occupied' | 'reserved' | 'locked';
@@ -42,6 +43,7 @@ const countByStatus = (slots: ParkingSlot[], s: SlotStatus) =>
 const ParkingStatus: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { language } = useSettings();
   const [selectedLevel, setSelectedLevel] = useState(1);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [showReservePrompt, setShowReservePrompt] = useState(false);
@@ -188,7 +190,7 @@ const ParkingStatus: React.FC = () => {
 
   const handleSlotClick = (id: string) => {
     if (slotStatusMap[id] === 'reserved') {
-      showToast('Vị trí này đã có người đặt trước!', 'error');
+      showToast(language === 'en' ? 'This slot has already been reserved!' : 'Vị trí này đã có người đặt trước!', 'error');
       return;
     }
     setSelectedSlot((prev) => {
@@ -212,15 +214,13 @@ const ParkingStatus: React.FC = () => {
       </div>
 
       {/* ── Dashboard Content Layout ── */}
-      <div className="flex-1 flex min-h-0 relative">
-
-        {/* ── Sidebar (Glassmorphic, static height) ── */}
+      <div className="flex-1 flex overflow-hidden min-h-0">
         <aside className="w-72 shrink-0 h-full bg-white/80 backdrop-blur-md border-r border-slate-200/40 p-6 flex flex-col justify-between overflow-y-auto">
           <div className="flex flex-col gap-8">
             
             {/* Building selector */}
             <div className="relative">
-              <p className="text-[10px] font-black uppercase tracking-wide text-slate-400 mb-3 ml-1">Tòa nhà</p>
+              <p className="text-[10px] font-black uppercase tracking-wide text-slate-400 mb-3 ml-1">{language === 'en' ? 'Building' : 'Tòa nhà'}</p>
               <div 
                 className="w-full flex items-center justify-between px-4 py-3.5 rounded-2xl bg-slate-50/50 hover:bg-slate-50 border border-slate-200/80 text-[10px] font-extrabold text-slate-900 cursor-pointer shadow-sm hover:shadow-md transition-all duration-300"
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -266,7 +266,7 @@ const ParkingStatus: React.FC = () => {
 
             {/* Floor selector */}
             <div>
-              <p className="text-[10px] font-black uppercase tracking-wide text-slate-400 mb-3 ml-1">Chọn tầng</p>
+              <p className="text-[10px] font-black uppercase tracking-wide text-slate-400 mb-3 ml-1">{language === 'en' ? 'Select Floor' : 'Chọn tầng'}</p>
               <div className="space-y-2">
                 {floors.map((f: any) => {
                   const active = selectedLevel === f;
@@ -282,7 +282,7 @@ const ParkingStatus: React.FC = () => {
                     >
                       <div className="flex items-center gap-2.5">
                         <Layers size={14} className={active ? 'text-white' : 'text-slate-400 group-hover:text-slate-600 transition-colors'} />
-                        <span>Tầng {f}</span>
+                        <span>{language === 'en' ? `Floor ${f}` : `Tầng ${f}`}</span>
                       </div>
                       {active ? (
                         <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
@@ -297,31 +297,31 @@ const ParkingStatus: React.FC = () => {
 
             {/* Legend */}
             <div>
-              <p className="text-[10px] font-black uppercase tracking-wide text-slate-400 mb-3 ml-1">Chú thích</p>
+              <p className="text-[10px] font-black uppercase tracking-wide text-slate-400 mb-3 ml-1">{language === 'en' ? 'Legend' : 'Chú thích'}</p>
               <div className="bg-slate-50/30 border border-slate-200/40 rounded-2xl p-4.5 space-y-4">
                 <div className="flex items-center gap-3">
                   <div className="w-4 h-4 rounded-full bg-emerald-100 border border-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]" />
-                  <span className="text-[11px] font-bold text-slate-600">Trống</span>
+                  <span className="text-[11px] font-bold text-slate-600">{language === 'en' ? 'Available' : 'Trống'}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="w-4 h-4 rounded-full bg-amber-100 border border-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.3)]" />
-                  <span className="text-[11px] font-bold text-slate-600">Đã Đặt</span>
+                  <span className="text-[11px] font-bold text-slate-600">{language === 'en' ? 'Reserved' : 'Đã Đặt'}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="w-4 h-4 rounded-full bg-red-100 border border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.3)]" />
-                  <span className="text-[11px] font-bold text-slate-600">Có Xe</span>
+                  <span className="text-[11px] font-bold text-slate-600">{language === 'en' ? 'Occupied' : 'Có Xe'}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="w-4 h-4 rounded-full bg-slate-200 border border-slate-400 shadow-[0_0_10px_rgba(148,163,184,0.3)]" />
-                  <span className="text-[11px] font-bold text-slate-500">Bảo Trì</span>
+                  <span className="text-[11px] font-bold text-slate-550">{language === 'en' ? 'Maintenance' : 'Bảo Trì'}</span>
                 </div>
               </div>
             </div>
           </div>
         </aside>
 
-        {/* ── Main Viewport Panel (Locked height, no scrolling) ── */}
-        <main className="flex-1 h-full bg-slate-50/40 p-6 flex flex-col min-w-0 overflow-hidden">
+        {/* ── Main Viewport ── */}
+        <main className="flex-1 p-6 overflow-y-auto min-h-0 flex flex-col">
           {/* Header Area */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -331,22 +331,22 @@ const ParkingStatus: React.FC = () => {
           >
             <div>
               <h1 className="text-2xl font-display font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-                <Sparkles className="text-blue-600 animate-pulse" size={22} /> Giám sát hạ tầng
+                <Sparkles className="text-blue-600 animate-pulse" size={22} /> {language === 'en' ? 'Infrastructure Monitoring' : 'Giám sát hạ tầng'}
               </h1>
               <div className="flex items-center gap-1.5 text-slate-400 mt-1">
                 <span className="material-symbols-outlined text-[14px] animate-spin text-blue-500" style={{ animationDuration: '3s' }}>sync</span>
-                <p className="text-[10px] font-semibold text-slate-400/90">Hệ thống phân tích hình ảnh AI đồng bộ mỗi 2 giây.</p>
+                <p className="text-[10px] font-semibold text-slate-400/90">{language === 'en' ? 'AI image analysis system synchronizes every 2 seconds.' : 'Hệ thống phân tích hình ảnh AI đồng bộ mỗi 2 giây.'}</p>
               </div>
             </div>
 
             {/* Quick stats (Compact style) */}
             <div className="flex gap-3">
               <div className="bg-white border border-slate-150 px-4 py-2.5 rounded-2xl shadow-sm flex flex-col min-w-[100px] transition-all duration-300">
-                <span className="text-[8px] font-black uppercase tracking-wide text-slate-450">Còn trống</span>
+                <span className="text-[8px] font-black uppercase tracking-wide text-slate-450">{language === 'en' ? 'Available' : 'Còn trống'}</span>
                 <span className="text-xl font-display font-black text-emerald-500 leading-none mt-1">{availableCount}</span>
               </div>
               <div className="bg-white border border-slate-150 px-4 py-2.5 rounded-2xl shadow-sm flex flex-col min-w-[100px] transition-all duration-300">
-                <span className="text-[8px] font-black uppercase tracking-wide text-slate-450">Đang đỗ</span>
+                <span className="text-[8px] font-black uppercase tracking-wide text-slate-450">{language === 'en' ? 'Occupied' : 'Đang đỗ'}</span>
                 <span className="text-xl font-display font-black text-slate-900 leading-none mt-1">{occupiedCount}</span>
               </div>
             </div>
@@ -363,14 +363,14 @@ const ParkingStatus: React.FC = () => {
             {/* Card header */}
             <div className="flex justify-between items-center mb-4 shrink-0">
               <div>
-                <h2 className="text-lg font-display font-extrabold text-slate-900 tracking-tight">Mặt bằng Tầng {selectedLevel}</h2>
+                <h2 className="text-lg font-display font-extrabold text-slate-900 tracking-tight">{language === 'en' ? `Floor ${selectedLevel} Map` : `Mặt bằng Tầng ${selectedLevel}`}</h2>
                 <p className="text-[11px] text-slate-400 font-semibold mt-0.5">
                   {selectedParking.name.split(' - ')[0]} • {selectedParking.block}
                 </p>
               </div>
               <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-full text-[9px] font-black uppercase tracking-wide border border-emerald-100/50">
                 <span className="material-symbols-outlined text-[13px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                Hệ thống trực tuyến
+                {language === 'en' ? 'System Online' : 'Hệ thống trực tuyến'}
               </div>
             </div>
 
@@ -382,7 +382,7 @@ const ParkingStatus: React.FC = () => {
                 
                 {/* Central Lobby Core (Sảnh thang máy) */}
                 <rect x="345" y="180" width="110" height="140" rx="20" fill="#ffffff" stroke="#e2e8f0" strokeWidth="1.5" />
-                <text x="400" y="235" textAnchor="middle" fontSize="10" fontWeight="900" fill="#64748b" letterSpacing="1" className="font-sans">SẢNH THANG</text>
+                <text x="400" y="235" textAnchor="middle" fontSize="10" fontWeight="900" fill="#64748b" letterSpacing="1" className="font-sans">{language === 'en' ? 'LOBBY' : 'SẢNH THANG'}</text>
                 <text x="400" y="250" textAnchor="middle" fontSize="8" fontWeight="bold" fill="#94a3b8" className="font-sans">LIFT & STAIRS</text>
                 
                 {/* Icon symbols inside central lobby */}
@@ -599,7 +599,7 @@ const ParkingStatus: React.FC = () => {
             <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col sm:flex-row justify-end items-center shrink-0 gap-4">
               <div className="flex items-center gap-1.5 text-slate-400 text-[9px] font-bold uppercase tracking-wide">
                 <span className="material-symbols-outlined text-[12px]">lock</span>
-                <span>Dữ liệu mã hóa 256-bit AES</span>
+                <span>{language === 'en' ? '256-bit AES Encrypted Data' : 'Dữ liệu mã hóa 256-bit AES'}</span>
               </div>
             </div>
           </motion.div>
@@ -618,8 +618,10 @@ const ParkingStatus: React.FC = () => {
           >
             <div className="bg-slate-900/95 backdrop-blur-md text-white px-6 py-4 rounded-full shadow-2xl flex items-center gap-6 border border-white/10 pointer-events-auto">
               <div className="flex flex-col">
-                <span className="text-[8px] font-black uppercase tracking-wide text-slate-400">Vị trí đã chọn</span>
-                <span className="text-[11px] font-display font-black tracking-wide uppercase mt-1">Tầng {selectedLevel} • Ô {selectedSlot}</span>
+                <span className="text-[8px] font-black uppercase tracking-wide text-slate-400">{language === 'en' ? 'Selected Slot' : 'Vị trí đã chọn'}</span>
+                <span className="text-[11px] font-display font-black tracking-wide uppercase mt-1">
+                  {language === 'en' ? `Floor ${selectedLevel} • Slot ${selectedSlot}` : `Tầng ${selectedLevel} • Ô ${selectedSlot}`}
+                </span>
               </div>
               <button
                 onClick={() => {
@@ -641,7 +643,7 @@ const ParkingStatus: React.FC = () => {
                 }}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-full text-[9px] font-extrabold uppercase tracking-widest hover:scale-105 active:scale-95 transition-all flex items-center gap-2 shadow-lg shadow-blue-500/20 cursor-pointer"
               >
-                <span>{location.state?.fromReserve ? 'Xác nhận và thanh toán' : 'Tiếp tục đăng ký xe'}</span>
+                <span>{location.state?.fromReserve ? (language === 'en' ? 'Confirm and Pay' : 'Xác nhận và thanh toán') : (language === 'en' ? 'Continue Booking' : 'Tiếp tục đăng ký xe')}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -671,11 +673,11 @@ const ParkingStatus: React.FC = () => {
               </div>
               
               <h3 className="text-lg font-black text-slate-900 tracking-tight leading-snug mb-2">
-                Thông tin đăng ký trống
+                {language === 'en' ? 'Booking Information Empty' : 'Thông tin đăng ký trống'}
               </h3>
               
               <p className="text-slate-500 text-xs font-semibold leading-relaxed mb-8 px-2">
-                Vui lòng hoàn tất thông tin đăng ký giữ chỗ (như biển số xe, thời gian) để hệ thống ghi nhận chính xác trước khi thanh toán.
+                {language === 'en' ? 'Please complete the booking registration details (such as license plate and time) so the system can record it accurately before payment.' : 'Vui lòng hoàn tất thông tin đăng ký giữ chỗ (như biển số xe, thời gian) để hệ thống ghi nhận chính xác trước khi thanh toán.'}
               </p>
               
               <div className="flex flex-col gap-3 w-full">
@@ -688,13 +690,13 @@ const ParkingStatus: React.FC = () => {
                   }}
                   className="w-full bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-extrabold py-3.5 rounded-full text-[10px] uppercase tracking-wider transition-all shadow-lg shadow-blue-500/20 cursor-pointer"
                 >
-                  Nhập thông tin ngay
+                  {language === 'en' ? 'Enter Details Now' : 'Nhập thông tin ngay'}
                 </button>
                 <button
                   onClick={() => setShowReservePrompt(false)}
                   className="w-full hover:bg-slate-50 text-slate-500 font-extrabold py-3.5 rounded-full text-[10px] uppercase tracking-wider transition-all cursor-pointer"
                 >
-                  Hủy bỏ
+                  {language === 'en' ? 'Cancel' : 'Hủy bỏ'}
                 </button>
               </div>
             </motion.div>
@@ -724,11 +726,11 @@ const ParkingStatus: React.FC = () => {
               </div>
               
               <h3 className="text-lg font-black text-slate-900 tracking-tight leading-snug mb-2">
-                Phiên đỗ đang hoạt động
+                {language === 'en' ? 'Active Parking Session' : 'Phiên đỗ đang hoạt động'}
               </h3>
               
               <p className="text-slate-500 text-xs font-semibold leading-relaxed mb-8 px-2">
-                Bạn đang có một phiên đỗ xe chưa kết thúc (xe chưa ra khỏi bãi). Vui lòng hoàn tất thanh toán lối ra cho xe hiện tại trước khi thực hiện đặt chỗ mới.
+                {language === 'en' ? 'You have an ongoing parking session (vehicle still in the lot). Please complete the exit payment for the current vehicle before making a new booking.' : 'Bạn đang có một phiên đỗ xe chưa kết thúc (xe chưa ra khỏi bãi). Vui lòng hoàn tất thanh toán lối ra cho xe hiện tại trước khi thực hiện đặt chỗ mới.'}
               </p>
               
               <div className="flex flex-col gap-2.5 w-full">
@@ -740,7 +742,7 @@ const ParkingStatus: React.FC = () => {
                   className="w-full bg-slate-950 hover:bg-slate-900 active:scale-[0.98] text-white font-extrabold py-3.5 rounded-full text-[10px] uppercase tracking-wider transition-all shadow-lg cursor-pointer flex items-center justify-center gap-1.5"
                 >
                   <span className="material-symbols-outlined text-[14px]">visibility</span>
-                  Xem phiên đỗ hiện tại
+                  {language === 'en' ? 'View Current Session' : 'Xem phiên đỗ hiện tại'}
                 </button>
                 <button
                   onClick={() => {
@@ -750,13 +752,13 @@ const ParkingStatus: React.FC = () => {
                   className="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-extrabold py-3.5 rounded-full text-[10px] uppercase tracking-wider transition-all shadow-lg shadow-blue-500/10 cursor-pointer flex items-center justify-center gap-1.5"
                 >
                   <span className="material-symbols-outlined text-[14px]">directions_car</span>
-                  Đặt chỗ cho xe khác
+                  {language === 'en' ? 'Book for Another Car' : 'Đặt chỗ cho xe khác'}
                 </button>
                 <button
                   onClick={() => setShowActiveSessionWarning(false)}
                   className="w-full hover:bg-slate-50 text-slate-500 font-extrabold py-3 rounded-full text-[10px] uppercase tracking-wider transition-all cursor-pointer"
                 >
-                  Đóng
+                  {language === 'en' ? 'Close' : 'Đóng'}
                 </button>
               </div>
             </motion.div>
@@ -791,7 +793,6 @@ const ParkingStatus: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
-
     </div>
   );
 };

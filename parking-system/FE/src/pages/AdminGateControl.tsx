@@ -15,6 +15,7 @@ import {
 import AdminLayout from '../components/admin/AdminLayout';
 import api from '../services/api';
 import { parseLicensePlate } from '../utils/auth';
+import { useSettings } from '../hooks/useSettings.tsx';
 
 const AdminGateControl = () => {
   const [activeTab, setActiveTab] = useState<'entry' | 'exit'>('entry');
@@ -23,6 +24,7 @@ const AdminGateControl = () => {
   const [loading, setLoading] = useState(false);
   const [barrierState, setBarrierState] = useState<'closed' | 'opening' | 'opened'>('closed');
   const [resultMessage, setResultMessage] = useState<{ type: 'success' | 'warning' | 'error'; text: string; details?: string } | null>(null);
+  const { t, language } = useSettings();
 
   const handleEntryCheckIn = async (qr: string) => {
     setLoading(true);
@@ -32,8 +34,10 @@ const AdminGateControl = () => {
       setBarrierState('opening');
       setResultMessage({
         type: 'success',
-        text: 'XÁC THỰC LỐI VÀO THÀNH CÔNG',
-        details: `Xe biển số ${parseLicensePlate(resp.data?.licensePlate || '')} đã check-in vào Ô ${resp.data?.parkingSlot || 'A3'}. Barrier đang mở!`
+        text: language === 'en' ? 'ENTRY VALIDATION SUCCESSFUL' : 'XÁC THỰC LỐI VÀO THÀNH CÔNG',
+        details: language === 'en' 
+          ? `Vehicle with plate ${parseLicensePlate(resp.data?.licensePlate || '')} has checked-in to Slot ${resp.data?.parkingSlot || 'A3'}. Barrier is opening!`
+          : `Xe biển số ${parseLicensePlate(resp.data?.licensePlate || '')} đã check-in vào Ô ${resp.data?.parkingSlot || 'A3'}. Barrier đang mở!`
       });
       setTimeout(() => setBarrierState('opened'), 1500);
       setQrInput('');
@@ -41,8 +45,8 @@ const AdminGateControl = () => {
       console.error(err);
       setResultMessage({
         type: 'error',
-        text: 'LỖI XÁC THỰC CỔNG VÀO',
-        details: err.response?.data?.message || 'Mã QR không hợp lệ, đã hết hạn hoặc đã được check-in trước đó.'
+        text: language === 'en' ? 'ENTRY VALIDATION ERROR' : 'LỖI XÁC THỰC CỔNG VÀO',
+        details: err.response?.data?.message || (language === 'en' ? 'Invalid, expired QR code, or already checked-in.' : 'Mã QR không hợp lệ, đã hết hạn hoặc đã được check-in trước đó.')
       });
     } finally {
       setLoading(false);
@@ -53,8 +57,8 @@ const AdminGateControl = () => {
     if (!plate.trim()) {
       setResultMessage({
         type: 'warning',
-        text: 'THIẾU BIỂN SỐ XE LỐI RA',
-        details: 'Vui lòng nhập biển số xe thực tế ghi nhận tại cổng ra để đối chiếu AI.'
+        text: language === 'en' ? 'MISSING EXIT LICENSE PLATE' : 'THIẾU BIỂN SỐ XE LỐI RA',
+        details: language === 'en' ? 'Please enter the actual license plate recorded at the exit gate for AI comparison.' : 'Vui lòng nhập biển số xe thực tế ghi nhận tại cổng ra để đối chiếu AI.'
       });
       return;
     }
@@ -70,8 +74,10 @@ const AdminGateControl = () => {
       const isMatched = resp.data?.isPlateMatched;
       setResultMessage({
         type: isMatched ? 'success' : 'warning',
-        text: isMatched ? 'XÁC THỰC LỐI RA THÀNH CÔNG' : 'CẢNH BÁO: KHÔNG TRÙNG KHỚP BIỂN SỐ',
-        details: `${resp.data?.message} - Phí đỗ xe: ${Number(resp.data?.fee || 0).toLocaleString('vi-VN')} VNĐ.`
+        text: isMatched ? (language === 'en' ? 'EXIT VALIDATION SUCCESSFUL' : 'XÁC THỰC LỐI RA THÀNH CÔNG') : (language === 'en' ? 'WARNING: LICENSE PLATE MISMATCH' : 'CẢNH BÁO: KHÔNG TRÙNG KHỚP BIỂN SỐ'),
+        details: language === 'en' 
+          ? `${resp.data?.message} - Parking fee: ${Number(resp.data?.fee || 0).toLocaleString()} VND.`
+          : `${resp.data?.message} - Phí đỗ xe: ${Number(resp.data?.fee || 0).toLocaleString('vi-VN')} VNĐ.`
       });
       setTimeout(() => setBarrierState('opened'), 1500);
       setQrInput('');
@@ -80,8 +86,8 @@ const AdminGateControl = () => {
       console.error(err);
       setResultMessage({
         type: 'error',
-        text: 'LỖI XÁC THỰC CỔNG RA',
-        details: err.response?.data?.message || 'Không tìm thấy phiên gửi xe hoạt động cho mã QR này.'
+        text: language === 'en' ? 'EXIT VALIDATION ERROR' : 'LỖI XÁC THỰC CỔNG RA',
+        details: err.response?.data?.message || (language === 'en' ? 'No active parking session found for this QR code.' : 'Không tìm thấy phiên gửi xe hoạt động cho mã QR này.')
       });
     } finally {
       setLoading(false);
@@ -94,28 +100,32 @@ const AdminGateControl = () => {
   };
 
   return (
-    <AdminLayout searchPlaceholder="Tìm kiếm mã phiên cổng kiểm soát...">
+    <AdminLayout searchPlaceholder={language === 'en' ? 'Search check-in scanner codes...' : 'Tìm kiếm mã phiên cổng kiểm soát...'}>
       <div className="p-10 space-y-8 max-w-4xl mx-auto">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Cổng Kiểm Soát Staff</h2>
-            <p className="text-sm text-slate-500 font-medium">Bảng mô phỏng quét mã QR & camera đối chiếu biển số dành cho bảo vệ tại bốt.</p>
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">
+              {language === 'en' ? 'Gate Control Simulator' : 'Cổng Kiểm Soát Staff'}
+            </h2>
+            <p className="text-sm text-slate-500 font-medium">
+              {language === 'en' ? 'Scan simulation of QR codes & license plate matching camera for gate staff.' : 'Bảng mô phỏng quét mã QR & camera đối chiếu biển số dành cho bảo vệ tại bốt.'}
+            </p>
           </div>
           
           <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200">
             <button
               onClick={() => { setActiveTab('entry'); resetBarrier(); }}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${activeTab === 'entry' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${activeTab === 'entry' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
             >
               <Car className="w-4 h-4" />
-              CỔNG VÀO (Entry)
+              {language === 'en' ? 'ENTRY GATE' : 'CỔNG VÀO (Entry)'}
             </button>
             <button
               onClick={() => { setActiveTab('exit'); resetBarrier(); }}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${activeTab === 'exit' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${activeTab === 'exit' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
             >
               <ArrowRightLeft className="w-4 h-4" />
-              CỔNG RA (Exit)
+              {language === 'en' ? 'EXIT GATE' : 'CỔNG RA (Exit)'}
             </button>
           </div>
         </div>
@@ -125,7 +135,7 @@ const AdminGateControl = () => {
           <div className="col-span-12 md:col-span-7 bg-white rounded-3xl border border-slate-200 shadow-sm p-8 space-y-6">
             <h3 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
               <Scan className="w-5 h-5 text-blue-600" />
-              Camera quét mã QR bốt bảo vệ
+              {language === 'en' ? 'Staff booth QR scan camera simulator' : 'Camera quét mã QR bốt bảo vệ'}
             </h3>
 
             {/* Simulated Scanner Viewfinder */}
@@ -158,15 +168,19 @@ const AdminGateControl = () => {
                       {barrierState === 'opening' ? <Loader2 className="w-8 h-8 font-black" /> : <CheckCircle2 className="w-8 h-8" />}
                     </motion.div>
                     <h4 className="text-lg font-black text-white uppercase tracking-wider">
-                      {barrierState === 'opening' ? 'ĐANG MỞ CỔNG BARRIER...' : 'BARRIER ĐANG MỞ'}
+                      {barrierState === 'opening' 
+                        ? (language === 'en' ? 'OPENING BARRIER GATE...' : 'ĐANG MỞ CỔNG BARRIER...') 
+                        : (language === 'en' ? 'BARRIER IS OPEN' : 'BARRIER ĐANG MỞ')}
                     </h4>
-                    <p className="text-xs text-slate-400 font-medium mt-1">Xe có thể di chuyển qua bốt</p>
+                    <p className="text-xs text-slate-400 font-medium mt-1">
+                      {language === 'en' ? 'Vehicle can pass through the booth' : 'Xe có thể di chuyển qua bốt'}
+                    </p>
                     {barrierState === 'opened' && (
                       <button 
                         onClick={resetBarrier}
-                        className="mt-6 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-black text-white rounded-xl transition-all uppercase tracking-widest border border-slate-700"
+                        className="mt-6 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-black text-white rounded-xl transition-all uppercase tracking-widest border border-slate-700 cursor-pointer"
                       >
-                        Đóng barrier
+                        {language === 'en' ? 'Close barrier' : 'Đóng barrier'}
                       </button>
                     )}
                   </motion.div>
@@ -177,7 +191,9 @@ const AdminGateControl = () => {
             {/* Quick manual form inputs */}
             <div className="space-y-4 pt-4 border-t border-slate-100">
               <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Nhập mã QR thủ công (MÃ SỐ PHIÊN)</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">
+                  {language === 'en' ? 'Enter QR code manually (SESSION ID)' : 'Nhập mã QR thủ công (MÃ SỐ PHIÊN)'}
+                </label>
                 <div className="flex gap-3">
                   <div className="relative flex-1">
                     <FileKey2 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
@@ -185,7 +201,7 @@ const AdminGateControl = () => {
                       type="text"
                       value={qrInput}
                       onChange={(e) => setQrInput(e.target.value)}
-                      placeholder="VD: QR_5F92A..."
+                      placeholder={language === 'en' ? 'e.g. QR_5F92A...' : 'VD: QR_5F92A...'}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-11 pr-4 text-sm font-bold text-slate-900 font-mono focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 focus:bg-white transition-all"
                     />
                   </div>
@@ -194,12 +210,14 @@ const AdminGateControl = () => {
 
               {activeTab === 'exit' && (
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Nhập biển số xe thực tế cổng ra (AI đối chiếu)</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">
+                    {language === 'en' ? 'Enter exit gate actual license plate (AI comparison)' : 'Nhập biển số xe thực tế cổng ra (AI đối chiếu)'}
+                  </label>
                   <input
                     type="text"
                     value={exitPlateInput}
                     onChange={(e) => setExitPlateInput(e.target.value)}
-                    placeholder="VD: 51F-123.45"
+                    placeholder={language === 'en' ? 'e.g. 51F-123.45' : 'VD: 51F-123.45'}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 text-sm font-bold text-slate-900 focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 focus:bg-white transition-all"
                   />
                 </div>
@@ -208,10 +226,10 @@ const AdminGateControl = () => {
               <button
                 onClick={() => activeTab === 'entry' ? handleEntryCheckIn(qrInput) : handleExitCheckOut(qrInput, exitPlateInput)}
                 disabled={loading || !qrInput.trim()}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-100 disabled:text-slate-400 text-white font-bold py-4 rounded-2xl shadow-xl shadow-blue-600/10 flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-95 transition-all text-xs uppercase tracking-wider"
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-100 disabled:text-slate-400 text-white font-bold py-4 rounded-2xl shadow-xl shadow-blue-600/10 flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-95 transition-all text-xs uppercase tracking-wider cursor-pointer"
               >
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-                {activeTab === 'entry' ? 'Xác nhận quét cho xe vào' : 'Xác nhận quét cho xe ra'}
+                {activeTab === 'entry' ? (language === 'en' ? 'Confirm scan for entry' : 'Xác nhận quét cho xe vào') : (language === 'en' ? 'Confirm scan for exit' : 'Xác nhận quét cho xe ra')}
               </button>
             </div>
           </div>
@@ -250,14 +268,25 @@ const AdminGateControl = () => {
             <div className="bg-slate-50 border border-slate-200 rounded-3xl p-6 space-y-4">
               <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
                 <Clock className="w-4 h-4 text-blue-600" />
-                Hướng dẫn mô phỏng bốt
+                {language === 'en' ? 'Simulation Guide' : 'Hướng dẫn mô phỏng bốt'}
               </h4>
               <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
-                Để kiểm tra quy trình, bạn hãy sao chép **MÃ SỐ PHIÊN** (QR Code) được hiển thị trên trang thành công hoặc lịch đỗ xe của khách hàng rồi dán vào ô nhập mã trên đây:
+                {language === 'en' 
+                  ? 'To test the workflow, copy the **SESSION ID** (QR Code) shown on the success page or customer parking history and paste it into the input box above:' 
+                  : 'Để kiểm tra quy trình, bạn hãy sao chép **MÃ SỐ PHIÊN** (QR Code) được hiển thị trên trang thành công hoặc lịch đỗ xe của khách hàng rồi dán vào ô nhập mã trên đây:'}
               </p>
               <ul className="text-[11px] text-slate-500 font-medium space-y-2 list-disc list-inside">
-                <li>**Cổng Vào:** Quét mã QR để cho phép khách hàng check-in, đổi trạng thái sang *"Đang giám sát"* và bắt đầu đếm thời gian đỗ.</li>
-                <li>**Cổng Ra:** Quét mã QR + Nhập biển số đối chiếu để hoàn tất phiên đỗ xe, trả tự do cho vị trí đỗ.</li>
+                {language === 'en' ? (
+                  <>
+                    <li><strong>Entry Gate:</strong> Scan QR code to allow customer check-in, change status to <em>"Monitoring"</em>, and start the parking timer.</li>
+                    <li><strong>Exit Gate:</strong> Scan QR code + enter matching license plate to complete the session, releasing the slot.</li>
+                  </>
+                ) : (
+                  <>
+                    <li><strong>Cổng Vào:</strong> Quét mã QR để cho phép khách hàng check-in, đổi trạng thái sang <em>"Đang giám sát"</em> và bắt đầu đếm thời gian đỗ.</li>
+                    <li><strong>Cổng Ra:</strong> Quét mã QR + Nhập biển số đối chiếu để hoàn tất phiên đỗ xe, trả tự do cho vị trí đỗ.</li>
+                  </>
+                )}
               </ul>
             </div>
           </div>

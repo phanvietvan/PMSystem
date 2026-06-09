@@ -6,22 +6,10 @@ import {
 } from 'lucide-react';
 import Navbar from '../components/layout/Navbar';
 import api from '../services/api';
-
-const faqs = [
-  { question: 'Làm thế nào để báo cáo sự cố khẩn cấp?', answer: 'Bạn có thể báo cáo sự cố trực tiếp qua form liên hệ hoặc gọi hotline 24/7. Đội ngũ kỹ thuật của chúng tôi sẽ xử lý ngay lập tức để không làm gián đoạn bãi đỗ.' },
-  { question: 'Thời gian xử lý yêu cầu là bao lâu?', answer: 'Đối với các sự cố kỹ thuật, chúng tôi cam kết phản hồi dưới 5 phút. Các yêu cầu tư vấn thông thường sẽ được xử lý trong vòng 2 giờ làm việc.' },
-  { question: 'Hệ thống có hỗ trợ nâng cấp không?', answer: 'Có, PM System liên tục được cập nhật các tính năng mới qua Cloud và cải thiện hiệu năng định kỳ mà không làm gián đoạn hoạt động.' },
-  { question: 'Dữ liệu bãi xe có được bảo mật không?', answer: 'Toàn bộ dữ liệu được mã hóa chuẩn quân đội (AES-256) và sao lưu liên tục trên hệ thống máy chủ AWS an toàn tuyệt đối.' }
-];
-
-const stats = [
-  { value: '99.9%', label: 'Uptime Hệ Thống' },
-  { value: '< 5m', label: 'Thời Gian Phản Hồi' },
-  { value: '24/7', label: 'Hỗ Trợ Kỹ Thuật' },
-  { value: '10k+', label: 'Vấn Đề Đã Xử Lý' }
-];
+import { useSettings } from '../hooks/useSettings.tsx';
 
 const ContactPage = () => {
+  const { language } = useSettings();
   const [formData, setFormData] = useState({
     name: '', email: '', phone: '', subject: 'general', message: '',
   });
@@ -29,6 +17,30 @@ const ContactPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
+
+  const faqs = language === 'en' ? [
+    { question: 'How do I report an emergency incident?', answer: 'You can report an incident directly via the contact form or call our 24/7 hotline. Our technical team will handle it immediately.' },
+    { question: 'What is the request processing time?', answer: 'For technical incidents, we guarantee a response under 5 minutes. General inquiries are processed within 2 working hours.' },
+    { question: 'Does the system support updates?', answer: 'Yes, PM System is continuously updated via the Cloud, improving performance periodically without service interruption.' },
+    { question: 'Is the parking lot data secure?', answer: 'All data is encrypted using military-grade AES-256 standard and continuously backed up on secure AWS servers.' }
+  ] : [
+    { question: 'Làm thế nào để báo cáo sự cố khẩn cấp?', answer: 'Bạn có thể báo cáo sự cố trực tiếp qua form liên hệ hoặc gọi hotline 24/7. Đội ngũ kỹ thuật của chúng tôi sẽ xử lý ngay lập tức để không làm gián đoạn bãi đỗ.' },
+    { question: 'Thời gian xử lý yêu cầu là bao lâu?', answer: 'Đối với các sự cố kỹ thuật, chúng tôi cam kết phản hồi dưới 5 phút. Các yêu cầu tư vấn thông thường sẽ được xử lý trong vòng 2 giờ làm việc.' },
+    { question: 'Hệ thống có hỗ trợ nâng cấp không?', answer: 'Có, PM System liên tục được cập nhật các tính năng mới qua Cloud và cải thiện hiệu năng định kỳ mà không làm gián đoạn hoạt động.' },
+    { question: 'Dữ liệu bãi xe có được bảo mật không?', answer: 'Toàn bộ dữ liệu được mã hóa chuẩn quân đội (AES-256) và sao lưu liên tục trên hệ thống máy chủ AWS an toàn tuyệt đối.' }
+  ];
+
+  const stats = language === 'en' ? [
+    { value: '99.9%', label: 'System Uptime' },
+    { value: '< 5m', label: 'Response Time' },
+    { value: '24/7', label: 'Technical Support' },
+    { value: '10k+', label: 'Issues Resolved' }
+  ] : [
+    { value: '99.9%', label: 'Uptime Hệ Thống' },
+    { value: '< 5m', label: 'Thời Gian Phản Hồi' },
+    { value: '24/7', label: 'Hỗ Trợ Kỹ Thuật' },
+    { value: '10k+', label: 'Vấn Đề Đã Xử Lý' }
+  ];
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -67,30 +79,30 @@ const ContactPage = () => {
   const contactInfos = [
     {
       icon: <Phone className="w-5 h-5 text-blue-600" />,
-      title: 'Hotline Hỗ Trợ',
+      title: language === 'en' ? 'Support Hotline' : 'Hotline Hỗ Trợ',
       value: '0816.386.382',
-      desc: 'Hỗ trợ khẩn cấp & kỹ thuật 24/7',
+      desc: language === 'en' ? '24/7 emergency & tech support' : 'Hỗ trợ khẩn cấp & kỹ thuật 24/7',
       action: 'tel:0816386382',
     },
     {
       icon: <Mail className="w-5 h-5 text-indigo-600" />,
-      title: 'Email Liên Hệ',
+      title: language === 'en' ? 'Contact Email' : 'Email Liên Hệ',
       value: 'pmsystem.system@gmail.com',
-      desc: 'Phản hồi trong vòng 24 giờ làm việc',
+      desc: language === 'en' ? 'Response within 24 business hours' : 'Phản hồi trong vòng 24 giờ làm việc',
       action: 'mailto:pmsystem.system@gmail.com',
     },
     {
       icon: <MapPin className="w-5 h-5 text-blue-600" />,
-      title: 'Trụ Sở Chính',
+      title: language === 'en' ? 'Headquarters' : 'Trụ Sở Chính',
       value: 'Sunrise Central',
-      desc: '25 Nguyễn Hữu Thọ, P. Tân Hưng, TP. HCM',
+      desc: language === 'en' ? '25 Nguyen Huu Tho, Tan Hung Dist, HCMC' : '25 Nguyễn Hữu Thọ, P. Tân Hưng, TP. HCM',
       action: 'https://maps.google.com',
     },
     {
       icon: <Clock className="w-5 h-5 text-indigo-600" />,
-      title: 'Thời Gian Làm Việc',
-      value: 'Hoạt động 24/7',
-      desc: 'Hệ thống giám sát và bãi xe hoạt động liên tục',
+      title: language === 'en' ? 'Working Hours' : 'Thời Gian Làm Việc',
+      value: language === 'en' ? '24/7 Operation' : 'Hoạt động 24/7',
+      desc: language === 'en' ? 'Continuous parking & surveillance monitoring' : 'Hệ thống giám sát và bãi xe hoạt động liên tục',
     },
   ];
 
@@ -112,21 +124,21 @@ const ContactPage = () => {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50/80 border border-blue-100/50 shadow-[0_0_15px_rgba(96,165,250,0.15)] text-blue-600 font-semibold text-xs tracking-wide uppercase backdrop-blur-md"
             >
               <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
-              Hỗ trợ khách hàng 24/7
+              {language === 'en' ? '24/7 Customer Support' : 'Hỗ trợ khách hàng 24/7'}
             </motion.div>
             
             <motion.h1 
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }}
               className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-slate-900 via-blue-900 to-slate-900 tracking-tight leading-tight"
             >
-              Chúng tôi luôn sẵn sàng <br className="hidden md:block"/> hỗ trợ bạn
+              {language === 'en' ? <>We are always ready <br className="hidden md:block"/> to support you</> : <>Chúng tôi luôn sẵn sàng <br className="hidden md:block"/> hỗ trợ bạn</>}
             </motion.h1>
             
             <motion.p 
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }}
               className="text-slate-500 text-lg md:text-xl font-medium leading-relaxed max-w-2xl mx-auto"
             >
-              Trải nghiệm dịch vụ hỗ trợ cao cấp. Báo sự cố, nhận tư vấn giải pháp đỗ xe thông minh hoặc thảo luận hợp tác chiến lược cùng PM System.
+              {language === 'en' ? 'Experience premium support. Report incidents, consult smart parking solutions, or discuss strategic partnerships with PM System.' : 'Trải nghiệm dịch vụ hỗ trợ cao cấp. Báo sự cố, nhận tư vấn giải pháp đỗ xe thông minh hoặc thảo luận hợp tác chiến lược cùng PM System.'}
             </motion.p>
           </div>
 
@@ -143,7 +155,7 @@ const ContactPage = () => {
                 
                 <h2 className="text-2xl font-bold text-slate-900 mb-8 relative z-10 flex items-center gap-3">
                   <MessageSquare className="w-6 h-6 text-blue-500" />
-                  Thông tin liên hệ
+                  {language === 'en' ? 'Contact Information' : 'Thông tin liên hệ'}
                 </h2>
                 
                 <div className="space-y-6 relative z-10">
@@ -159,7 +171,7 @@ const ContactPage = () => {
                       <div className="flex-1 pt-1">
                         <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1">{info.title}</span>
                         {info.action ? (
-                          <a
+                           <a
                             href={info.action}
                             target={info.action.startsWith('http') ? '_blank' : undefined}
                             rel="noopener noreferrer"
@@ -185,8 +197,8 @@ const ContactPage = () => {
                     <Shield className="w-7 h-7 text-emerald-500" />
                   </div>
                   <div className="relative z-10">
-                    <h3 className="font-bold text-slate-900 text-base mb-1">Bảo Mật Cấp Độ Doanh Nghiệp</h3>
-                    <p className="text-slate-500 text-sm">Dữ liệu được mã hóa đầu cuối an toàn tuyệt đối 100%.</p>
+                    <h3 className="font-bold text-slate-900 text-base mb-1">{language === 'en' ? 'Enterprise-Grade Security' : 'Bảo Mật Cấp Độ Doanh Nghiệp'}</h3>
+                    <p className="text-slate-500 text-sm">{language === 'en' ? 'Data is 100% end-to-end encrypted and completely secure.' : 'Dữ liệu được mã hóa đầu cuối an toàn tuyệt đối 100%.'}</p>
                   </div>
                 </div>
               </div>
@@ -202,11 +214,11 @@ const ContactPage = () => {
                 
                 <div className="flex justify-between items-end mb-8">
                   <div>
-                    <h2 className="text-2xl font-bold text-slate-900 mb-2">Gửi yêu cầu hỗ trợ</h2>
-                    <p className="text-slate-500 text-sm">Điền thông tin bên dưới, chuyên viên của chúng tôi sẽ liên hệ lại ngay.</p>
+                    <h2 className="text-2xl font-bold text-slate-900 mb-2">{language === 'en' ? 'Submit Support Request' : 'Gửi yêu cầu hỗ trợ'}</h2>
+                    <p className="text-slate-500 text-sm">{language === 'en' ? 'Fill out the details below, and our experts will contact you shortly.' : 'Điền thông tin bên dưới, chuyên viên của chúng tôi sẽ liên hệ lại ngay.'}</p>
                   </div>
                   <div className="hidden sm:flex items-center gap-1 text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full text-xs font-semibold">
-                    <Zap className="w-3.5 h-3.5" /> Phản hồi siêu tốc
+                    <Zap className="w-3.5 h-3.5" /> {language === 'en' ? 'Instant Response' : 'Phản hồi siêu tốc'}
                   </div>
                 </div>
                 
@@ -215,12 +227,12 @@ const ContactPage = () => {
                     {/* Name */}
                     <div className="space-y-2 relative group">
                       <label htmlFor="name" className="text-xs font-bold text-slate-600 uppercase tracking-wider ml-1 block group-focus-within:text-blue-600 transition-colors">
-                        Họ và tên <span className="text-red-500">*</span>
+                        {language === 'en' ? 'Full Name' : 'Họ và tên'} <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text" id="name" name="name"
                         value={formData.name} onChange={handleChange}
-                        placeholder="VD: Nguyễn Văn A" required
+                        placeholder={language === 'en' ? 'e.g. John Doe' : 'VD: Nguyễn Văn A'} required
                         className="w-full bg-slate-50/80 focus:bg-white border border-slate-200 focus:border-blue-500 rounded-2xl py-3.5 px-5 text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-[3px] focus:ring-blue-500/20 transition-all shadow-sm"
                       />
                     </div>
@@ -228,12 +240,12 @@ const ContactPage = () => {
                     {/* Email */}
                     <div className="space-y-2 relative group">
                       <label htmlFor="email" className="text-xs font-bold text-slate-600 uppercase tracking-wider ml-1 block group-focus-within:text-blue-600 transition-colors">
-                        Địa chỉ Email <span className="text-red-500">*</span>
+                        {language === 'en' ? 'Email Address' : 'Địa chỉ Email'} <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="email" id="email" name="email"
                         value={formData.email} onChange={handleChange}
-                        placeholder="VD: hello@congty.com" required
+                        placeholder={language === 'en' ? 'e.g. hello@company.com' : 'VD: hello@congty.com'} required
                         className="w-full bg-slate-50/80 focus:bg-white border border-slate-200 focus:border-blue-500 rounded-2xl py-3.5 px-5 text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-[3px] focus:ring-blue-500/20 transition-all shadow-sm"
                       />
                     </div>
@@ -243,12 +255,12 @@ const ContactPage = () => {
                     {/* Phone */}
                     <div className="space-y-2 relative group">
                       <label htmlFor="phone" className="text-xs font-bold text-slate-600 uppercase tracking-wider ml-1 block group-focus-within:text-blue-600 transition-colors">
-                        Số điện thoại
+                        {language === 'en' ? 'Phone Number' : 'Số điện thoại'}
                       </label>
                       <input
                         type="tel" id="phone" name="phone"
                         value={formData.phone} onChange={handleChange}
-                        placeholder="VD: 0901 234 567"
+                        placeholder={language === 'en' ? 'e.g. 0901 234 567' : 'VD: 0901 234 567'}
                         className="w-full bg-slate-50/80 focus:bg-white border border-slate-200 focus:border-blue-500 rounded-2xl py-3.5 px-5 text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-[3px] focus:ring-blue-500/20 transition-all shadow-sm"
                       />
                     </div>
@@ -256,7 +268,7 @@ const ContactPage = () => {
                     {/* Subject */}
                     <div className="space-y-2 relative group">
                       <label htmlFor="subject" className="text-xs font-bold text-slate-600 uppercase tracking-wider ml-1 block group-focus-within:text-blue-600 transition-colors">
-                        Chủ đề
+                        {language === 'en' ? 'Subject' : 'Chủ đề'}
                       </label>
                       <div className="relative">
                         <select
@@ -264,10 +276,10 @@ const ContactPage = () => {
                           value={formData.subject} onChange={handleChange}
                           className="w-full bg-slate-50/80 focus:bg-white border border-slate-200 focus:border-blue-500 rounded-2xl py-3.5 pl-5 pr-12 text-sm font-medium text-slate-800 focus:outline-none focus:ring-[3px] focus:ring-blue-500/20 transition-all appearance-none shadow-sm cursor-pointer"
                         >
-                          <option value="general">Hỏi đáp chung / Tư vấn</option>
-                          <option value="support">Báo lỗi kỹ thuật / Sự cố</option>
-                          <option value="partnership">Hợp tác kinh doanh</option>
-                          <option value="feedback">Góp ý nâng cấp dịch vụ</option>
+                          <option value="general">{language === 'en' ? 'General Inquiry / Consultation' : 'Hỏi đáp chung / Tư vấn'}</option>
+                          <option value="support">{language === 'en' ? 'Technical Error / Incident' : 'Báo lỗi kỹ thuật / Sự cố'}</option>
+                          <option value="partnership">{language === 'en' ? 'Business Partnership' : 'Hợp tác kinh doanh'}</option>
+                          <option value="feedback">{language === 'en' ? 'Service Feedback' : 'Góp ý nâng cấp dịch vụ'}</option>
                         </select>
                         <div className="absolute inset-y-0 right-0 pr-5 flex items-center pointer-events-none text-slate-400">
                           <ChevronDown className="w-5 h-5" />
@@ -279,12 +291,12 @@ const ContactPage = () => {
                   {/* Message */}
                   <div className="space-y-2 relative group">
                     <label htmlFor="message" className="text-xs font-bold text-slate-600 uppercase tracking-wider ml-1 block group-focus-within:text-blue-600 transition-colors">
-                      Nội dung chi tiết <span className="text-red-500">*</span>
+                      {language === 'en' ? 'Message Details' : 'Nội dung chi tiết'} <span className="text-red-500">*</span>
                     </label>
                     <textarea
                       id="message" name="message"
                       value={formData.message} onChange={handleChange}
-                      placeholder="Mô tả chi tiết yêu cầu của bạn..." required rows={5}
+                      placeholder={language === 'en' ? 'Describe your request in detail...' : 'Mô tả chi tiết yêu cầu của bạn...'} required rows={5}
                       className="w-full bg-slate-50/80 focus:bg-white border border-slate-200 focus:border-blue-500 rounded-2xl py-4 px-5 text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-[3px] focus:ring-blue-500/20 transition-all shadow-sm resize-none"
                     />
                   </div>
@@ -300,7 +312,7 @@ const ContactPage = () => {
                       >
                         <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
                         <span className="text-sm font-medium">
-                          Tuyệt vời! Yêu cầu của bạn đã được gửi. Đội ngũ sẽ phản hồi sớm nhất.
+                          {language === 'en' ? 'Great! Your request has been sent. Our team will respond as soon as possible.' : 'Tuyệt vời! Yêu cầu của bạn đã được gửi. Đội ngũ sẽ phản hồi sớm nhất.'}
                         </span>
                       </motion.div>
                     )}
@@ -314,7 +326,7 @@ const ContactPage = () => {
                       >
                         <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
                         <span className="text-sm font-medium">
-                          Vui lòng kiểm tra lại. Hãy chắc chắn bạn đã điền đầy đủ thông tin bắt buộc.
+                          {language === 'en' ? 'Please double check. Make sure you filled in all required fields.' : 'Vui lòng kiểm tra lại. Hãy chắc chắn bạn đã điền đầy đủ thông tin bắt buộc.'}
                         </span>
                       </motion.div>
                     )}
@@ -328,11 +340,11 @@ const ContactPage = () => {
                     {isSubmitting ? (
                       <>
                         <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        <span>Đang xử lý...</span>
+                        <span>{language === 'en' ? 'Processing...' : 'Đang xử lý...'}</span>
                       </>
                     ) : (
                       <>
-                        <span>Gửi Yêu Cầu Hỗ Trợ</span>
+                        <span>{language === 'en' ? 'Submit Support Request' : 'Gửi Yêu Cầu Hỗ Trợ'}</span>
                         <Send className="w-5 h-5 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
                       </>
                     )}
@@ -360,8 +372,8 @@ const ContactPage = () => {
             {/* FAQs */}
             <motion.div initial={{ opacity: 0, x: -30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}>
               <div className="mb-8">
-                <h2 className="text-3xl font-extrabold text-slate-900 mb-4">Câu hỏi thường gặp</h2>
-                <p className="text-slate-500 text-lg">Tìm hiểu thêm về quy trình hỗ trợ của PM System.</p>
+                <h2 className="text-3xl font-extrabold text-slate-900 mb-4">{language === 'en' ? 'Frequently Asked Questions' : 'Câu hỏi thường gặp'}</h2>
+                <p className="text-slate-500 text-lg">{language === 'en' ? 'Learn more about the PM System support process.' : 'Tìm hiểu thêm về quy trình hỗ trợ của PM System.'}</p>
               </div>
               <div className="space-y-4">
                 {faqs.map((faq, idx) => (
@@ -417,8 +429,8 @@ const ContactPage = () => {
                       <Globe className="w-6 h-6" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-slate-900">Trụ Sở PM System</h4>
-                      <p className="text-sm text-slate-500 mt-1">Sẵn sàng đón tiếp khách hàng tham quan hệ thống quản lý chuẩn từ 8:00 - 17:00 các ngày trong tuần.</p>
+                      <h4 className="font-bold text-slate-900">{language === 'en' ? 'PM System HQ' : 'Trụ Sở PM System'}</h4>
+                      <p className="text-sm text-slate-500 mt-1">{language === 'en' ? 'Ready to welcome clients to visit our standard management system from 8:00 - 17:00 on weekdays.' : 'Sẵn sàng đón tiếp khách hàng tham quan hệ thống quản lý chuẩn từ 8:00 - 17:00 các ngày trong tuần.'}</p>
                     </div>
                   </div>
                 </div>

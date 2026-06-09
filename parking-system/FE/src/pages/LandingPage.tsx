@@ -8,10 +8,12 @@ import { Cpu, SmartphoneNfc, Zap, QrCode } from 'lucide-react';
 import animationData from '../components/ui/hasahar.json';
 import { hasActiveSessions, addActiveQr } from '../utils/auth';
 import api from '../services/api';
+import { useSettings } from '../hooks/useSettings.tsx';
 
 const LandingPage = () => {
   const navigate = useNavigate();
   const [showActiveWarning, setShowActiveWarning] = useState(false);
+  const { t } = useSettings();
 
   // Sync and verify active session with DB
   useEffect(() => {
@@ -100,13 +102,13 @@ const LandingPage = () => {
             >
 
               <motion.h1 variants={itemVariants} className="text-6xl lg:text-[84px] font-['Plus_Jakarta_Sans'] font-extrabold text-slate-900 leading-[1.05] tracking-[-0.04em]">
-                Hệ thống <br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-500 to-blue-500">Quản lý Đỗ xe</span> <br />
-                Thông minh
+                {t('heroTitle1')} <br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-500 to-blue-500">{t('heroTitle2')}</span> <br />
+                {t('heroTitle3')}
               </motion.h1>
 
               <motion.p variants={itemVariants} className="text-xl text-slate-500/80 leading-relaxed max-w-lg font-medium">
-                Thế hệ quản lý hạ tầng tiếp theo. Trải nghiệm sự liền mạch và tối ưu hóa không gian được dẫn dắt bởi trí tuệ nhân tạo kiến trúc.
+                {t('heroSubtitle')}
               </motion.p>
 
               <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-5 pt-4">
@@ -120,7 +122,7 @@ const LandingPage = () => {
                   }}
                   className="group relative bg-gradient-to-br from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-5 px-10 rounded-full shadow-2xl shadow-blue-600/40 flex items-center justify-center gap-3 transition-all duration-300 hover:-translate-y-1 active:scale-95 overflow-hidden cursor-pointer"
                 >
-                  <span className="relative z-10">Đặt chỗ ngay</span>
+                  <span className="relative z-10">{t('bookNow')}</span>
                   <svg className="h-5 w-5 group-hover:translate-x-1 transition-transform relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path d="M13 7l5 5m0 0l-5 5m5-5H6" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5"></path>
                   </svg>
@@ -130,7 +132,7 @@ const LandingPage = () => {
                   onClick={() => navigate('/pricing')}
                   className="bg-white/60 hover:bg-white text-blue-600 font-bold py-5 px-10 rounded-full border border-blue-100 backdrop-blur-sm transition-all duration-300 flex items-center justify-center hover:shadow-xl hover:-translate-y-1 active:scale-95 cursor-pointer"
                 >
-                  Xem Bảng giá
+                  {t('viewPricing')}
                 </button>
               </motion.div>
             </motion.div>
@@ -181,10 +183,10 @@ const LandingPage = () => {
                             </svg>
                           </div>
                           <div className="flex flex-col">
-                            <p className="text-[10px] uppercase font-black text-slate-400 tracking-[0.2em] mb-1">Tỉ lệ lấp đầy</p>
+                            <p className="text-[10px] uppercase font-black text-slate-400 tracking-[0.2em] mb-1">{t('occupancyRate')}</p>
                             <div className="flex items-center gap-2">
                               <span className="text-2xl font-black text-slate-900 tracking-tighter">88.4%</span>
-                              <span className="px-2 py-0.5 bg-blue-50 text-[10px] font-bold text-blue-600 rounded-md uppercase tracking-wider">Tối ưu</span>
+                              <span className="px-2 py-0.5 bg-blue-50 text-[10px] font-bold text-blue-600 rounded-md uppercase tracking-wider">{t('optimal')}</span>
                             </div>
                           </div>
                         </div>
@@ -218,10 +220,10 @@ const LandingPage = () => {
               className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8"
             >
               {[
-                { label: 'Thời gian hoạt động', value: '99.9', unit: '%', color: 'text-emerald-500' },
-                { label: 'Vị trí khả dụng', value: '1,248', unit: '', color: 'text-blue-500' },
-                { label: 'Thời gian xử lý', value: '4.2', unit: 'ms', color: 'text-indigo-500' },
-                { label: 'Điểm dữ liệu', value: '2.5', unit: 'Tr', color: 'text-blue-600' },
+                { label: t('statUptime'), value: '99.9', unit: '%', color: 'text-emerald-500' },
+                { label: t('statSpots'), value: '1,248', unit: '', color: 'text-blue-500' },
+                { label: t('statProcessing'), value: '4.2', unit: 'ms', color: 'text-indigo-500' },
+                { label: t('statDataPoints'), value: '2.5', unit: 'Tr', color: 'text-blue-600' },
               ].map((stat, i) => (
                 <motion.div
                   key={i}
@@ -250,7 +252,7 @@ const LandingPage = () => {
                 viewport={{ once: true }}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-[10px] font-black text-blue-600 uppercase tracking-widest mb-6 shadow-sm"
               >
-                <Zap size={14} className="text-blue-500" /> Công nghệ lõi
+                <Zap size={14} className="text-blue-500" /> {t('coreTech')}
               </motion.div>
               <motion.h2
                 initial={{ opacity: 0, y: 20 }}
@@ -259,7 +261,7 @@ const LandingPage = () => {
                 transition={{ delay: 0.1 }}
                 className="text-4xl md:text-5xl font-display font-extrabold text-slate-900 tracking-tight mb-6"
               >
-                Trải nghiệm đỗ xe <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500">không chạm</span>
+                {t('featuresTitle1')} <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500">{t('featuresTitle2')}</span>
               </motion.h2>
               <motion.p
                 initial={{ opacity: 0, y: 20 }}
@@ -268,7 +270,7 @@ const LandingPage = () => {
                 transition={{ delay: 0.2 }}
                 className="text-slate-500 text-lg font-medium leading-relaxed"
               >
-                Hệ thống PM System tích hợp công nghệ AI và IoT tiên tiến nhất, mang đến giải pháp quản lý bãi đỗ xe toàn diện và tự động hóa 100%.
+                {t('featuresDesc')}
               </motion.p>
             </div>
 
@@ -276,18 +278,18 @@ const LandingPage = () => {
               {[
                 {
                   icon: <Cpu className="w-8 h-8 text-indigo-500" />,
-                  title: 'Nhận diện AI tức thì',
-                  desc: 'Camera AI tự động đọc biển số xe trong 0.2s, mở barrier tự động không cần lấy vé giấy hay dừng chờ.'
+                  title: t('feat1Title'),
+                  desc: t('feat1Desc')
                 },
                 {
                   icon: <QrCode className="w-8 h-8 text-blue-500" />,
-                  title: 'Bản đồ số Digital Twin',
-                  desc: 'Giám sát hạ tầng theo thời gian thực. Cập nhật trạng thái từng vị trí đỗ chính xác đến từng giây.'
+                  title: t('feat2Title'),
+                  desc: t('feat2Desc')
                 },
                 {
                   icon: <SmartphoneNfc className="w-8 h-8 text-emerald-500" />,
-                  title: 'Thanh toán không tiền mặt',
-                  desc: 'Tích hợp VNPay, tự động trừ tiền qua mã QR. Khách hàng dễ dàng xuất bến mà không cần tiền mặt.'
+                  title: t('feat3Title'),
+                  desc: t('feat3Desc')
                 }
               ].map((feat, i) => (
                 <motion.div
@@ -324,9 +326,9 @@ const LandingPage = () => {
                 viewport={{ once: true }}
                 className="text-4xl md:text-5xl font-display font-extrabold text-slate-900 tracking-tight mb-6"
               >
-                Quy trình <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500">tối giản</span>
+                {t('howItWorksTitle1')} <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500">{t('howItWorksTitle2')}</span>
               </motion.h2>
-              <p className="text-slate-500 text-lg font-medium">Chỉ với 3 bước đơn giản, mọi thủ tục gửi xe của bạn sẽ được hoàn tất hoàn toàn tự động.</p>
+              <p className="text-slate-500 text-lg font-medium">{t('howItWorksSubtitle')}</p>
             </div>
 
             <div className="grid md:grid-cols-3 gap-12 relative">
@@ -340,9 +342,9 @@ const LandingPage = () => {
               </div>
               
               {[
-                { step: '01', title: 'Đặt chỗ trước', desc: 'Chọn bãi đỗ và vị trí thông qua bản đồ trực tuyến ngay trên điện thoại.' },
-                { step: '02', title: 'Quét & Nhận diện', desc: 'Hệ thống Camera AI tại cổng sẽ tự động nhận diện biển số và cấp quyền truy cập.' },
-                { step: '03', title: 'Tự động thanh toán', desc: 'Khi xe ra, hệ thống tự đối soát thời gian và trừ tiền tự động.' }
+                { step: '01', title: t('step1Title'), desc: t('step1Desc') },
+                { step: '02', title: t('step2Title'), desc: t('step2Desc') },
+                { step: '03', title: t('step3Title'), desc: t('step3Desc') }
               ].map((item, i) => (
                 <motion.div
                   key={i}
@@ -390,7 +392,7 @@ const LandingPage = () => {
               viewport={{ once: true }}
               className="text-4xl md:text-[56px] leading-[1.1] font-black text-slate-900 mb-8 tracking-tight font-display"
             >
-              Sẵn sàng trải nghiệm bãi đỗ xe của <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">tương lai?</span>
+              {t('ctaTitle1')} <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{t('ctaTitle2')}</span>
             </motion.h2>
             <motion.p
               initial={{ opacity: 0, y: 20 }}
@@ -399,7 +401,7 @@ const LandingPage = () => {
               transition={{ delay: 0.1 }}
               className="text-slate-500 text-lg md:text-xl mb-12 max-w-2xl mx-auto font-medium"
             >
-              Hàng ngàn khách hàng đã chuyển sang hệ thống quản lý thông minh. Tham gia mạng lưới của chúng tôi ngay hôm nay.
+              {t('ctaSubtitle')}
             </motion.p>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -417,7 +419,7 @@ const LandingPage = () => {
                 }}
                 className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 active:scale-95 transition-all duration-300 font-extrabold py-5 px-12 rounded-full text-sm uppercase tracking-widest shadow-2xl shadow-blue-500/25 cursor-pointer relative overflow-hidden group"
               >
-                <span className="relative z-10">Bắt đầu Đặt chỗ</span>
+                <span className="relative z-10">{t('startBooking')}</span>
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shine_1.5s_infinite] pointer-events-none"></div>
               </button>
             </motion.div>
@@ -431,12 +433,12 @@ const LandingPage = () => {
           <div className="flex flex-col md:flex-row items-center justify-between gap-10">
             <BrandLogo size="md" asLink />
             <div className="flex gap-12">
-              <a className="text-slate-400 hover:text-blue-600 text-xs font-bold uppercase tracking-widest transition-colors" href="#">Kiến trúc</a>
-              <a className="text-slate-400 hover:text-blue-600 text-xs font-bold uppercase tracking-widest transition-colors" href="#">Mạng lưới</a>
-              <a className="text-slate-400 hover:text-blue-600 text-xs font-bold uppercase tracking-widest transition-colors" href="#">Bảo mật</a>
+              <a className="text-slate-400 hover:text-blue-600 text-xs font-bold uppercase tracking-widest transition-colors" href="#">{t('footerArchitecture')}</a>
+              <a className="text-slate-400 hover:text-blue-600 text-xs font-bold uppercase tracking-widest transition-colors" href="#">{t('footerNetwork')}</a>
+              <a className="text-slate-400 hover:text-blue-600 text-xs font-bold uppercase tracking-widest transition-colors" href="#">{t('footerSecurity')}</a>
             </div>
             <p className="text-slate-400 text-xs font-medium uppercase tracking-[0.1em]">
-              © 2026 Thiết kế bởi PM System Global.
+              {t('footerCopy')}
             </p>
           </div>
         </div>
@@ -465,11 +467,11 @@ const LandingPage = () => {
               </div>
               
               <h3 className="text-lg font-black text-slate-900 tracking-tight leading-snug mb-2">
-                Phiên đỗ đang hoạt động
+                {t('activeSessionTitle')}
               </h3>
               
               <p className="text-slate-500 text-xs font-semibold leading-relaxed mb-8 px-2">
-                Bạn đang có một phiên đỗ xe chưa kết thúc (xe chưa ra khỏi bãi). Vui lòng hoàn tất thanh toán lối ra cho xe hiện tại trước khi thực hiện đặt chỗ mới.
+                {t('activeSessionDesc')}
               </p>
               
               <div className="flex flex-col gap-2.5 w-full">
@@ -481,7 +483,7 @@ const LandingPage = () => {
                   className="w-full bg-slate-950 hover:bg-slate-900 active:scale-[0.98] text-white font-extrabold py-3.5 rounded-full text-[10px] uppercase tracking-wider transition-all shadow-lg cursor-pointer flex items-center justify-center gap-1.5"
                 >
                   <span className="material-symbols-outlined text-[14px]">visibility</span>
-                  Xem phiên đỗ hiện tại
+                  {t('viewCurrentSession')}
                 </button>
                 <button
                   onClick={() => {
@@ -491,13 +493,13 @@ const LandingPage = () => {
                   className="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-extrabold py-3.5 rounded-full text-[10px] uppercase tracking-wider transition-all shadow-lg shadow-blue-500/10 cursor-pointer flex items-center justify-center gap-1.5"
                 >
                   <span className="material-symbols-outlined text-[14px]">directions_car</span>
-                  Đặt chỗ cho xe khác
+                  {t('bookForAnotherCar')}
                 </button>
                 <button
                   onClick={() => setShowActiveWarning(false)}
                   className="w-full hover:bg-slate-50 text-slate-500 font-extrabold py-3 rounded-full text-[10px] uppercase tracking-wider transition-all cursor-pointer"
                 >
-                  Đóng
+                  {t('close')}
                 </button>
               </div>
             </motion.div>

@@ -4,10 +4,12 @@ import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 import { hasActiveSessions, addActiveQr } from '../utils/auth';
 import api from '../services/api';
+import { useSettings } from '../hooks/useSettings.tsx';
 
 const PricingPage = () => {
   const navigate = useNavigate();
   const [showActiveWarning, setShowActiveWarning] = useState(false);
+  const { t, language } = useSettings();
 
   // Sync and verify active session with DB
   useEffect(() => {
@@ -100,6 +102,50 @@ const PricingPage = () => {
     };
     fetchRegulations();
   }, []);
+
+  const getLocalizedVehicleType = (type: string) => {
+    const t = type.toLowerCase();
+    if (t.includes('xe máy') || t.includes('motorbike')) {
+      return language === 'en' ? 'Motorbike' : 'Xe máy';
+    }
+    if (t.includes('4-7 chỗ') || t.includes('ô tô') || t.includes('car')) {
+      return language === 'en' ? 'Car (4-7 seats)' : 'Ô tô 4-7 chỗ';
+    }
+    if (t.includes('suv') || t.includes('bán tải') || t.includes('truck')) {
+      return language === 'en' ? 'SUV / Truck' : 'SUV / Bán tải';
+    }
+    return type;
+  };
+
+  const getLocalizedSub = (sub: string) => {
+    if (!sub) return '';
+    const cleanSub = sub.replace(/[Vv][Nn]Đ/g, '').replace(/[Vv][Nn][Dd]/g, '').replace(/[\/\s]/g, '').toLowerCase();
+    if (cleanSub.includes('lượt') || cleanSub.includes('turn') || cleanSub.includes('session')) {
+      return language === 'en' ? '/ Session' : '/ Lượt';
+    }
+    if (cleanSub.includes('giờ') || cleanSub.includes('hour')) {
+      return language === 'en' ? '/ Hour' : '/ Giờ';
+    }
+    if (cleanSub.includes('ngày') || cleanSub.includes('day')) {
+      return language === 'en' ? '/ Day' : '/ Ngày';
+    }
+    return sub;
+  };
+
+  const getLocalizedRegulation = (content: string, index: number) => {
+    const defaultEnRules = [
+      'Please park in the reserved slot or scan the QR code on spot.',
+      'Maximum speed limit within the entire parking area is 10km/h.',
+      'Strictly comply with staff instructions and smart traffic signs.',
+      'Complete online payment via the app before reaching the exit gate.',
+      'No flammable materials, explosives, weapons, or contraband inside vehicles.',
+      'Take care of personal valuables. Management holds no liability for loss inside vehicle.'
+    ];
+    if (language === 'en' && index < defaultEnRules.length) {
+      return defaultEnRules[index];
+    }
+    return content;
+  };
 
   // Fresh design properties for each vehicle card
   const getCardTheme = (type: string) => {
@@ -194,7 +240,7 @@ const PricingPage = () => {
               transition={{ delay: 0.1, duration: 0.6 }}
               className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.15]"
             >
-              Bảng Giá <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">&</span> Nội Quy
+              {language === 'en' ? 'Pricing' : 'Bảng Giá'} <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">&</span> {language === 'en' ? 'Regulations' : 'Nội Quy'}
             </motion.h1>
             
             <motion.p
@@ -203,7 +249,9 @@ const PricingPage = () => {
               transition={{ delay: 0.2, duration: 0.6 }}
               className="text-slate-500 text-lg font-medium leading-relaxed max-w-2xl mx-auto"
             >
-              Thông tin minh bạch và quy định rõ ràng, giúp trải nghiệm đỗ xe của bạn luôn an toàn, mượt mà và tiện lợi nhất.
+              {language === 'en' 
+                ? 'Transparent pricing and clear regulations to ensure your parking experience is always safe, smooth, and highly convenient.'
+                : 'Thông tin minh bạch và quy định rõ ràng, giúp trải nghiệm đỗ xe của bạn luôn an toàn, mượt mà và tiện lợi nhất.'}
             </motion.p>
           </div>
 
@@ -239,7 +287,7 @@ const PricingPage = () => {
 
                     {/* Title */}
                     <h3 className="text-lg font-bold text-slate-800 tracking-tight mb-6 relative z-10">
-                      {p.type}
+                      {getLocalizedVehicleType(p.type)}
                     </h3>
 
                     {/* Price Block */}
@@ -249,7 +297,7 @@ const PricingPage = () => {
                           {p.price}
                         </span>
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                          {p.sub.replace('VNĐ', '').trim()}
+                          {language === 'en' ? getLocalizedSub(p.sub).replace('/', '').trim() : p.sub.replace('VNĐ', '').trim()}
                         </span>
                       </div>
                     </div>
@@ -260,7 +308,9 @@ const PricingPage = () => {
 
             {/* Centered Footnote */}
             <div className="text-center text-xs text-slate-400 font-medium">
-              * Tất cả các biểu phí trên đã bao gồm thuế và dịch vụ tiện ích thông minh.
+              {language === 'en' 
+                ? '* All fees listed above include tax and smart utility services.'
+                : '* Tất cả các biểu phí trên đã bao gồm thuế và dịch vụ tiện ích thông minh.'}
             </div>
 
             {/* Flat Grid: Action triggers & Operating Regulations */}
@@ -273,10 +323,12 @@ const PricingPage = () => {
               >
                 <div className="text-left">
                   <h3 className="text-xl font-bold text-slate-900 tracking-tight mb-3">
-                    Đặt Chỗ Trực Tuyến
+                    {language === 'en' ? 'Online Reservation' : 'Đặt Chỗ Trực Tuyến'}
                   </h3>
                   <p className="text-sm text-slate-500 font-medium leading-relaxed">
-                    Giữ chỗ trước qua ứng dụng để đảm bảo có vị trí trống ngay khi phương tiện đi vào bãi đỗ xe thông minh.
+                    {language === 'en'
+                      ? 'Reserve your spot in advance via the app to secure a slot as soon as your vehicle enters the smart parking lot.'
+                      : 'Giữ chỗ trước qua ứng dụng để đảm bảo có vị trí trống ngay khi phương tiện đi vào bãi đỗ xe thông minh.'}
                   </p>
 
                   <div className="mt-8 p-6 rounded-2xl bg-gradient-to-br from-blue-50/50 to-indigo-50/50 border border-blue-100/50 space-y-4">
@@ -285,7 +337,7 @@ const PricingPage = () => {
                         <span className="material-symbols-outlined text-blue-600 text-[14px] font-bold">check</span>
                       </div>
                       <p className="text-xs text-slate-600 font-semibold leading-relaxed pt-1">
-                        Nhận diện biển số thông minh 2s.
+                        {language === 'en' ? 'Instant 2s license plate recognition.' : 'Nhận diện biển số thông minh 2s.'}
                       </p>
                     </div>
                     <div className="flex gap-3 items-start">
@@ -293,7 +345,7 @@ const PricingPage = () => {
                         <span className="material-symbols-outlined text-indigo-600 text-[14px] font-bold">check</span>
                       </div>
                       <p className="text-xs text-slate-600 font-semibold leading-relaxed pt-1">
-                        Thanh toán QR không dùng tiền mặt.
+                        {language === 'en' ? 'Cashless payment via QR code.' : 'Thanh toán QR không dùng tiền mặt.'}
                       </p>
                     </div>
                   </div>
@@ -310,14 +362,14 @@ const PricingPage = () => {
                     }}
                     className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-4 rounded-2xl text-sm transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)] hover:shadow-[0_0_30px_rgba(37,99,235,0.5)] cursor-pointer flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99]"
                   >
-                    <span>Bắt Đầu Đặt Chỗ</span>
+                    <span>{language === 'en' ? 'Start Booking' : 'Bắt Đầu Đặt Chỗ'}</span>
                     <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                   </button>
                   <button
                     onClick={() => navigate('/')}
                     className="w-full bg-white/80 hover:bg-white border border-slate-200 text-slate-500 hover:text-blue-600 font-bold py-4 rounded-2xl text-sm transition-all cursor-pointer text-center"
                   >
-                    Về Trang Chủ
+                    {language === 'en' ? 'Back to Home' : 'Về Trang Chủ'}
                   </button>
                 </div>
               </motion.div>
@@ -333,7 +385,9 @@ const PricingPage = () => {
                       <span className="material-symbols-outlined text-xl">gavel</span>
                     </div>
                     <div>
-                      <h3 className="text-xl font-bold text-slate-900 tracking-tight leading-none mb-1.5">Nội Quy Vận Hành</h3>
+                      <h3 className="text-xl font-bold text-slate-900 tracking-tight leading-none mb-1.5">
+                        {language === 'en' ? 'Operating Regulations' : 'Nội Quy Vận Hành'}
+                      </h3>
                       <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">PM System Management</p>
                     </div>
                   </div>
@@ -352,9 +406,11 @@ const PricingPage = () => {
                           <span className="material-symbols-outlined text-[18px]">{icon}</span>
                         </div>
                         <div className="pt-0.5">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Quy định 0{i + 1}</span>
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">
+                            {language === 'en' ? `Rule 0${i + 1}` : `Quy định 0${i + 1}`}
+                          </span>
                           <p className="text-slate-600 text-xs font-medium leading-relaxed">
-                            {reg}
+                            {getLocalizedRegulation(reg, i)}
                           </p>
                         </div>
                       </div>
@@ -365,7 +421,7 @@ const PricingPage = () => {
                 <div className="mt-8 pt-6 border-t border-slate-100/80 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-500 font-bold">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>Hệ thống giám sát bảo mật 24/7</span>
+                    <span>{language === 'en' ? '24/7 Security Monitoring System' : 'Hệ thống giám sát bảo mật 24/7'}</span>
                   </div>
                   <span className="bg-slate-100 px-3 py-1.5 rounded-lg text-[11px] uppercase tracking-wider text-slate-500">
                     Hotline: 0816 386 382
@@ -400,11 +456,13 @@ const PricingPage = () => {
               </div>
 
               <h3 className="text-xl font-bold text-slate-900 tracking-tight leading-snug mb-3 relative z-10">
-                Phiên đỗ đang hoạt động
+                {language === 'en' ? 'Active Parking Session' : 'Phiên đỗ đang hoạt động'}
               </h3>
 
               <p className="text-slate-500 text-sm font-medium leading-relaxed mb-8 px-2 relative z-10">
-                Bạn đang có một phiên đỗ xe chưa kết thúc (xe chưa ra khỏi bãi). Vui lòng hoàn tất thanh toán cho xe hiện tại trước khi đặt chỗ mới.
+                {language === 'en'
+                  ? 'You currently have an active parking session (vehicle still inside). Please complete payment for the current vehicle before creating a new booking.'
+                  : 'Bạn đang có một phiên đỗ xe chưa kết thúc (xe chưa ra khỏi bãi). Vui lòng hoàn tất thanh toán cho xe hiện tại trước khi đặt chỗ mới.'}
               </p>
 
               <div className="flex flex-col gap-3 w-full relative z-10">
@@ -413,26 +471,26 @@ const PricingPage = () => {
                     setShowActiveWarning(false);
                     navigate('/active-session');
                   }}
-                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 rounded-2xl text-sm transition-all shadow-lg active:scale-[0.98] flex items-center justify-center gap-2"
+                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 rounded-2xl text-sm transition-all shadow-lg active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[18px]">visibility</span>
-                  Xem phiên hiện tại
+                  {language === 'en' ? 'View current session' : 'Xem phiên hiện tại'}
                 </button>
                 <button
                   onClick={() => {
                     setShowActiveWarning(false);
                     navigate('/reserve', { state: { bypassActiveCheck: true } });
                   }}
-                  className="w-full bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold py-4 rounded-2xl text-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                  className="w-full bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold py-4 rounded-2xl text-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[18px]">directions_car</span>
-                  Đặt xe khác
+                  {language === 'en' ? 'Book another vehicle' : 'Đặt xe khác'}
                 </button>
                 <button
                   onClick={() => setShowActiveWarning(false)}
-                  className="w-full text-slate-400 hover:text-slate-600 font-bold py-3 rounded-2xl text-sm transition-all"
+                  className="w-full text-slate-400 hover:text-slate-600 font-bold py-3 rounded-2xl text-sm transition-all cursor-pointer"
                 >
-                  Hủy
+                  {language === 'en' ? 'Cancel' : 'Hủy'}
                 </button>
               </div>
             </motion.div>

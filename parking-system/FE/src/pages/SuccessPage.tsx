@@ -6,12 +6,14 @@ import Navbar from '../components/layout/Navbar';
 import { parseLicensePlate } from '../utils/auth';
 import api from '../services/api';
 import QRCode from 'qrcode';
+import { useSettings } from '../hooks/useSettings.tsx';
 
 const SuccessPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const mode = location.state?.mode || 'reserve';
   const qrCode = location.state?.qrCode || '';
+  const { t, language } = useSettings();
   const [status, setStatus] = useState<'qr' | 'opening'>(mode === 'checkout' ? 'opening' : 'qr');
   const [licensePlate, setLicensePlate] = useState('51F-123.45');
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
@@ -27,13 +29,17 @@ const SuccessPage = () => {
   let displayFloor = parkingInfo.floor;
   if (selectedSlot && selectedSlot !== 'Auto') {
     const prefix = selectedSlot.charAt(0).toUpperCase();
-    if (prefix === 'A' || prefix === 'B') displayFloor = 'Tầng 1';
-    else if (prefix === 'C' || prefix === 'D') displayFloor = 'Tầng 2';
-    else if (prefix === 'E' || prefix === 'F') displayFloor = 'Tầng 3';
+    if (prefix === 'A' || prefix === 'B') displayFloor = language === 'en' ? 'Floor 1' : 'Tầng 1';
+    else if (prefix === 'C' || prefix === 'D') displayFloor = language === 'en' ? 'Floor 2' : 'Tầng 2';
+    else if (prefix === 'E' || prefix === 'F') displayFloor = language === 'en' ? 'Floor 3' : 'Tầng 3';
+  } else {
+    if (displayFloor === 'Tầng 1') displayFloor = language === 'en' ? 'Floor 1' : 'Tầng 1';
+    else if (displayFloor === 'Tầng 2') displayFloor = language === 'en' ? 'Floor 2' : 'Tầng 2';
+    else if (displayFloor === 'Tầng 3') displayFloor = language === 'en' ? 'Floor 3' : 'Tầng 3';
   }
 
-  const resDate = localStorage.getItem('reservationDate') ? new Date(localStorage.getItem('reservationDate')!).toLocaleDateString('vi-VN') : new Date().toLocaleDateString('vi-VN');
-  const resTime = localStorage.getItem('reservationStartTime') || new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  const resDate = localStorage.getItem('reservationDate') ? new Date(localStorage.getItem('reservationDate')!).toLocaleDateString(language === 'en' ? 'en-US' : 'vi-VN') : new Date().toLocaleDateString(language === 'en' ? 'en-US' : 'vi-VN');
+  const resTime = localStorage.getItem('reservationStartTime') || new Date().toLocaleTimeString(language === 'en' ? 'en-US' : 'vi-VN', { hour: '2-digit', minute: '2-digit' });
 
   useEffect(() => {
     if (qrCode) {
@@ -122,13 +128,19 @@ const SuccessPage = () => {
               <div className="w-20 h-20 bg-emerald-500 rounded-full mx-auto flex items-center justify-center mb-6 shadow-lg shadow-emerald-500/20">
                 <CheckCircle2 className="text-white w-10 h-10" />
               </div>
-              <h1 className="text-3xl font-display font-bold text-on-surface mb-2">Đặt chỗ thành công!</h1>
-              <p className="text-on-surface-variant text-sm font-medium mb-10 italic">Mã đơn hàng: #PKI-88902-Z1</p>
+              <h1 className="text-3xl font-display font-bold text-on-surface mb-2">
+                {language === 'en' ? 'Booking Successful!' : 'Đặt chỗ thành công!'}
+              </h1>
+              <p className="text-on-surface-variant text-sm font-medium mb-10 italic">
+                {language === 'en' ? 'Order Code:' : 'Mã đơn hàng:'} #PKI-88902-Z1
+              </p>
 
               {/* QR Code Container */}
               <div className="bg-surface-container-low p-8 rounded-[2.5rem] border border-outline-variant/20 relative mb-10 group">
                 <div className="absolute inset-0 bg-white/20 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-[2.5rem] pointer-events-none">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-primary">Biển số: {licensePlate}</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-primary">
+                    {language === 'en' ? 'License Plate:' : 'Biển số:'} {licensePlate}
+                  </span>
                 </div>
                  {/* Real Scannable QR Code Image */}
                 <div className="mx-auto w-[200px] h-[200px] bg-white p-3 rounded-3xl border border-outline-variant/10 shadow-inner flex items-center justify-center">
@@ -140,12 +152,14 @@ const SuccessPage = () => {
                     />
                   ) : (
                     <div className="text-xs text-outline font-bold animate-pulse">
-                      Đang tạo mã quét...
+                      {language === 'en' ? 'Generating QR Code...' : 'Đang tạo mã quét...'}
                     </div>
                   )}
                 </div>
                 <div className="mt-6 flex flex-col items-center">
-                  <span className="text-[8px] font-black text-outline uppercase tracking-[0.25em] mb-1">MÃ QUÉT CỦA BẠN</span>
+                  <span className="text-[8px] font-black text-outline uppercase tracking-[0.25em] mb-1">
+                    {language === 'en' ? 'YOUR SCAN CODE' : 'MÃ QUÉT CỦA BẠN'}
+                  </span>
                   <span className="text-sm font-extrabold text-primary font-mono select-all bg-primary/5 px-4 py-1.5 rounded-full border border-primary/10 tracking-widest">{qrCode || 'QR_NO_CODE'}</span>
                 </div>
               </div>
@@ -153,12 +167,16 @@ const SuccessPage = () => {
               {/* Details */}
               <div className="grid grid-cols-2 gap-4 mb-10">
                 <div className="p-4 bg-surface-container rounded-2xl border border-outline-variant/10">
-                  <span className="text-[8px] font-black text-outline uppercase tracking-widest block mb-1">Vị trí</span>
+                  <span className="text-[8px] font-black text-outline uppercase tracking-widest block mb-1">
+                    {language === 'en' ? 'Location' : 'Vị trí'}
+                  </span>
                   <p className="text-[13px] font-black text-on-surface leading-tight truncate" title={parkingInfo.name}>{parkingInfo.name}</p>
                   <p className="text-[10px] text-on-surface-variant font-bold mt-0.5">{displayFloor} • Slot {selectedSlot}</p>
                 </div>
                 <div className="p-4 bg-surface-container rounded-2xl border border-outline-variant/10">
-                  <span className="text-[8px] font-black text-outline uppercase tracking-widest block mb-1">Thời gian</span>
+                  <span className="text-[8px] font-black text-outline uppercase tracking-widest block mb-1">
+                    {language === 'en' ? 'Time' : 'Thời gian'}
+                  </span>
                   <p className="text-[13px] font-black text-on-surface leading-tight truncate">{resDate}</p>
                   <p className="text-[10px] text-on-surface-variant font-bold mt-0.5">{resTime}</p>
                 </div>
@@ -166,12 +184,12 @@ const SuccessPage = () => {
 
               {/* Actions */}
               <div className="flex flex-col gap-3">
-                <button className="w-full bg-primary text-on-primary font-bold py-4 rounded-2xl shadow-lg shadow-primary/10 flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">
+                <button className="w-full bg-primary text-on-primary font-bold py-4 rounded-2xl shadow-lg shadow-primary/10 flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform cursor-pointer">
                   <Download className="w-4 h-4" />
-                  Lưu mã QR về điện thoại
+                  {language === 'en' ? 'Save QR code to phone' : 'Lưu mã QR về điện thoại'}
                 </button>
-                <button className="w-full bg-surface-container hover:bg-surface-container-high font-bold py-4 rounded-2xl transition-all flex items-center justify-center gap-2 text-xs">
-                  <Share2 className="w-4 h-4" /> Chia sẻ mã QR
+                <button className="w-full bg-surface-container hover:bg-surface-container-high font-bold py-4 rounded-2xl transition-all flex items-center justify-center gap-2 text-xs cursor-pointer">
+                  <Share2 className="w-4 h-4" /> {language === 'en' ? 'Share QR code' : 'Chia sẻ mã QR'}
                 </button>
               </div>
 
@@ -179,10 +197,14 @@ const SuccessPage = () => {
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-2">
                     <Loader2 className="w-3 h-3 text-primary animate-spin" />
-                    <span className="text-[9px] font-black text-primary uppercase tracking-widest">Đang chờ Staff quét mã...</span>
+                    <span className="text-[9px] font-black text-primary uppercase tracking-widest">
+                      {language === 'en' ? 'Awaiting staff QR scan...' : 'Đang chờ Staff quét mã...'}
+                    </span>
                   </div>
                   <p className="text-[10px] text-primary/60 font-medium text-left leading-relaxed italic">
-                    Vui lòng dơ mã QR này trước Camera của nhân viên. Hệ thống sẽ tự động chuyển hướng khi xác thực thành công.
+                    {language === 'en'
+                      ? 'Please present this QR code to the staff camera. The system will automatically redirect upon successful validation.'
+                      : 'Vui lòng dơ mã QR này trước Camera của nhân viên. Hệ thống sẽ tự động chuyển hướng khi xác thực thành công.'}
                   </p>
                 </div>
               </div>
@@ -204,12 +226,12 @@ const SuccessPage = () => {
               </motion.div>
               
               <h1 className="text-3xl font-display font-black text-on-surface mb-4">
-                {mode === 'checkout' ? 'Thanh toán thành công!' : 'Xác thực thành công!'}
+                {mode === 'checkout' ? (language === 'en' ? 'Payment Successful!' : 'Thanh toán thành công!') : (language === 'en' ? 'Validation Successful!' : 'Xác thực thành công!')}
               </h1>
               <p className="text-slate-500 font-medium mb-12">
                 {mode === 'checkout' 
-                  ? 'Hệ thống đã xác nhận thanh toán phí đỗ xe. Barrier lối ra đang mở...' 
-                  : 'Hệ thống Staff đã xác nhận thông tin đặt chỗ. Đang mở Barrier lối vào...'}
+                  ? (language === 'en' ? 'The system has confirmed the parking fee payment. Exit barrier is opening...' : 'Hệ thống đã xác nhận thanh toán phí đỗ xe. Barrier lối ra đang mở...') 
+                  : (language === 'en' ? 'Staff system has verified the reservation. Entrance barrier is opening...' : 'Hệ thống Staff đã xác nhận thông tin đặt chỗ. Đang mở Barrier lối vào...')}
               </p>
 
               {/* Barrier Animation Mockup */}
@@ -235,7 +257,7 @@ const SuccessPage = () => {
                     {mode === 'checkout' ? 'EXIT BARRIER OPENED' : 'BARRIER OPENED'}
                   </div>
                   <p className="mt-4 text-[10px] font-bold text-blue-600 uppercase tracking-widest animate-pulse">
-                    {mode === 'checkout' ? 'Chúc quý khách thượng lộ bình an!' : 'Vui lòng di chuyển vào bãi...'}
+                    {mode === 'checkout' ? (language === 'en' ? 'Have a safe trip!' : 'Chúc quý khách thượng lộ bình an!') : (language === 'en' ? 'Please proceed inside...' : 'Vui lòng di chuyển vào bãi...')}
                   </p>
                 </motion.div>
               </div>
@@ -243,7 +265,7 @@ const SuccessPage = () => {
               <div className="mt-12 flex items-center justify-center gap-3">
                 <Loader2 className="w-4 h-4 text-primary animate-spin" />
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                  {mode === 'checkout' ? 'Đang chuyển hướng về Trang chủ...' : 'Đang chuyển hướng tới bản đồ...'}
+                  {mode === 'checkout' ? (language === 'en' ? 'Redirecting to Home...' : 'Đang chuyển hướng về Trang chủ...') : (language === 'en' ? 'Redirecting to Navigation map...' : 'Đang chuyển hướng tới bản đồ...')}
                 </span>
               </div>
             </motion.div>
@@ -255,4 +277,3 @@ const SuccessPage = () => {
 };
 
 export default SuccessPage;
-

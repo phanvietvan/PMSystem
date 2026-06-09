@@ -6,51 +6,33 @@ import {
   AlertCircle,
   ChevronDown,
   MapPin,
-  Plus,
-  Trash2,
-  Globe,
-  Layers,
-  Search,
   Clock,
   Building,
   ArrowRight,
   Shield,
-  CircleAlert,
-  Eye
+  CircleAlert
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import AdminLayout from '../components/admin/AdminLayout';
 import api from '../services/api';
 import { useAdminUser } from '../hooks/useAdminUser';
 import { getUserDisplayName, parseLicensePlate } from '../utils/auth';
+import { useSettings } from '../hooks/useSettings.tsx';
 
 const AdminDashboard = () => {
   const user = useAdminUser();
+  const { t, language } = useSettings();
 
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return '☀️ Chào buổi sáng';
-    if (hour < 18) return '🌤️ Chào buổi chiều';
-    return '🌙 Chào buổi tối';
+    if (hour < 12) return language === 'en' ? '☀️ Good morning' : '☀️ Chào buổi sáng';
+    if (hour < 18) return language === 'en' ? '🌤️ Good afternoon' : '🌤️ Chào buổi chiều';
+    return language === 'en' ? '🌙 Good evening' : '🌙 Chào buổi tối';
   };
-
-  const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
-
-  const showToast = (text: string, type: 'success' | 'error' | 'info' = 'success') => {
-    setToastMessage({ text, type });
-  };
-
-  useEffect(() => {
-    if (toastMessage) {
-      const timer = setTimeout(() => setToastMessage(null), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [toastMessage]);
 
   useEffect(() => {
     const fetchSessions = async () => {
@@ -170,10 +152,10 @@ const AdminDashboard = () => {
   };
 
   const metrics = [
-    { label: 'TỔNG DOANH THU', value: loading ? '...' : formatRevenue(totalRevenue), unit: 'VND', trend: '+12%', icon: TrendingUp, color: 'text-blue-600', sub: 'Toàn thời gian' },
-    { label: 'TỶ LỆ LẤP ĐẦY', value: loading ? '...' : occupancyRate, trend: 'Hiện tại', icon: Car, color: 'text-emerald-600', sub: 'Công suất tối ưu' },
-    { label: 'ĐẶT CHỖ HOẠT ĐỘNG', value: loading ? '...' : activeBookings.toString(), trend: 'Mới', icon: CalendarDays, color: 'text-blue-500', sub: 'Đang gửi & chờ' },
-    { label: 'BÁO CÁO SỰ CỐ', value: incidents.filter(inc => inc.status === 'Chờ xử lý').length.toString().padStart(2, '0'), unit: '', trend: 'KHẨN CẤP', icon: AlertCircle, color: 'text-red-600', sub: `${incidents.filter(inc => inc.status === 'Chờ xử lý').length} sự cố chưa xử lý`, urgent: true },
+    { label: t('totalRevenue'), value: loading ? '...' : formatRevenue(totalRevenue), unit: 'VND', trend: '+12%', icon: TrendingUp, color: 'text-blue-600', sub: language === 'en' ? 'All time' : 'Toàn thời gian' },
+    { label: language === 'en' ? 'OCCUPANCY RATE' : 'TỶ LỆ LẤP ĐẦY', value: loading ? '...' : occupancyRate, trend: language === 'en' ? 'Current' : 'Hiện tại', icon: Car, color: 'text-emerald-600', sub: language === 'en' ? 'Optimal capacity' : 'Công suất tối ưu' },
+    { label: t('activeSessions'), value: loading ? '...' : activeBookings.toString(), trend: language === 'en' ? 'New' : 'Mới', icon: CalendarDays, color: 'text-blue-500', sub: language === 'en' ? 'Parked & waiting' : 'Đang gửi & chờ' },
+    { label: language === 'en' ? 'INCIDENT REPORTS' : 'BÁO CÁO SỰ CỐ', value: incidents.filter(inc => inc.status === 'Chờ xử lý').length.toString().padStart(2, '0'), unit: '', trend: language === 'en' ? 'URGENT' : 'KHẨN CẤP', icon: AlertCircle, color: 'text-red-600', sub: `${incidents.filter(inc => inc.status === 'Chờ xử lý').length} ${language === 'en' ? 'unresolved incidents' : 'sự cố chưa xử lý'}`, urgent: true },
   ];
 
 
@@ -190,14 +172,14 @@ const AdminDashboard = () => {
           <div className="flex justify-between items-end">
             <div>
               <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">{getGreeting()}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500">{getUserDisplayName(user)}</span></h2>
-              <p className="text-sm text-slate-500 font-medium">Dưới đây là hiệu suất vận hành bãi đỗ xe của bạn hôm nay, {new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}.</p>
+              <p className="text-sm text-slate-500 font-medium">{language === 'en' ? `Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}.` : `Dưới đây là hiệu suất vận hành bãi đỗ xe của bạn hôm nay, ${new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}.`}</p>
             </div>
             <Link 
               to="/admin/settings?tab=parking"
               className="bg-blue-600 hover:bg-blue-700 text-white font-black py-3 px-6 rounded-2xl text-[11px] uppercase tracking-widest transition-all shadow-xl shadow-blue-500/20 flex items-center gap-2"
             >
               <span className="material-symbols-outlined text-[16px]">edit_note</span>
-              CHỈNH SỬA BẢNG GIÁ
+              {language === 'en' ? 'EDIT PRICING' : 'CHỈNH SỬA BẢNG GIÁ'}
             </Link>
           </div>
 
@@ -239,13 +221,13 @@ const AdminDashboard = () => {
             <div className="col-span-12 lg:col-span-8 bg-white p-8 rounded-[2rem] border border-slate-200/80 shadow-xl shadow-slate-200/40">
               <div className="flex justify-between items-center mb-10">
                 <div>
-                  <h3 className="text-lg font-black text-slate-900 tracking-tight">Xu hướng Doanh Thu</h3>
-                  <p className="text-xs text-slate-400 font-bold">Thống kê doanh thu theo tuần (VNĐ)</p>
+                  <h3 className="text-lg font-black text-slate-900 tracking-tight">{language === 'en' ? 'Revenue Trend' : 'Xu hướng Doanh Thu'}</h3>
+                  <p className="text-xs text-slate-400 font-bold">{language === 'en' ? 'Weekly revenue statistics (VND)' : 'Thống kê doanh thu theo tuần (VNĐ)'}</p>
                 </div>
                 <div className="flex items-center bg-slate-100/80 p-1 rounded-xl border border-slate-200/60 shadow-inner">
-                  <button className="text-[11px] font-extrabold px-4 py-1.5 rounded-lg bg-white text-blue-600 shadow-sm border border-slate-200/50 transition-all">7 ngày qua</button>
+                  <button className="text-[11px] font-extrabold px-4 py-1.5 rounded-lg bg-white text-blue-600 shadow-sm border border-slate-200/50 transition-all">{language === 'en' ? 'Last 7 days' : '7 ngày qua'}</button>
                   <button className="text-[11px] font-bold px-4 py-1.5 text-slate-500 hover:text-slate-800 transition-colors flex items-center gap-1.5">
-                    30 ngày qua
+                    {language === 'en' ? 'Last 30 days' : '30 ngày qua'}
                     <ChevronDown className="w-3.5 h-3.5 opacity-70" />
                   </button>
                 </div>
@@ -265,7 +247,7 @@ const AdminDashboard = () => {
                     >
                       {(hoveredIndex === i || (hoveredIndex === null && day.isToday)) && (
                         <div className="absolute -top-12 bg-slate-900 text-white text-[10px] font-black px-3 py-1.5 rounded-lg shadow-xl mb-2 flex items-center gap-2 z-20 whitespace-nowrap pointer-events-none">
-                          {day.isToday ? 'Hôm nay' : `${day.dayName} ${day.dateLabel}`}: {day.revenue.toLocaleString('vi-VN')}đ
+                          {day.isToday ? (language === 'en' ? 'Today' : 'Hôm nay') : `${day.dayName} ${day.dateLabel}`}: {day.revenue.toLocaleString('vi-VN')}đ
                           <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-900 rotate-45"></div>
                         </div>
                       )}
@@ -276,7 +258,7 @@ const AdminDashboard = () => {
                         ></div>
                       </div>
                       <span className={`mt-2 text-[9px] font-black shrink-0 ${day.isToday ? 'text-blue-600' : 'text-slate-400'}`}>
-                        {day.isToday ? 'Hôm nay' : day.dayName}
+                        {day.isToday ? (language === 'en' ? 'Today' : 'Hôm nay') : day.dayName}
                       </span>
                     </div>
                   );
@@ -286,8 +268,8 @@ const AdminDashboard = () => {
 
             {/* Vehicle Mix Area */}
             <div className="col-span-12 lg:col-span-4 bg-white p-8 rounded-[2rem] border border-slate-200/80 shadow-xl shadow-slate-200/40">
-              <h3 className="text-lg font-black text-slate-900 tracking-tight mb-2">Cơ cấu Phương Tiện</h3>
-              <p className="text-xs text-slate-400 font-bold mb-10">Phân bổ lưu lượng theo loại xe</p>
+              <h3 className="text-lg font-black text-slate-900 tracking-tight mb-2">{language === 'en' ? 'Vehicle Mix' : 'Cơ cấu Phương Tiện'}</h3>
+              <p className="text-xs text-slate-400 font-bold mb-10">{language === 'en' ? 'Traffic distribution by vehicle type' : 'Phân bổ lưu lượng theo loại xe'}</p>
               
               <div className="relative h-56 flex items-center justify-center mb-10">
                 <svg className="w-48 h-48 transform -rotate-90">
@@ -297,7 +279,7 @@ const AdminDashboard = () => {
                 </svg>
                 <div className="absolute flex flex-col items-center">
                   <span className="text-3xl font-black text-slate-900">{totalMix}</span>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">TỔNG LƯỢT</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{language === 'en' ? 'TOTAL TRIPS' : 'TỔNG LƯỢT'}</span>
                 </div>
               </div>
 
@@ -305,14 +287,14 @@ const AdminDashboard = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
-                    <span className="text-xs font-bold text-slate-600">Ô tô (4-7 chỗ)</span>
+                    <span className="text-xs font-bold text-slate-600">{language === 'en' ? 'Sedan (4-7 seats)' : 'Ô tô (4-7 chỗ)'}</span>
                   </div>
                   <span className="text-xs font-black text-slate-900">{carPercentage}%</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
-                    <span className="text-xs font-bold text-slate-600">SUV / Bán tải</span>
+                    <span className="text-xs font-bold text-slate-600">{language === 'en' ? 'SUV / Pickup' : 'SUV / Bán tải'}</span>
                   </div>
                   <span className="text-xs font-black text-slate-900">{suvPercentage}%</span>
                 </div>
@@ -324,16 +306,16 @@ const AdminDashboard = () => {
           <div className="bg-white p-8 rounded-[2rem] border border-slate-200/80 shadow-xl shadow-slate-200/40">
             <div className="flex justify-between items-center mb-8">
               <div>
-                <h3 className="text-lg font-black text-slate-900 tracking-tight">Tổng quan Bãi đỗ</h3>
-                <p className="text-xs text-slate-400 font-bold">Mức lấp đầy theo từng chi nhánh</p>
+                <h3 className="text-lg font-black text-slate-900 tracking-tight">{language === 'en' ? 'Parking Lot Overview' : 'Tổng quan Bãi đỗ'}</h3>
+                <p className="text-xs text-slate-400 font-bold">{language === 'en' ? 'Occupancy rate by branch' : 'Mức lấp đầy theo từng chi nhánh'}</p>
               </div>
               <Link to="/admin/monitoring" className="text-[11px] font-black text-blue-600 hover:text-blue-700 flex items-center gap-1.5 transition-colors uppercase tracking-wider">
-                Xem bản đồ <ArrowRight className="w-3.5 h-3.5" />
+                {language === 'en' ? 'View map' : 'Xem bản đồ'} <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
             <div className="space-y-5">
               {parkingLots.length === 0 && (
-                <p className="text-sm text-slate-400 text-center py-6 font-medium">Chưa có bãi đỗ nào được thiết lập.</p>
+                <p className="text-sm text-slate-400 text-center py-6 font-medium">{language === 'en' ? 'No parking lots have been set up yet.' : 'Chưa có bãi đỗ nào được thiết lập.'}</p>
               )}
               {parkingLots.map((lot: any) => {
                 const lotSessions = sessions.filter(s => s.parkingLotName === lot.name && s.status === 'Active');
@@ -360,7 +342,7 @@ const AdminDashboard = () => {
                       <div className="text-right">
                         <span className="text-sm font-black text-slate-900">{total}</span>
                         <span className="text-xs text-slate-400 font-medium"> / {capacity}</span>
-                        <p className="text-[10px] font-bold text-slate-400">{occupied} đỗ · {reserved} đặt</p>
+                        <p className="text-[10px] font-bold text-slate-400">{occupied} {language === 'en' ? 'parked' : 'đỗ'} · {reserved} {language === 'en' ? 'reserved' : 'đặt'}</p>
                       </div>
                     </div>
                     <div className={`w-full h-2.5 ${barBg} rounded-full overflow-hidden`}>
@@ -383,16 +365,16 @@ const AdminDashboard = () => {
             <div className="col-span-12 lg:col-span-7 bg-white p-8 rounded-[2rem] border border-slate-200/80 shadow-xl shadow-slate-200/40">
               <div className="flex justify-between items-center mb-8">
                 <div>
-                  <h3 className="text-lg font-black text-slate-900 tracking-tight">Hoạt động gần đây</h3>
-                  <p className="text-xs text-slate-400 font-bold">Các phiên đỗ xe mới nhất trong hệ thống</p>
+                  <h3 className="text-lg font-black text-slate-900 tracking-tight">{t('recentActivity')}</h3>
+                  <p className="text-xs text-slate-400 font-bold">{language === 'en' ? 'Latest parking sessions in the system' : 'Các phiên đỗ xe mới nhất trong hệ thống'}</p>
                 </div>
                 <Link to="/admin/reservations" className="text-[11px] font-black text-blue-600 hover:text-blue-700 flex items-center gap-1.5 transition-colors uppercase tracking-wider">
-                  Tất cả <ArrowRight className="w-3.5 h-3.5" />
+                  {language === 'en' ? 'View all' : 'Tất cả'} <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </div>
               <div className="space-y-1">
                 {sessions.length === 0 && !loading && (
-                  <p className="text-sm text-slate-400 text-center py-8 font-medium">Chưa có hoạt động nào.</p>
+                  <p className="text-sm text-slate-400 text-center py-8 font-medium">{language === 'en' ? 'No activity yet.' : 'Chưa có hoạt động nào.'}</p>
                 )}
                 {[...sessions]
                   .sort((a, b) => new Date(b.createdAt || b.startTime || 0).getTime() - new Date(a.createdAt || a.startTime || 0).getTime())
@@ -401,10 +383,10 @@ const AdminDashboard = () => {
                     const timeStr = s.createdAt || s.startTime;
                     const timeAgo = timeStr ? (() => {
                       const diff = Math.floor((Date.now() - new Date(timeStr).getTime()) / 60000);
-                      if (diff < 1) return 'Vừa xong';
-                      if (diff < 60) return `${diff} phút trước`;
-                      if (diff < 1440) return `${Math.floor(diff / 60)} giờ trước`;
-                      return `${Math.floor(diff / 1440)} ngày trước`;
+                      if (diff < 1) return language === 'en' ? 'Just now' : 'Vừa xong';
+                      if (diff < 60) return language === 'en' ? `${diff} min ago` : `${diff} phút trước`;
+                      if (diff < 1440) return language === 'en' ? `${Math.floor(diff / 60)} hr ago` : `${Math.floor(diff / 60)} giờ trước`;
+                      return language === 'en' ? `${Math.floor(diff / 1440)} days ago` : `${Math.floor(diff / 1440)} ngày trước`;
                     })() : '';
 
                     return (
@@ -429,7 +411,7 @@ const AdminDashboard = () => {
                             <span className="text-slate-400 font-medium"> · {s.parkingSlot || '—'}</span>
                           </p>
                           <p className="text-[11px] text-slate-400 font-medium truncate">
-                            {s.parkingLotName || 'Không rõ bãi'} · {s.user ? `${s.user.firstName || ''} ${s.user.lastName || ''}`.trim() || s.user.email : 'Khách'}
+                             {s.parkingLotName || (language === 'en' ? 'Unknown lot' : 'Không rõ bãi')} · {s.user ? `${s.user.firstName || ''} ${s.user.lastName || ''}`.trim() || s.user.email : t('guestLabel')}
                           </p>
                         </div>
                         <div className="text-right shrink-0">
@@ -439,7 +421,7 @@ const AdminDashboard = () => {
                             s.status === 'Completed' ? 'bg-slate-100 text-slate-500' :
                             'bg-red-50 text-red-500'
                           }`}>
-                            {s.status === 'Active' && s.isCheckedIn ? 'Đang đỗ' : s.status === 'Active' ? 'Đã đặt' : s.status === 'Completed' ? 'Hoàn tất' : s.status}
+                            {s.status === 'Active' && s.isCheckedIn ? (language === 'en' ? 'Parked' : 'Đang đỗ') : s.status === 'Active' ? (language === 'en' ? 'Reserved' : 'Đã đặt') : s.status === 'Completed' ? (language === 'en' ? 'Completed' : 'Hoàn tất') : s.status}
                           </span>
                           <p className="text-[10px] text-slate-400 font-medium mt-1">{timeAgo}</p>
                         </div>
@@ -454,11 +436,11 @@ const AdminDashboard = () => {
             <div className="col-span-12 lg:col-span-5 bg-white p-8 rounded-[2rem] border border-slate-200/80 shadow-xl shadow-slate-200/40">
               <div className="flex justify-between items-center mb-8">
                 <div>
-                  <h3 className="text-lg font-black text-slate-900 tracking-tight">Sự cố chờ xử lý</h3>
-                  <p className="text-xs text-slate-400 font-bold">Cần hành động từ quản trị viên</p>
+                  <h3 className="text-lg font-black text-slate-900 tracking-tight">{language === 'en' ? 'Pending Incidents' : 'Sự cố chờ xử lý'}</h3>
+                  <p className="text-xs text-slate-400 font-bold">{language === 'en' ? 'Requires admin action' : 'Cần hành động từ quản trị viên'}</p>
                 </div>
                 <Link to="/admin/incidents" className="text-[11px] font-black text-blue-600 hover:text-blue-700 flex items-center gap-1.5 transition-colors uppercase tracking-wider">
-                  Quản lý <ArrowRight className="w-3.5 h-3.5" />
+                  {language === 'en' ? 'Manage' : 'Quản lý'} <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </div>
               <div className="space-y-4">
@@ -467,8 +449,8 @@ const AdminDashboard = () => {
                     <div className="w-16 h-16 mx-auto mb-4 bg-emerald-50 rounded-2xl flex items-center justify-center">
                       <Shield className="w-8 h-8 text-emerald-500" />
                     </div>
-                    <p className="text-sm font-bold text-slate-500">Không có sự cố nào</p>
-                    <p className="text-xs text-slate-400 mt-1">Hệ thống đang hoạt động ổn định 🎉</p>
+                    <p className="text-sm font-bold text-slate-500">{language === 'en' ? 'No incidents' : 'Không có sự cố nào'}</p>
+                    <p className="text-xs text-slate-400 mt-1">{language === 'en' ? 'System is running stable 🎉' : 'Hệ thống đang hoạt động ổn định 🎉'}</p>
                   </div>
                 )}
                 {incidents
@@ -487,8 +469,8 @@ const AdminDashboard = () => {
                           <CircleAlert className="w-4 h-4" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold text-slate-800 truncate">{inc.title || inc.type || 'Sự cố báo cáo'}</p>
-                          <p className="text-[11px] text-slate-500 font-medium mt-0.5 line-clamp-2">{inc.description || 'Không có mô tả'}</p>
+                           <p className="text-sm font-bold text-slate-800 truncate">{inc.title || inc.type || (language === 'en' ? 'Reported incident' : 'Sự cố báo cáo')}</p>
+                           <p className="text-[11px] text-slate-500 font-medium mt-0.5 line-clamp-2">{inc.description || (language === 'en' ? 'No description' : 'Không có mô tả')}</p>
                           <div className="flex items-center gap-3 mt-2">
                             <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
                               <Clock className="w-3 h-3" />
@@ -510,34 +492,6 @@ const AdminDashboard = () => {
             </div>
           </div>
         </div>
-
-          {/* Custom Floating Toast Notification */}
-        <AnimatePresence>
-          {toastMessage && (
-            <motion.div
-              initial={{ opacity: 0, y: 50, scale: 0.9 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.9 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-              className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl border backdrop-blur-xl ${
-                toastMessage.type === 'success'
-                  ? 'bg-emerald-500/90 text-white border-emerald-400/50 shadow-emerald-500/10'
-                  : toastMessage.type === 'error'
-                  ? 'bg-rose-500/90 text-white border-rose-400/50 shadow-rose-500/10'
-                  : 'bg-slate-900/90 text-white border-slate-700/50 shadow-slate-900/10'
-              }`}
-            >
-              {toastMessage.type === 'success' ? (
-                <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center font-black text-xs shrink-0">✓</div>
-              ) : toastMessage.type === 'error' ? (
-                <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center font-black text-xs shrink-0">✕</div>
-              ) : (
-                <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center font-black text-xs shrink-0">i</div>
-              )}
-              <span className="text-xs font-black tracking-wide uppercase">{toastMessage.text}</span>
-            </motion.div>
-          )}
-        </AnimatePresence>
     </AdminLayout>
   );
 };

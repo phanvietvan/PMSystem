@@ -3,9 +3,11 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { User, LogOut, ChevronDown, Car, AlertTriangle, Bell } from 'lucide-react';
 import NotificationPanel from '../common/NotificationPanel';
+import SettingsDropdown from '../common/SettingsDropdown';
 import BrandLogo from '../brand/BrandLogo';
 import api from '../../services/api';
 import { isAdmin, syncCurrentUserFromApi, clearSession } from '../../utils/auth';
+import { useSettings } from '../../hooks/useSettings.tsx';
 
 const Navbar = () => {
   const location = useLocation();
@@ -16,6 +18,7 @@ const Navbar = () => {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [hasSeenUnread, setHasSeenUnread] = useState(true);
+  const { t } = useSettings();
 
   useEffect(() => {
     const applyStoredUser = () => {
@@ -81,9 +84,9 @@ const Navbar = () => {
   };
 
   const navLinks = [
-    { name: 'Trang chủ', path: '/' },
-    { name: 'Trạng thái', path: '/status' },
-    { name: 'Liên hệ', path: '/contact' },
+    { nameKey: 'home', path: '/' },
+    { nameKey: 'status', path: '/status' },
+    { nameKey: 'contact', path: '/contact' },
   ];
 
   return (
@@ -97,14 +100,14 @@ const Navbar = () => {
             const isActive = currentPath === link.path;
             return (
               <Link
-                key={link.name}
+                key={link.nameKey}
                 to={link.path}
                 className={`text-sm font-semibold transition-all hover:scale-105 transform duration-200 relative
                   ${isActive
                     ? 'text-blue-600'
                     : 'text-slate-500 hover:text-blue-600'}`}
               >
-                {link.name}
+                {t(link.nameKey)}
                 {isActive && (
                   <motion.div
                     layoutId="nav-underline"
@@ -120,17 +123,18 @@ const Navbar = () => {
         <div className="flex items-center gap-4">
           {!user ? (
             <>
+              <SettingsDropdown />
               <Link
                 to="/login"
                 className="hidden sm:block text-sm font-bold text-slate-700 hover:text-blue-600 uppercase tracking-wider px-4 py-2 transition-colors"
               >
-                Đăng nhập
+                {t('login')}
               </Link>
               <Link
                 to="/register"
                 className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-3 px-6 rounded-full shadow-xl shadow-blue-600/25 transition-all transform hover:-translate-y-0.5 active:scale-95 uppercase tracking-wider"
               >
-                Đăng ký ngay
+                {t('register')}
               </Link>
             </>
           ) : (
@@ -163,6 +167,7 @@ const Navbar = () => {
                   </>
                 )}
               </div>
+              <SettingsDropdown />
               <div className="relative">
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -187,7 +192,7 @@ const Navbar = () => {
                     )}
                   </div>
                   <div className="hidden sm:block text-left">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight leading-none mb-0.5">Xin chào,</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight leading-none mb-0.5">{t('hello')}</p>
                     <p className="text-xs font-bold text-slate-900 leading-none">
                       {user.firstName || user.lastName ? `${user.firstName} ${user.lastName}`.trim() : user.username}
                     </p>
@@ -215,7 +220,7 @@ const Navbar = () => {
                         className="flex items-center gap-3 px-3.5 py-2.5 text-xs font-semibold text-slate-700 hover:bg-blue-50/50 hover:text-blue-600 transition-colors duration-200 rounded-xl"
                       >
                         <User size={15} className="opacity-70" />
-                        <span>Thông tin cá nhân</span>
+                        <span>{t('profile')}</span>
                       </Link>
 
                       <Link
@@ -224,7 +229,7 @@ const Navbar = () => {
                         className="flex items-center gap-3 px-3.5 py-2.5 text-xs font-semibold text-slate-700 hover:bg-blue-50/50 hover:text-blue-600 transition-colors duration-200 rounded-xl"
                       >
                         <Car size={15} className="opacity-70" />
-                        <span>Lịch sử gửi xe</span>
+                        <span>{t('history')}</span>
                       </Link>
 
                       <Link
@@ -233,7 +238,7 @@ const Navbar = () => {
                         className="flex items-center gap-3 px-3.5 py-2.5 text-xs font-semibold text-slate-700 hover:bg-rose-50/50 hover:text-rose-600 transition-colors duration-200 rounded-xl"
                       >
                         <AlertTriangle size={15} className="opacity-70 text-rose-500" />
-                        <span>Báo cáo sự cố</span>
+                        <span>{t('reportIncident')}</span>
                       </Link>
 
                       <button
@@ -244,7 +249,7 @@ const Navbar = () => {
                         className="flex items-center gap-3 px-3.5 py-2.5 text-xs font-semibold text-red-600 hover:bg-red-50/50 transition-colors duration-200 rounded-xl w-full text-left border-t border-slate-100/80 mt-1.5 pt-2"
                       >
                         <LogOut size={15} />
-                        <span>Đăng xuất</span>
+                        <span>{t('logout')}</span>
                       </button>
                     </div>
                   </>
