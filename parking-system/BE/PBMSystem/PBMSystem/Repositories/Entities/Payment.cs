@@ -27,4 +27,11 @@ public class Payment : BaseEntity
 
     /// <summary>Time when the transaction was completed.</summary>
     public DateTime TransactionTime { get; set; } = DateTime.UtcNow;
+
+    /// <summary>Mã giao dịch từ VNPay (vnp_TransactionNo).</summary>
+    public string? VnPayTransactionNo { get; set; }
+
+    /// <summary>Mã phản hồi từ VNPay (vnp_ResponseCode). "00" = thành công.</summary>
+    public string? VnPayResponseCode { get; set; }
 }
+

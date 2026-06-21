@@ -169,23 +169,19 @@ const Navbar = () => {
                   className="flex items-center gap-3 bg-slate-50 hover:bg-slate-100 p-1.5 pr-4 rounded-full border border-slate-200 transition-colors duration-200"
                 >
                   <div className="w-9 h-9 rounded-full flex items-center justify-center overflow-hidden border border-slate-200 bg-blue-100 text-blue-600">
-                    {user.email ? (
+                    {user.avatarUrl && user.avatarUrl !== 'null' && user.avatarUrl !== 'undefined' ? (
+                      <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : user.email ? (
                       <img 
                         src={`https://unavatar.io/${user.email}?fallback=false`} 
                         alt="Avatar" 
                         className="w-full h-full object-cover" 
                         onError={(e) => { 
                           e.currentTarget.onerror = null; // Prevent infinite loop
-                          if (user.avatarUrl && user.avatarUrl !== 'null' && user.avatarUrl !== 'undefined') {
-                            e.currentTarget.src = user.avatarUrl;
-                          } else {
-                            const name = user.firstName || user.lastName ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : user.username;
-                            e.currentTarget.src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(name) + '&background=DBEAFE&color=2563EB';
-                          }
+                          const name = user.firstName || user.lastName ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : user.username;
+                          e.currentTarget.src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(name) + '&background=DBEAFE&color=2563EB';
                         }}
                       />
-                    ) : user.avatarUrl && user.avatarUrl !== 'null' && user.avatarUrl !== 'undefined' ? (
-                      <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                     ) : (
                       <User size={18} />
                     )}
