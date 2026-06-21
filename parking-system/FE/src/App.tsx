@@ -20,6 +20,7 @@ import AdminReports from './pages/AdminReports';
 import AdminUsers from './pages/AdminUsers';
 import AdminSettings from './pages/AdminSettings';
 import AdminRoute from './components/auth/AdminRoute';
+import ProtectedRoute from './components/auth/ProtectedRoute';
 import './index.css';
 
 function ProfileCheckWrapper({ children }: { children: React.ReactNode }) {
@@ -54,7 +55,7 @@ function App() {
     <Router>
       <ProfileCheckWrapper>
         <Routes>
-          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
           {/* Admin Dashboard Routes — Admin role only */}
           <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
           <Route path="/admin/monitoring" element={<AdminRoute><AdminMonitoring /></AdminRoute>} />
@@ -64,13 +65,13 @@ function App() {
           <Route path="/admin/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />
 
           <Route path="/" element={<LandingPage />} />
-          <Route path="/status" element={<ParkingStatus />} />
-          <Route path="/reserve" element={<ReservationPage />} />
-          <Route path="/payment" element={<PaymentPage />} />
-          <Route path="/success" element={<SuccessPage />} />
-          <Route path="/gate-scan" element={<GateScanPage />} />
-          <Route path="/navigation" element={<NavigationPage />} />
-          <Route path="/active-session" element={<ActiveSessionPage />} />
+          <Route path="/status" element={<ProtectedRoute><ParkingStatus /></ProtectedRoute>} />
+          <Route path="/reserve" element={<ProtectedRoute><ReservationPage /></ProtectedRoute>} />
+          <Route path="/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
+          <Route path="/success" element={<ProtectedRoute><SuccessPage /></ProtectedRoute>} />
+          <Route path="/gate-scan" element={<ProtectedRoute><GateScanPage /></ProtectedRoute>} />
+          <Route path="/navigation" element={<ProtectedRoute><NavigationPage /></ProtectedRoute>} />
+          <Route path="/active-session" element={<ProtectedRoute><ActiveSessionPage /></ProtectedRoute>} />
           <Route path="/contact" element={<ContactPage />} />
 
           {/* Premium Auth Routes */}

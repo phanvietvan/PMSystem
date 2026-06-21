@@ -1,0 +1,164 @@
+﻿{
+  "info": {
+    "name": "PMSystem API",
+    "description": "Collection được thiết kế chuẩn theo file Kich_Ban_Test_Postman_Chuan.doc",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:53569",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Đăng Ký (Registration Flow)",
+      "item": [
+        {
+          "name": "1.1. Gửi OTP Đăng ký",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "url": { "raw": "{{baseUrl}}/api/auth/register/send-otp", "host": [ "{{baseUrl}}" ], "path": [ "api", "auth", "register", "send-otp" ] },
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"khachhang01@example.com\"\n}" }
+          }
+        },
+        {
+          "name": "1.2. Xác nhận OTP & Tạo tài khoản",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "url": { "raw": "{{baseUrl}}/api/auth/register/verify", "host": [ "{{baseUrl}}" ], "path": [ "api", "auth", "register", "verify" ] },
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"khachhang01@example.com\",\n  \"otp\": \"123456\",\n  \"username\": \"khachhang01\",\n  \"password\": \"Password123!\",\n  \"firstName\": \"Nguyễn\",\n  \"lastName\": \"Khách\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Quên Mật Khẩu (Password Recovery)",
+      "item": [
+        {
+          "name": "2.1. Yêu cầu cấp lại mật khẩu",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "url": { "raw": "{{baseUrl}}/api/auth/password/forgot", "host": [ "{{baseUrl}}" ], "path": [ "api", "auth", "password", "forgot" ] },
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"khachhang01@example.com\"\n}" }
+          }
+        },
+        {
+          "name": "2.2. Xác minh OTP",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "url": { "raw": "{{baseUrl}}/api/auth/password/verify-otp", "host": [ "{{baseUrl}}" ], "path": [ "api", "auth", "password", "verify-otp" ] },
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"khachhang01@example.com\",\n  \"otp\": \"123456\"\n}" }
+          }
+        },
+        {
+          "name": "2.3. Đặt mật khẩu mới",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "url": { "raw": "{{baseUrl}}/api/auth/password/reset", "host": [ "{{baseUrl}}" ], "path": [ "api", "auth", "password", "reset" ] },
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"khachhang01@example.com\",\n  \"otp\": \"123456\",\n  \"newPassword\": \"NewPassword123!\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Đăng Nhập Hệ Thống (Auth)",
+      "item": [
+        {
+          "name": "3.1. Đăng nhập",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.accessToken) {",
+                  "    pm.collectionVariables.set(\"token\", jsonData.data.accessToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": [ "{{baseUrl}}" ], "path": [ "api", "auth", "login" ] },
+            "body": { "mode": "raw", "raw": "{\n  \"emailOrUsername\": \"admin@pmsystem.com\",\n  \"password\": \"123\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Luồng Xe Ra Vào (Parking Sessions)",
+      "item": [
+        {
+          "name": "4.1. Quét QR Code (Khách đặt trước)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{token}}", "type": "string" } ] },
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "url": { "raw": "{{baseUrl}}/api/ParkingSessions/gate-scan", "host": [ "{{baseUrl}}" ], "path": [ "api", "ParkingSessions", "gate-scan" ] },
+            "body": { "mode": "raw", "raw": "{\n  \"qrCode\": \"Mã_QR_Từ_Điện_Thoại\",\n  \"entryPhoto\": \"base64_image_string\"\n}" }
+          }
+        },
+        {
+          "name": "4.2. Xe vào bãi vãng lai (Check-in)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{token}}", "type": "string" } ] },
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "url": { "raw": "{{baseUrl}}/api/ParkingSessions/checkin", "host": [ "{{baseUrl}}" ], "path": [ "api", "ParkingSessions", "checkin" ] },
+            "body": { "mode": "raw", "raw": "{\n  \"licensePlate\": \"51A-999.99\",\n  \"vehicleType\": \"Car\",\n  \"parkingLotName\": \"Khu A\"\n}" }
+          }
+        },
+        {
+          "name": "4.3. Xe ra cổng & Thanh toán (Check-out)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{token}}", "type": "string" } ] },
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "url": { "raw": "{{baseUrl}}/api/ParkingSessions/checkout", "host": [ "{{baseUrl}}" ], "path": [ "api", "ParkingSessions", "checkout" ] },
+            "body": { "mode": "raw", "raw": "{\n  \"exitLicensePlate\": \"51A-999.99\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Vi Phạm & Danh Sách Đen",
+      "item": [
+        {
+          "name": "5.1. Staff Tạo báo cáo vi phạm",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{token}}", "type": "string" } ] },
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "url": { "raw": "{{baseUrl}}/api/Incidents", "host": [ "{{baseUrl}}" ], "path": [ "api", "Incidents" ] },
+            "body": { "mode": "raw", "raw": "{\n  \"type\": \"BlacklistReport\",\n  \"title\": \"Báo cáo xe 51A\",\n  \"description\": \"{\\\"reason\\\":\\\"Đỗ sai quy định\\\"}\",\n  \"reporter\": \"staff@example.com\",\n  \"role\": \"Staff\",\n  \"status\": \"Chờ xử lý\"\n}" }
+          }
+        },
+        {
+          "name": "5.2. Admin duyệt Blacklist",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{token}}", "type": "string" } ] },
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "url": { "raw": "{{baseUrl}}/api/Blacklist", "host": [ "{{baseUrl}}" ], "path": [ "api", "Blacklist" ] },
+            "body": { "mode": "raw", "raw": "{\n  \"plateNumber\": \"51A-999.99\",\n  \"reason\": \"Đỗ sai quy định nhiều lần\"\n}" }
+          }
+        }
+      ]
+    }
+  ]
+}
