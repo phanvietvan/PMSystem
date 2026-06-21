@@ -9,6 +9,7 @@ using Microsoft.IdentityModel.Tokens;
 using Services;
 using PBMSystem.API.BackgroundServices;
 
+
 var builder = WebApplication.CreateBuilder(args);
 
 // ── Configuration ─────────────────────────────────────────────────────────────
@@ -17,6 +18,10 @@ builder.Services.Configure<JwtSettings>(
 
 builder.Services.Configure<SmtpSettings>(
     builder.Configuration.GetSection("SmtpSettings"));
+
+builder.Services.Configure<VnPaySettings>(
+    builder.Configuration.GetSection("VnPaySettings"));
+
 
 // ── Database (MongoDB) ────────────────────────────────────────────────────────
 var mongoUri = builder.Configuration.GetConnectionString("MongoConnection") ?? "mongodb://localhost:27017";
@@ -70,29 +75,38 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("DefaultPolicy", policy =>
     {
-        var origins = new List<string> { 
-            "http://localhost:5173", 
-            "http://localhost:5174", 
-            "http://localhost:5175", 
-            "https://localhost:5173", 
-            "https://localhost:5174", 
-            "https://localhost:5175", 
-            "http://localhost:3000", 
-            "https://localhost:3000", 
-            "https://staff.pmsystem.local",
-            "http://admin.pmsystem.local",
-            "https://admin.pmsystem.local",
-            "https://parking-building-management-system.vercel.app" 
-        };
-        var configuredOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>();
-        if (configuredOrigins != null)
+        if (builder.Environment.IsDevelopment())
         {
-            origins.AddRange(configuredOrigins);
+            policy.SetIsOriginAllowed(origin => true)
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
         }
+        else
+        {
+            var origins = new List<string> { 
+                "http://localhost:5173", 
+                "http://localhost:5174", 
+                "http://localhost:5175", 
+                "https://localhost:5173", 
+                "https://localhost:5174", 
+                "https://localhost:5175", 
+                "http://localhost:3000", 
+                "https://localhost:3000", 
+                "https://staff.pmsystem.local",
+                "http://admin.pmsystem.local",
+                "https://admin.pmsystem.local",
+                "https://parking-building-management-system.vercel.app" 
+            };
+            var configuredOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>();
+            if (configuredOrigins != null)
+            {
+                origins.AddRange(configuredOrigins);
+            }
 
-        policy.WithOrigins(origins.Distinct().ToArray())
-              .AllowAnyMethod()
-              .AllowAnyHeader();
+            policy.WithOrigins(origins.Distinct().ToArray())
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+        }
     });
 });
 

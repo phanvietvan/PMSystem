@@ -47,11 +47,11 @@ public class ReportsController : ControllerBase
         {
             var targetDate = DateTime.Today.AddDays(-i);
             var dSessions = sessions.Where(s => s.ExitTime.HasValue && s.ExitTime.Value.Date == targetDate.Date);
-            var dRevenue = dSessions.Sum(s => (double)CalculateFee(s.EntryTime, s.ExitTime.Value, s.VehicleType));
+            var dRevenue = dSessions.Sum(s => (double)CalculateFee(s.EntryTime, s.ExitTime!.Value, s.VehicleType));
             
             var lastWeekDate = targetDate.AddDays(-7);
             var lastWeekSessions = sessions.Where(s => s.ExitTime.HasValue && s.ExitTime.Value.Date == lastWeekDate.Date);
-            var lastWeekRevenue = lastWeekSessions.Sum(s => (double)CalculateFee(s.EntryTime, s.ExitTime.Value, s.VehicleType));
+            var lastWeekRevenue = lastWeekSessions.Sum(s => (double)CalculateFee(s.EntryTime, s.ExitTime!.Value, s.VehicleType));
 
             monthlyData.Add(new {
                 month = targetDate.ToString("dd/MM"),
@@ -67,7 +67,7 @@ public class ReportsController : ControllerBase
             .Where(s => !string.IsNullOrEmpty(s.ParkingLotName))
             .GroupBy(s => s.ParkingLotName)
             .Select(g => new {
-                id = GetZoneId(g.Key),
+                id = GetZoneId(g.Key!),
                 name = g.Key,
                 count = g.Count().ToString("N0"),
                 revenueValue = g.Sum(s => (double)(s.ExitTime.HasValue ? CalculateFee(s.EntryTime, s.ExitTime.Value, s.VehicleType) : 0m)),

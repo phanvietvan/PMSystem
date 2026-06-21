@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import BrandLogo from '../../components/brand/BrandLogo';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
@@ -34,10 +34,58 @@ const RegisterPage = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [otp, setOtp] = useState('');
-  const [devOtpCode, setDevOtpCode] = useState('');
   const [error, setError] = useState('');
 
+  const [timer, setTimer] = useState(60);
+  const [canResend, setCanResend] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
   const navigate = useNavigate();
+
+  const startTimer = () => {
+    setTimer(60);
+    setCanResend(false);
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setTimer((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current!);
+          setCanResend(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
+
+  const handleResendOtp = async () => {
+    if (!canResend) return;
+    setLoading(true);
+    setError('');
+    try {
+      const response = await api.post('/auth/register/send-otp', {
+        email: email.toLowerCase().trim()
+      });
+
+      const apiResponse = response.data;
+      if (apiResponse.data && apiResponse.data.otpCode) {
+        console.log("Dev OTP Code:", apiResponse.data.otpCode);
+      }
+
+      setLoading(false);
+      startTimer();
+    } catch (err: any) {
+      setLoading(false);
+      console.error('Resend OTP Error:', err.response?.data);
+      setError(err.response?.data?.message || 'Không thể gửi lại mã OTP. Vui lòng thử lại.');
+    }
+  };
 
   const loginGoogle = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
@@ -118,13 +166,12 @@ const RegisterPage = () => {
         const apiResponse = response.data;
         // In dev mode (EnableMailtrap=false), backend returns the OTP code in response
         if (apiResponse.data && apiResponse.data.otpCode) {
-          setDevOtpCode(apiResponse.data.otpCode);
-        } else {
-          setDevOtpCode('');
+          console.log("Dev OTP Code:", apiResponse.data.otpCode);
         }
 
         setLoading(false);
         setStep(2);
+        startTimer();
       } catch (err: any) {
         setLoading(false);
         console.error('Send OTP Error:', err.response?.data);
@@ -256,7 +303,7 @@ const RegisterPage = () => {
                         <div className="absolute inset-y-0 left-0 pl-4.5 flex items-center pointer-events-none text-slate-400 group-focus-within/input:text-blue-600 transition-colors">
                           <span className="material-symbols-outlined text-[20px]">person</span>
                         </div>
-                        <input className="block w-full pl-12 pr-4 py-3.5 rounded-2xl border border-slate-200/80 bg-slate-50/50 hover:bg-slate-50 focus:bg-white focus:border-blue-500 focus:ring-[3px] focus:ring-blue-500/10 transition-all duration-300 text-sm font-semibold text-slate-700 focus:outline-none shadow-sm" placeholder="Nguyễn" required value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+                        <input className="block w-full pl-12 pr-4 py-3.5 rounded-2xl border border-slate-200/80 bg-slate-50/50 hover:bg-slate-50 focus:bg-white focus:border-blue-500 focus:ring-[3px] focus:ring-blue-500/10 transition-all duration-300 text-sm font-semibold text-slate-700 focus:outline-none shadow-sm" placeholder="Nguyễn" required value={lastName} onChange={(e) => setLastName(e.target.value)} />
                       </div>
                     </div>
                     <div className="space-y-2">
@@ -265,7 +312,7 @@ const RegisterPage = () => {
                         <div className="absolute inset-y-0 left-0 pl-4.5 flex items-center pointer-events-none text-slate-400 group-focus-within/input:text-blue-600 transition-colors">
                           <span className="material-symbols-outlined text-[20px]">person</span>
                         </div>
-                        <input className="block w-full pl-12 pr-4 py-3.5 rounded-2xl border border-slate-200/80 bg-slate-50/50 hover:bg-slate-50 focus:bg-white focus:border-blue-500 focus:ring-[3px] focus:ring-blue-500/10 transition-all duration-300 text-sm font-semibold text-slate-700 focus:outline-none shadow-sm" placeholder="Văn A" required value={lastName} onChange={(e) => setLastName(e.target.value)} />
+                        <input className="block w-full pl-12 pr-4 py-3.5 rounded-2xl border border-slate-200/80 bg-slate-50/50 hover:bg-slate-50 focus:bg-white focus:border-blue-500 focus:ring-[3px] focus:ring-blue-500/10 transition-all duration-300 text-sm font-semibold text-slate-700 focus:outline-none shadow-sm" placeholder="Văn A" required value={firstName} onChange={(e) => setFirstName(e.target.value)} />
                       </div>
                     </div>
                   </div>
@@ -384,12 +431,7 @@ const RegisterPage = () => {
               {step === 2 && (
                 <div className="space-y-6 animate-fade-in-up">
                   <div className="text-center p-4 rounded-2xl bg-indigo-50/40 border border-indigo-100/50">
-                    <p className="text-xs text-slate-500 font-medium">Mã OTP đăng ký đã được gửi.</p>
-                    {devOtpCode && (
-                      <p className="text-[11px] font-black text-indigo-600 mt-2 bg-indigo-50 py-1 px-3 rounded-full inline-block">
-                        Mã OTP của bạn: {devOtpCode}
-                      </p>
-                    )}
+                    <p className="text-xs text-slate-500 font-medium">Mã OTP đăng ký đã được gửi đến email của bạn thành công.</p>
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-1 block text-center">Mã xác thực OTP (6 chữ số)</label>
@@ -404,6 +446,24 @@ const RegisterPage = () => {
                       />
                     </div>
                   </div>
+                  
+                  <div className="flex justify-center items-center text-xs px-1 text-slate-500 mt-2">
+                    {canResend ? (
+                      <button
+                        type="button"
+                        onClick={handleResendOtp}
+                        className="text-blue-600 hover:text-blue-700 font-bold underline cursor-pointer bg-transparent border-none"
+                        disabled={loading}
+                      >
+                        Gửi lại mã OTP
+                      </button>
+                    ) : (
+                      <p>
+                        Gửi lại mã sau: <span className="font-bold text-slate-700">{timer}s</span>
+                      </p>
+                    )}
+                  </div>
+
                   <button
                     className={`group relative overflow-hidden w-full py-4 mt-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold rounded-2xl transition-all duration-300 shadow-md shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 hover:-translate-y-0.5 active:scale-[0.98] text-[10px] uppercase tracking-[0.2em] cursor-pointer ${loading ? 'opacity-80 cursor-wait' : ''}`}
                     type="submit"

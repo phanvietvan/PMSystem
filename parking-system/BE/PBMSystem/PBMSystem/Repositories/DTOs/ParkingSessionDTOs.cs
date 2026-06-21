@@ -32,3 +32,8 @@ public class GateScanRequest
     public string QrCode { get; set; } = string.Empty;
     public string? EntryPhoto { get; set; }
 }
+
+public class ChangeSlotRequest
+{
+    public string NewSlot { get; set; } = string.Empty;
+}

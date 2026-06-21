@@ -363,6 +363,10 @@ const getAudioContext = () => {
       if (response.ok) {
         const data = await response.json();
         const mapped = data.map((session: any) => {
+          const createdDateObj = session.createdAt ? new Date(session.createdAt) : new Date(session.entryTime);
+          const createdTimeStr = createdDateObj.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          const createdDateStr = createdDateObj.toLocaleDateString('vi-VN');
+
           const entryDateObj = new Date(session.entryTime);
           const timeStr = entryDateObj.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
           const dateStr = entryDateObj.toLocaleDateString('vi-VN');
@@ -387,11 +391,14 @@ const getAudioContext = () => {
             plate: session.licensePlate,
             status: session.status === 'Completed' ? 'Lối ra' : 'Lối vào',
             time: session.status === 'Completed' && session.exitTime ? exitTimeStr : timeStr,
+            createdTimeStr: createdTimeStr,
+            createdDateStr: createdDateStr,
             entryTimeStr: timeStr,
             entryDateStr: dateStr,
             exitTimeStr: exitTimeStr,
             exitDateStr: exitDateStr,
-            type: session.status === 'Completed' ? 'EXIT' : 'ENTRY',
+            isCheckedIn: session.isCheckedIn,
+            type: session.status === 'Cancelled' ? 'CANCELLED' : session.status === 'Completed' ? 'EXIT' : (session.userId && !session.isCheckedIn ? 'PENDING' : 'ENTRY'),
             owner: session.userId ? 'KHÁCH ĐẶT TRƯỚC' : 'KHÁCH VÃNG LAI',
             ticketType: dynamicTicketStatus,
             customerName: session.user ? `${session.user.lastName} ${session.user.firstName}`.trim() : null,
@@ -1116,24 +1123,14 @@ const getAudioContext = () => {
                   className="flex items-center gap-3 bg-slate-50 hover:bg-slate-100 p-1.5 pr-4 rounded-full border border-slate-200 transition-colors duration-200"
                 >
                   <div className="w-9 h-9 rounded-full flex items-center justify-center overflow-hidden border border-slate-200 bg-blue-100 text-blue-600">
-                    {currentUser.email ? (
-                      <img 
-                        src={`https://unavatar.io/${currentUser.email}?fallback=false`} 
-                        alt="Avatar" 
-                        className="w-full h-full object-cover" 
-                        onError={(e) => { 
-                          e.currentTarget.onerror = null; // Prevent infinite loop
-                          if (currentUser.avatarUrl && currentUser.avatarUrl !== 'null' && currentUser.avatarUrl !== 'undefined') {
-                            e.currentTarget.src = currentUser.avatarUrl;
-                          } else {
-                            e.currentTarget.src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(displayName) + '&background=DBEAFE&color=2563EB';
-                          }
-                        }}
-                      />
-                    ) : currentUser.avatarUrl && currentUser.avatarUrl !== 'null' && currentUser.avatarUrl !== 'undefined' ? (
+                    {currentUser.avatarUrl && currentUser.avatarUrl !== 'null' && currentUser.avatarUrl !== 'undefined' ? (
                       <img src={currentUser.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                     ) : (
-                      <User size={18} />
+                      <img 
+                        src={`https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=DBEAFE&color=2563EB`} 
+                        alt="Avatar" 
+                        className="w-full h-full object-cover" 
+                      />
                     )}
                   </div>
                   <div className="hidden sm:block text-left">
@@ -2192,9 +2189,14 @@ const getAudioContext = () => {
                             <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest border ${
                               log.type === 'ENTRY' ? 'bg-emerald-50 text-emerald-600 border-emerald-200/50' : 
                               log.type === 'EXIT' ? 'bg-slate-100 text-slate-500 border-slate-200' : 
+                              log.type === 'PENDING' ? 'bg-amber-50 text-amber-600 border-amber-200/50' :
+                              log.type === 'CANCELLED' ? 'bg-rose-50 text-rose-600 border-rose-200/50' :
                               'bg-red-50 text-red-600 border-red-200'
                             }`}>
-                              {log.type === 'ENTRY' ? 'XE VÀO' : log.type === 'EXIT' ? 'XE RA' : 'BÁO ĐỘNG'}
+                              {log.type === 'ENTRY' ? 'XE VÀO' : 
+                               log.type === 'EXIT' ? 'XE RA' : 
+                               log.type === 'PENDING' ? 'CHƯA VÀO' : 
+                               log.type === 'CANCELLED' ? 'ĐÃ HỦY' : 'BÁO ĐỘNG'}
                             </span>
                           </div>
                         </div>
@@ -2220,14 +2222,39 @@ const getAudioContext = () => {
 
                       {/* 3. Time Info */}
                       <div className="flex flex-col gap-2 w-full md:flex-1 border-l border-slate-100 pl-5">
+                        {/* THỜI GIAN ĐẶT CHỖ (Only for reservations) */}
+                        {log.owner === 'KHÁCH ĐẶT TRƯỚC' && (
+                          <div className="flex items-center gap-3">
+                            <div className="flex flex-col">
+                              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">
+                                THỜI GIAN ĐẶT
+                              </span>
+                              <div className="flex items-center gap-1.5 text-blue-600">
+                                <span className="material-symbols-outlined text-[14px]">calendar_month</span>
+                                <span className="text-xs font-bold">{log.createdTimeStr}</span>
+                                <span className="text-[10px] text-blue-400">{log.createdDateStr}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
                         <div className="flex items-center gap-3">
                           <div className="flex flex-col">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">THỜI GIAN VÀO</span>
-                            <div className="flex items-center gap-1.5 text-slate-700">
-                              <span className="material-symbols-outlined text-[14px] text-emerald-500">login</span>
-                              <span className="text-xs font-bold">{log.entryTimeStr}</span>
-                              <span className="text-[10px] text-slate-500">{log.entryDateStr}</span>
-                            </div>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">
+                              THỜI GIAN VÀO
+                            </span>
+                            {log.isCheckedIn || log.owner === 'KHÁCH VÃNG LAI' ? (
+                              <div className="flex items-center gap-1.5 text-slate-700">
+                                <span className="material-symbols-outlined text-[14px] text-emerald-500">login</span>
+                                <span className="text-xs font-bold">{log.entryTimeStr}</span>
+                                <span className="text-[10px] text-slate-500">{log.entryDateStr}</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5 text-slate-400">
+                                <span className="material-symbols-outlined text-[14px]">hourglass_empty</span>
+                                <span className="text-[10px] font-semibold italic">Chưa vào bãi</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
