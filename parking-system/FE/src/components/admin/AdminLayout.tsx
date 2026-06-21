@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { HelpCircle, LogOut, Search } from 'lucide-react';
+import { HelpCircle, LogOut, Search, MonitorSmartphone, ExternalLink } from 'lucide-react';
 import BrandLogo from '../brand/BrandLogo';
 import { useAdminUser } from '../../hooks/useAdminUser';
 import {
@@ -30,11 +30,11 @@ const AdminLayout = ({
 }: AdminLayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
-  useAdminUser();
+  const user = useAdminUser();
 
-  const displayName = getUserDisplayName();
-  const roleLabel = getRoleLabel();
-  const initials = getUserInitials();
+  const displayName = getUserDisplayName(user);
+  const roleLabel = getRoleLabel(user);
+  const initials = getUserInitials(user);
 
   const handleLogout = () => {
     clearSession();
@@ -70,6 +70,21 @@ const AdminLayout = ({
               </Link>
             );
           })}
+          
+          <div className="pt-2 pb-1">
+            <div className="h-px w-full bg-slate-100"></div>
+          </div>
+          
+          <a
+            href="https://localhost:5174/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3.5 px-5 py-3.5 rounded-xl transition-all duration-300 group text-emerald-600 hover:bg-emerald-50 shadow-sm border border-emerald-100"
+          >
+            <MonitorSmartphone className="w-5 h-5 transition-transform group-hover:scale-110" />
+            <span className="text-sm font-bold flex-1">Cổng Staff (Máy quét)</span>
+            <ExternalLink className="w-4 h-4 opacity-70" />
+          </a>
         </nav>
 
         <div className="px-4 mt-auto space-y-6">
@@ -126,8 +141,17 @@ const AdminLayout = ({
               W
             </Link>
             <div className="flex items-center gap-3 bg-slate-50 p-1.5 pr-2 rounded-full border border-slate-200">
-              <div className="w-9 h-9 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs font-black shrink-0">
-                {initials}
+              <div className="w-9 h-9 rounded-full flex items-center justify-center overflow-hidden border border-slate-200 bg-blue-600 text-white text-xs font-black shrink-0">
+                {user?.avatarUrl && user.avatarUrl !== 'null' && user.avatarUrl !== 'undefined' ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt="Avatar"
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  initials
+                )}
               </div>
               <div className="hidden sm:block text-left max-w-[140px]">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight leading-none mb-0.5 truncate">
