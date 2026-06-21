@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { SettingsProvider } from './hooks/useSettings.tsx';
 import LandingPage from './pages/LandingPage';
 import ParkingStatus from './pages/ParkingStatus';
 import ReservationPage from './pages/ReservationPage';
@@ -14,12 +15,16 @@ import LoginPage from './pages/auth/LoginPage';
 import PricingPage from './pages/PricingPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
+import VnPayReturnPage from './pages/VnPayReturnPage';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminMonitoring from './pages/AdminMonitoring';
 import AdminReservations from './pages/AdminReservations';
 import AdminReports from './pages/AdminReports';
 import AdminUsers from './pages/AdminUsers';
 import AdminSettings from './pages/AdminSettings';
+import AdminBlacklist from './pages/AdminBlacklist';
+import ReportIncidentPage from './pages/ReportIncidentPage';
+import AdminIncidents from './pages/AdminIncidents';
 import AdminRoute from './components/auth/AdminRoute';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import './index.css';
@@ -53,7 +58,8 @@ function ProfileCheckWrapper({ children }: { children: React.ReactNode }) {
 
 function App() {
   return (
-    <Router>
+    <SettingsProvider>
+      <Router>
       <ProfileCheckWrapper>
         <Routes>
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
@@ -63,6 +69,8 @@ function App() {
           <Route path="/admin/reservations" element={<AdminRoute><AdminReservations /></AdminRoute>} />
           <Route path="/admin/reports" element={<AdminRoute><AdminReports /></AdminRoute>} />
           <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
+          <Route path="/admin/incidents" element={<AdminRoute><AdminIncidents /></AdminRoute>} />
+          <Route path="/admin/blacklist" element={<AdminRoute><AdminBlacklist /></AdminRoute>} />
           <Route path="/admin/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />
 
           <Route path="/" element={<LandingPage />} />
@@ -70,10 +78,12 @@ function App() {
           <Route path="/status" element={<ProtectedRoute><ParkingStatus /></ProtectedRoute>} />
           <Route path="/reserve" element={<ProtectedRoute><ReservationPage /></ProtectedRoute>} />
           <Route path="/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
+          <Route path="/payment/vnpay-return" element={<VnPayReturnPage />} />
           <Route path="/success" element={<ProtectedRoute><SuccessPage /></ProtectedRoute>} />
           <Route path="/gate-scan" element={<ProtectedRoute><GateScanPage /></ProtectedRoute>} />
           <Route path="/navigation" element={<ProtectedRoute><NavigationPage /></ProtectedRoute>} />
           <Route path="/active-session" element={<ProtectedRoute><ActiveSessionPage /></ProtectedRoute>} />
+          <Route path="/report-incident" element={<ProtectedRoute><ReportIncidentPage /></ProtectedRoute>} />
           <Route path="/contact" element={<ContactPage />} />
 
           {/* Premium Auth Routes */}
@@ -85,7 +95,8 @@ function App() {
           <Route path="*" element={<LandingPage />} />
         </Routes>
       </ProfileCheckWrapper>
-    </Router>
+      </Router>
+    </SettingsProvider>
   );
 }
 

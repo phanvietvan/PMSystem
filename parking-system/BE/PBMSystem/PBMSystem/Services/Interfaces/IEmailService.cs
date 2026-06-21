@@ -18,6 +18,17 @@ public interface IEmailService
     /// Sends a contact message email directly to pmsystem.system@gmail.com.
     /// </summary>
     Task SendContactEmailAsync(string fromName, string fromEmail, string? phone, string subject, string message);
+
+    /// <summary>
+    /// Sends a booking confirmation email with the QR code and slot details.
+    /// </summary>
+    Task SendBookingConfirmationEmailAsync(string toEmail, string userName, string qrCode, string lotName, string slot, string licensePlate, string mapsLink = "");
+
+    Task SendReservationReminderEmailAsync(string toEmail, string userName, string lotName, string slot, string licensePlate);
+
+    Task SendReservationCancellationEmailAsync(string toEmail, string userName, string lotName, string slot, string licensePlate);
+
+    Task SendSlotChangeEmailAsync(string toEmail, string userName, string lotName, string oldSlot, string newSlot, string licensePlate);
 }
 
 public enum EmailOtpPurpose

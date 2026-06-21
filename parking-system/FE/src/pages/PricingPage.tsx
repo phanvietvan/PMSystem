@@ -1,12 +1,40 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence, type Variants } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
-import { hasActiveSessions } from '../utils/auth';
+import { hasActiveSessions, addActiveQr } from '../utils/auth';
+import api from '../services/api';
+import { useSettings } from '../hooks/useSettings.tsx';
 
 const PricingPage = () => {
   const navigate = useNavigate();
   const [showActiveWarning, setShowActiveWarning] = useState(false);
+  const { t, language } = useSettings();
+
+  // Sync and verify active session with DB
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      api.get('/ParkingSessions/my-session')
+        .then(res => {
+          if (res.data) {
+            if (res.data.hasActiveSession && res.data.session) {
+              const sQrCode = res.data.session.qrCode || res.data.session.QrCode;
+              if (sQrCode) {
+                addActiveQr(sQrCode);
+              }
+            } else {
+              localStorage.removeItem('activeSessionQrs');
+              localStorage.removeItem('activeSessionQr');
+              setShowActiveWarning(false);
+            }
+          }
+        })
+        .catch(err => {
+          console.log('Error syncing active session:', err);
+        });
+    }
+  }, []);
 
   // Real-time Pricing State
   const [prices, setPrices] = useState(() => {
@@ -35,10 +63,139 @@ const PricingPage = () => {
     const savedPrices = localStorage.getItem('parking_pricing');
     if (savedPrices) setPrices(JSON.parse(savedPrices));
 
-    const savedRegs = localStorage.getItem('parking_regulations');
-    if (savedRegs) setRegulations(JSON.parse(savedRegs));
+    const fetchPricing = async () => {
+      try {
+        // Try PricingConfigs DB API first
+        const response = await api.get('/PricingConfigs');
+        if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+          const mapped = response.data.map((c: any) => ({ type: c.type, price: c.price, sub: c.sub }));
+          setPrices(mapped);
+          localStorage.setItem('parking_pricing', JSON.stringify(mapped));
+          return;
+        }
+      } catch (e) {}
+      // Fallback to legacy endpoint
+      try {
+        const response = await api.get('/ParkingSessions/pricing');
+        if (response.data && Array.isArray(response.data)) {
+          setPrices(response.data);
+          localStorage.setItem('parking_pricing', JSON.stringify(response.data));
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    fetchPricing();
+
+    const fetchRegulations = async () => {
+      try {
+        const response = await api.get('/Regulations');
+        if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+          const mapped = response.data.map((r: any) => r.content);
+          setRegulations(mapped);
+          localStorage.setItem('parking_regulations', JSON.stringify(mapped));
+          return;
+        }
+      } catch (e) {}
+      const savedRegs = localStorage.getItem('parking_regulations');
+      if (savedRegs) setRegulations(JSON.parse(savedRegs));
+    };
+    fetchRegulations();
   }, []);
 
+  const getLocalizedVehicleType = (type: string) => {
+    const t = type.toLowerCase();
+    if (t.includes('xe máy') || t.includes('motorbike')) {
+      return language === 'en' ? 'Motorbike' : 'Xe máy';
+    }
+    if (t.includes('4-7 chỗ') || t.includes('ô tô') || t.includes('car')) {
+      return language === 'en' ? 'Car (4-7 seats)' : 'Ô tô 4-7 chỗ';
+    }
+    if (t.includes('suv') || t.includes('bán tải') || t.includes('truck')) {
+      return language === 'en' ? 'SUV / Truck' : 'SUV / Bán tải';
+    }
+    return type;
+  };
+
+  const getLocalizedSub = (sub: string) => {
+    if (!sub) return '';
+    const cleanSub = sub.replace(/[Vv][Nn]Đ/g, '').replace(/[Vv][Nn][Dd]/g, '').replace(/[\/\s]/g, '').toLowerCase();
+    if (cleanSub.includes('lượt') || cleanSub.includes('turn') || cleanSub.includes('session')) {
+      return language === 'en' ? '/ Session' : '/ Lượt';
+    }
+    if (cleanSub.includes('giờ') || cleanSub.includes('hour')) {
+      return language === 'en' ? '/ Hour' : '/ Giờ';
+    }
+    if (cleanSub.includes('ngày') || cleanSub.includes('day')) {
+      return language === 'en' ? '/ Day' : '/ Ngày';
+    }
+    return sub;
+  };
+
+  const getLocalizedRegulation = (content: string, index: number) => {
+    const defaultEnRules = [
+      'Please park in the reserved slot or scan the QR code on spot.',
+      'Maximum speed limit within the entire parking area is 10km/h.',
+      'Strictly comply with staff instructions and smart traffic signs.',
+      'Complete online payment via the app before reaching the exit gate.',
+      'No flammable materials, explosives, weapons, or contraband inside vehicles.',
+      'Take care of personal valuables. Management holds no liability for loss inside vehicle.'
+    ];
+    if (language === 'en' && index < defaultEnRules.length) {
+      return defaultEnRules[index];
+    }
+    return content;
+  };
+
+  // Fresh design properties for each vehicle card
+  const getCardTheme = (type: string) => {
+    const t = type.toLowerCase();
+    if (t.includes('xe máy')) {
+      return {
+        icon: 'motorcycle',
+        cardBg: 'bg-white/70',
+        border: 'border-white',
+        iconBg: 'bg-gradient-to-br from-cyan-50 to-blue-50 text-cyan-500 border border-cyan-100/50',
+        hoverBorder: 'hover:border-cyan-200/50',
+        hoverShadow: '0 20px 40px -15px rgba(6, 182, 212, 0.15), 0 0 0 1px rgba(6, 182, 212, 0.05)',
+        glow: 'from-cyan-400/20'
+      };
+    } else if (t.includes('4-7 chỗ') || t.includes('ô tô')) {
+      return {
+        icon: 'directions_car',
+        cardBg: 'bg-white/70',
+        border: 'border-white',
+        iconBg: 'bg-gradient-to-br from-blue-50 to-indigo-50 text-blue-500 border border-blue-100/50',
+        hoverBorder: 'hover:border-blue-200/50',
+        hoverShadow: '0 20px 40px -15px rgba(37, 99, 235, 0.15), 0 0 0 1px rgba(37, 99, 235, 0.05)',
+        glow: 'from-blue-400/20'
+      };
+    } else {
+      return {
+        icon: 'airport_shuttle',
+        cardBg: 'bg-white/70',
+        border: 'border-white',
+        iconBg: 'bg-gradient-to-br from-indigo-50 to-purple-50 text-indigo-500 border border-indigo-100/50',
+        hoverBorder: 'hover:border-indigo-200/50',
+        hoverShadow: '0 20px 40px -15px rgba(99, 102, 241, 0.15), 0 0 0 1px rgba(99, 102, 241, 0.05)',
+        glow: 'from-indigo-400/20'
+      };
+    }
+  };
+
+  const getRuleIcon = (index: number) => {
+    switch (index) {
+      case 0: return 'local_parking';
+      case 1: return 'speed';
+      case 2: return 'traffic';
+      case 3: return 'qr_code_scanner';
+      case 4: return 'dangerous';
+      case 5: return 'shield';
+      default: return 'info';
+    }
+  };
+
+  // Staggered Container Animation
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -47,48 +204,54 @@ const PricingPage = () => {
     }
   };
 
-  const cardVariants: Variants = {
-    hidden: { opacity: 0, y: 15 },
+  // Modern spring card animation
+  const cardVariants = {
+    hidden: { opacity: 0, y: 30, scale: 0.98 },
     visible: {
       opacity: 1,
       y: 0,
-      transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] }
+      scale: 1,
+      transition: {
+        type: 'spring' as const,
+        stiffness: 100,
+        damping: 20,
+        mass: 0.8
+      }
     }
   };
 
   return (
     <>
-      <div className="bg-[#FAFBFD] text-slate-900 antialiased min-h-screen selection:bg-slate-100 font-['Inter'] pb-24">
+      <div className="bg-mesh-gradient text-slate-900 antialiased min-h-screen selection:bg-blue-100 font-['Inter'] overflow-x-hidden relative pb-24">
         <Navbar />
 
-        <main className="pt-40 max-w-6xl mx-auto px-6 relative">
-          {/* Subtle Ambient light */}
-          <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-gradient-to-tr from-blue-50/40 to-indigo-50/30 rounded-full blur-[120px] -z-10" />
+        {/* Abstract Background Orbs to match Landing Page */}
+        <div className="absolute top-1/4 -left-20 w-[500px] h-[500px] bg-blue-100/30 rounded-full blur-[120px] -z-10 animate-pulse"></div>
+        <div className="absolute top-1/2 -right-20 w-[400px] h-[400px] bg-indigo-100/20 rounded-full blur-[100px] -z-10 animate-pulse" style={{ animationDelay: '2s' }}></div>
 
-          {/* Minimal Header */}
-          <div className="text-center max-w-2xl mx-auto mb-20">
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-600 text-[10px] font-bold uppercase tracking-widest mb-5"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" /> Dịch vụ & Cấu hình
-            </motion.div>
+        <main className="pt-32 max-w-6xl mx-auto px-4 sm:px-6 relative z-10">
+
+          {/* Majestic Soft Page Header */}
+          <div className="text-center max-w-4xl mx-auto mb-16 space-y-4">
+            
             <motion.h1
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.05 }}
-              className="text-3xl sm:text-4xl font-['Plus_Jakarta_Sans'] font-extrabold tracking-tight mb-4 leading-tight text-slate-900"
+              transition={{ delay: 0.1, duration: 0.6 }}
+              className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.15]"
             >
-              Bảng giá & <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Quy chế vận hành</span>
+              {language === 'en' ? 'Pricing' : 'Bảng Giá'} <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">&</span> {language === 'en' ? 'Regulations' : 'Nội Quy'}
             </motion.h1>
+            
             <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.1 }}
-              className="text-slate-400 text-sm font-medium max-w-lg mx-auto"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 0.6 }}
+              className="text-slate-500 text-lg font-medium leading-relaxed max-w-2xl mx-auto"
             >
-              Thông tin chi tiết về chính sách giá gửi xe thời gian thực và các điều khoản nội quy đỗ xe áp dụng tại PM System Central Tower.
+              {language === 'en' 
+                ? 'Transparent pricing and clear regulations to ensure your parking experience is always safe, smooth, and highly convenient.'
+                : 'Thông tin minh bạch và quy định rõ ràng, giúp trải nghiệm đỗ xe của bạn luôn an toàn, mượt mà và tiện lợi nhất.'}
             </motion.p>
           </div>
 
@@ -96,58 +259,99 @@ const PricingPage = () => {
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="grid lg:grid-cols-12 gap-8 items-start"
+            className="space-y-12"
           >
-            {/* Pricing Card (Left - 5 Cols) */}
-            <div className="lg:col-span-5">
-              <div className="bg-white border border-slate-200/70 shadow-[0_8px_30px_rgb(0,0,0,0.02)] rounded-[2.5rem] p-8 sm:p-10 relative overflow-hidden">
-                <div className="flex items-center gap-4.5 mb-10 pb-6 border-b border-slate-100">
-                  <div className="w-11 h-11 bg-blue-50 border border-blue-100 rounded-full flex items-center justify-center text-blue-600 shadow-sm shrink-0">
-                    <span className="material-symbols-outlined text-[20px] font-bold">payments</span>
-                  </div>
-                  <div>
-                    <h3 className="text-base font-black text-slate-955 tracking-tight leading-none">Bảng giá gửi xe</h3>
-                    <p className="text-[9px] text-blue-600 font-extrabold uppercase tracking-widest mt-1.5">Áp dụng thời gian thực</p>
+            {/* Template: 3 Column Majestic Interactive Cards */}
+            <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
+              {prices.map((p: any, idx: number) => {
+                const theme = getCardTheme(p.type);
+                return (
+                  <motion.div
+                    key={idx}
+                    variants={cardVariants}
+                    whileHover={{
+                      y: -8,
+                      scale: 1.02,
+                      boxShadow: theme.hoverShadow
+                    }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                    className={`relative backdrop-blur-xl border rounded-[28px] p-8 lg:p-10 flex flex-col items-center text-center shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300 cursor-pointer overflow-hidden group ${theme.cardBg} ${theme.border} ${theme.hoverBorder}`}
+                  >
+                    {/* Soft ambient glow inside card */}
+                    <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl ${theme.glow} to-transparent rounded-full blur-[30px] -mr-16 -mt-16 transition-transform duration-700 group-hover:scale-150 opacity-60`}></div>
+
+                    {/* Minimalist Soft Icon Circle */}
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm mb-6 relative z-10 group-hover:scale-110 transition-transform duration-300 ${theme.iconBg}`}>
+                      <span className="material-symbols-outlined text-2xl">{theme.icon}</span>
+                    </div>
+
+                    {/* Title */}
+                    <h3 className="text-lg font-bold text-slate-800 tracking-tight mb-6 relative z-10">
+                      {getLocalizedVehicleType(p.type)}
+                    </h3>
+
+                    {/* Price Block */}
+                    <div className="w-full pt-6 border-t border-slate-100/80 flex flex-col items-center relative z-10">
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-4xl lg:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-slate-800 to-slate-900 tracking-tight">
+                          {p.price}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                          {language === 'en' ? getLocalizedSub(p.sub).replace('/', '').trim() : p.sub.replace('VNĐ', '').trim()}
+                        </span>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+
+            {/* Centered Footnote */}
+            <div className="text-center text-xs text-slate-400 font-medium">
+              {language === 'en' 
+                ? '* All fees listed above include tax and smart utility services.'
+                : '* Tất cả các biểu phí trên đã bao gồm thuế và dịch vụ tiện ích thông minh.'}
+            </div>
+
+            {/* Flat Grid: Action triggers & Operating Regulations */}
+            <div className="grid lg:grid-cols-12 gap-6 lg:gap-8 items-stretch mt-8">
+
+              {/* Left column: Quick Actions Card */}
+              <motion.div
+                variants={cardVariants}
+                className="lg:col-span-5 bg-white/70 backdrop-blur-xl border border-white rounded-[28px] p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between"
+              >
+                <div className="text-left">
+                  <h3 className="text-xl font-bold text-slate-900 tracking-tight mb-3">
+                    {language === 'en' ? 'Online Reservation' : 'Đặt Chỗ Trực Tuyến'}
+                  </h3>
+                  <p className="text-sm text-slate-500 font-medium leading-relaxed">
+                    {language === 'en'
+                      ? 'Reserve your spot in advance via the app to secure a slot as soon as your vehicle enters the smart parking lot.'
+                      : 'Giữ chỗ trước qua ứng dụng để đảm bảo có vị trí trống ngay khi phương tiện đi vào bãi đỗ xe thông minh.'}
+                  </p>
+
+                  <div className="mt-8 p-6 rounded-2xl bg-gradient-to-br from-blue-50/50 to-indigo-50/50 border border-blue-100/50 space-y-4">
+                    <div className="flex gap-3 items-start">
+                      <div className="w-6 h-6 rounded-full bg-blue-100/80 flex items-center justify-center shrink-0">
+                        <span className="material-symbols-outlined text-blue-600 text-[14px] font-bold">check</span>
+                      </div>
+                      <p className="text-xs text-slate-600 font-semibold leading-relaxed pt-1">
+                        {language === 'en' ? 'Instant 2s license plate recognition.' : 'Nhận diện biển số thông minh 2s.'}
+                      </p>
+                    </div>
+                    <div className="flex gap-3 items-start">
+                      <div className="w-6 h-6 rounded-full bg-indigo-100/80 flex items-center justify-center shrink-0">
+                        <span className="material-symbols-outlined text-indigo-600 text-[14px] font-bold">check</span>
+                      </div>
+                      <p className="text-xs text-slate-600 font-semibold leading-relaxed pt-1">
+                        {language === 'en' ? 'Cashless payment via QR code.' : 'Thanh toán QR không dùng tiền mặt.'}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  {prices.map((p: any, idx: number) => {
-                    let icon = "motorcycle";
-                    let iconBg = "bg-blue-50/50 border-blue-100/60 text-blue-600";
-                    if (p.type.toLowerCase().includes("ô tô")) {
-                      icon = "directions_car";
-                      iconBg = "bg-indigo-50/50 border-indigo-100/60 text-indigo-600";
-                    } else if (p.type.toLowerCase().includes("suv") || p.type.toLowerCase().includes("bán tải")) {
-                      icon = "airport_shuttle";
-                      iconBg = "bg-cyan-50/50 border-cyan-100/60 text-cyan-600";
-                    }
-
-                    return (
-                      <motion.div
-                        key={idx}
-                        variants={cardVariants}
-                        className="flex items-center justify-between p-4.5 rounded-[2rem] border border-slate-100 bg-white hover:bg-slate-50/30 hover:border-blue-100/50 transition-all duration-200"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className={`w-10 h-10 rounded-full border ${iconBg} flex items-center justify-center shadow-sm shrink-0`}>
-                            <span className="material-symbols-outlined text-[18px]">{icon}</span>
-                          </div>
-                          <div className="text-left">
-                            <h4 className="text-xs font-bold text-slate-800 tracking-tight">{p.type}</h4>
-                            <p className="text-[9px] text-slate-400 font-semibold uppercase tracking-wider mt-0.5">{p.sub}</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-xl font-extrabold text-blue-600 tracking-tight">{p.price}</span>
-                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">VND</span>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-
-                <div className="mt-10 space-y-3 pt-6 border-t border-slate-100">
+                <div className="mt-8 space-y-3">
                   <button
                     onClick={() => {
                       if (hasActiveSessions()) {
@@ -156,51 +360,75 @@ const PricingPage = () => {
                         navigate('/reserve');
                       }
                     }}
-                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold py-4 px-6 rounded-full text-[9px] uppercase tracking-widest transition-all shadow-lg shadow-blue-500/10 cursor-pointer flex items-center justify-center gap-1.5 group"
+                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-4 rounded-2xl text-sm transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)] hover:shadow-[0_0_30px_rgba(37,99,235,0.5)] cursor-pointer flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99]"
                   >
-                    <span>Đặt chỗ ngay</span>
-                    <span className="material-symbols-outlined text-[12px] group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
+                    <span>{language === 'en' ? 'Start Booking' : 'Bắt Đầu Đặt Chỗ'}</span>
+                    <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                   </button>
                   <button
                     onClick={() => navigate('/')}
-                    className="w-full bg-transparent hover:bg-blue-50 border border-blue-200 text-blue-600 font-extrabold py-4 rounded-full text-[9px] uppercase tracking-widest transition-all cursor-pointer"
+                    className="w-full bg-white/80 hover:bg-white border border-slate-200 text-slate-500 hover:text-blue-600 font-bold py-4 rounded-2xl text-sm transition-all cursor-pointer text-center"
                   >
-                    Quay về Trang chủ
+                    {language === 'en' ? 'Back to Home' : 'Về Trang Chủ'}
                   </button>
                 </div>
-              </div>
-            </div>
+              </motion.div>
 
-            {/* Regulations Card (Right - 7 Cols) */}
-            <div className="lg:col-span-7">
-              <div className="bg-white border border-slate-200/70 shadow-[0_8px_30px_rgb(0,0,0,0.02)] rounded-[2.5rem] p-8 sm:p-10">
-                <div className="flex items-center gap-4.5 mb-10 pb-6 border-b border-slate-100">
-                  <div className="w-11 h-11 bg-blue-50 border border-blue-100 rounded-full flex items-center justify-center text-blue-600 shadow-sm shrink-0">
-                    <span className="material-symbols-outlined text-[20px] font-bold">gavel</span>
-                  </div>
-                  <div>
-                    <h3 className="text-base font-black text-slate-955 tracking-tight leading-none">Nội quy & Quy chế</h3>
-                    <p className="text-[9px] text-blue-600 font-extrabold uppercase tracking-widest mt-1.5">Yêu cầu tuân thủ an toàn</p>
+              {/* Right column: Regulations grid */}
+              <motion.div
+                variants={cardVariants}
+                className="lg:col-span-7 bg-white/70 backdrop-blur-xl border border-white rounded-[28px] p-8 sm:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] text-left"
+              >
+                <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-100/80">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-slate-50 border border-slate-100 text-slate-600 rounded-2xl flex items-center justify-center shrink-0 shadow-sm">
+                      <span className="material-symbols-outlined text-xl">gavel</span>
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-slate-900 tracking-tight leading-none mb-1.5">
+                        {language === 'en' ? 'Operating Regulations' : 'Nội Quy Vận Hành'}
+                      </h3>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">PM System Management</p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  {regulations.map((reg: string, i: number) => (
-                    <motion.div
-                      key={i}
-                      variants={cardVariants}
-                      className="flex gap-4 items-start p-4 bg-white rounded-2xl border border-slate-100 hover:border-blue-100/50 hover:bg-blue-50/5 transition-all duration-200"
-                    >
-                      <span className="w-6.5 h-6.5 rounded-full bg-blue-50 border border-blue-100 text-blue-600 font-bold text-[10px] flex items-center justify-center shrink-0 shadow-sm">
-                        {i + 1}
-                      </span>
-                      <p className="text-slate-500 text-xs font-semibold leading-relaxed pt-0.5 text-left">
-                        {reg}
-                      </p>
-                    </motion.div>
-                  ))}
+                {/* 2-Column Grid for rules */}
+                <div className="grid sm:grid-cols-2 gap-6">
+                  {regulations.map((reg: string, i: number) => {
+                    const icon = getRuleIcon(i);
+                    return (
+                      <div
+                        key={i}
+                        className="flex gap-4 items-start p-4 bg-slate-50/50 hover:bg-white border border-slate-100/80 hover:border-blue-100 hover:shadow-md rounded-2xl transition-all duration-300 group"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-white border border-slate-100 text-slate-400 group-hover:text-blue-500 group-hover:border-blue-100 flex items-center justify-center shrink-0 shadow-sm transition-colors">
+                          <span className="material-symbols-outlined text-[18px]">{icon}</span>
+                        </div>
+                        <div className="pt-0.5">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">
+                            {language === 'en' ? `Rule 0${i + 1}` : `Quy định 0${i + 1}`}
+                          </span>
+                          <p className="text-slate-600 text-xs font-medium leading-relaxed">
+                            {getLocalizedRegulation(reg, i)}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              </div>
+
+                <div className="mt-8 pt-6 border-t border-slate-100/80 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-500 font-bold">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>{language === 'en' ? '24/7 Security Monitoring System' : 'Hệ thống giám sát bảo mật 24/7'}</span>
+                  </div>
+                  <span className="bg-slate-100 px-3 py-1.5 rounded-lg text-[11px] uppercase tracking-wider text-slate-500">
+                    Hotline: 0816 386 382
+                  </span>
+                </div>
+              </motion.div>
+
             </div>
           </motion.div>
         </main>
@@ -213,54 +441,56 @@ const PricingPage = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[9999] flex items-center justify-center p-4"
           >
             <motion.div
               initial={{ scale: 0.95, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 20 }}
-              className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl border border-slate-100 flex flex-col items-center text-center relative overflow-hidden font-['Inter']"
+              className="bg-white/95 backdrop-blur-xl rounded-[32px] p-8 max-w-sm w-full shadow-2xl border border-white flex flex-col items-center text-center relative overflow-hidden font-sans"
             >
-              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-red-500/10 to-transparent blur-xl rounded-full" />
-              
-              <div className="w-16 h-16 bg-red-50 border border-red-100 text-red-600 rounded-full flex items-center justify-center mb-6 shadow-sm">
-                <span className="material-symbols-outlined text-3xl text-red-500 font-bold">warning</span>
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-rose-500/10 to-transparent blur-xl rounded-full" />
+
+              <div className="w-16 h-16 bg-rose-50 border border-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mb-6 shadow-sm relative z-10">
+                <span className="material-symbols-outlined text-3xl text-rose-500">warning</span>
               </div>
-              
-              <h3 className="text-base font-black text-slate-900 tracking-tight leading-snug mb-2">
-                Phiên đỗ đang hoạt động
+
+              <h3 className="text-xl font-bold text-slate-900 tracking-tight leading-snug mb-3 relative z-10">
+                {language === 'en' ? 'Active Parking Session' : 'Phiên đỗ đang hoạt động'}
               </h3>
-              
-              <p className="text-slate-400 text-xs font-semibold leading-relaxed mb-8 px-2">
-                Bạn đang có một phiên đỗ xe chưa kết thúc (xe chưa ra khỏi bãi). Vui lòng hoàn tất thanh toán lối ra cho xe hiện tại trước khi thực hiện đặt chỗ mới.
+
+              <p className="text-slate-500 text-sm font-medium leading-relaxed mb-8 px-2 relative z-10">
+                {language === 'en'
+                  ? 'You currently have an active parking session (vehicle still inside). Please complete payment for the current vehicle before creating a new booking.'
+                  : 'Bạn đang có một phiên đỗ xe chưa kết thúc (xe chưa ra khỏi bãi). Vui lòng hoàn tất thanh toán cho xe hiện tại trước khi đặt chỗ mới.'}
               </p>
-              
-              <div className="flex flex-col gap-2 w-full">
+
+              <div className="flex flex-col gap-3 w-full relative z-10">
                 <button
                   onClick={() => {
                     setShowActiveWarning(false);
                     navigate('/active-session');
                   }}
-                  className="w-full bg-slate-950 hover:bg-slate-800 active:scale-[0.98] text-white font-extrabold py-3.5 rounded-xl text-[9px] uppercase tracking-widest transition-all shadow-lg cursor-pointer flex items-center justify-center gap-1.5"
+                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 rounded-2xl text-sm transition-all shadow-lg active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-[13px]">visibility</span>
-                  Xem phiên hiện tại
+                  <span className="material-symbols-outlined text-[18px]">visibility</span>
+                  {language === 'en' ? 'View current session' : 'Xem phiên hiện tại'}
                 </button>
                 <button
                   onClick={() => {
                     setShowActiveWarning(false);
                     navigate('/reserve', { state: { bypassActiveCheck: true } });
                   }}
-                  className="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-extrabold py-3.5 rounded-xl text-[9px] uppercase tracking-widest transition-all shadow-lg shadow-blue-500/10 cursor-pointer flex items-center justify-center gap-1.5"
+                  className="w-full bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold py-4 rounded-2xl text-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-[13px]">directions_car</span>
-                  Đặt xe khác
+                  <span className="material-symbols-outlined text-[18px]">directions_car</span>
+                  {language === 'en' ? 'Book another vehicle' : 'Đặt xe khác'}
                 </button>
                 <button
                   onClick={() => setShowActiveWarning(false)}
-                  className="w-full hover:bg-slate-50 text-slate-400 font-extrabold py-3 rounded-xl text-[9px] uppercase tracking-widest transition-all cursor-pointer"
+                  className="w-full text-slate-400 hover:text-slate-600 font-bold py-3 rounded-2xl text-sm transition-all cursor-pointer"
                 >
-                  Đóng
+                  {language === 'en' ? 'Cancel' : 'Hủy'}
                 </button>
               </div>
             </motion.div>

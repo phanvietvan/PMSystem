@@ -7,6 +7,8 @@ using Repositories.Enums;
 using Repositories.Interfaces;
 using Services.Interfaces;
 using Google.Apis.Auth;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace Services.Implementations;
 
@@ -430,17 +432,20 @@ public class AuthService : IAuthService
         if (user is null)
             return ApiResponse<UserResponse>.Fail("User not found.");
 
-        if (!TryValidateLicensePlates(request.LicensePlate, out var plateError))
-        {
-            return ApiResponse<UserResponse>.Fail(plateError);
-        }
+        if (!IsValidLicensePlate(request.LicensePlate))
+            return ApiResponse<UserResponse>.Fail("Biển số xe không đúng định dạng. Ký tự thứ 3 bắt buộc là chữ cái (Ví dụ: 29A-123.45 hoặc 59G1-12345).");
 
         user.FirstName = request.FirstName.Trim();
         user.LastName = request.LastName.Trim();
         user.PhoneNumber = request.PhoneNumber.Trim();
         user.Address = request.Address.Trim();
-        user.LicensePlate = request.LicensePlate?.Trim();
-        user.VehicleType = request.VehicleType?.Trim();
+        user.LicensePlate = request.LicensePlate.Trim();
+        user.VehicleType = request.VehicleType.Trim();
+        
+        if (request.AvatarUrl != null)
+        {
+            user.AvatarUrl = request.AvatarUrl;
+        }
 
         _userRepo.Update(user);
         await _userRepo.SaveChangesAsync();
@@ -478,10 +483,8 @@ public class AuthService : IAuthService
         if (user is null)
             return ApiResponse<UserResponse>.Fail("User not found.");
 
-        if (!TryValidateLicensePlates(request.LicensePlate, out var plateError))
-        {
-            return ApiResponse<UserResponse>.Fail(plateError);
-        }
+        if (!string.IsNullOrWhiteSpace(request.LicensePlate) && !IsValidLicensePlate(request.LicensePlate))
+            return ApiResponse<UserResponse>.Fail("Biển số xe không đúng định dạng. Ký tự thứ 3 bắt buộc là chữ cái (Ví dụ: 29A-123.45 hoặc 59G1-12345).");
 
         user.FirstName = request.FirstName.Trim();
         user.LastName = request.LastName.Trim();
@@ -520,6 +523,56 @@ public class AuthService : IAuthService
     }
 
     // ── Private Helpers ───────────────────────────────────────────────────────
+
+    private static bool ValidateSinglePlate(string plate)
+    {
+        if (string.IsNullOrWhiteSpace(plate)) return false;
+        var clean = Regex.Replace(plate, @"[-.\s]", "").ToUpper();
+        return Regex.IsMatch(clean, @"^\d{2}[A-Z][A-Z0-9]?\d{4,5}$");
+    }
+
+    private static bool IsValidLicensePlate(string? licensePlate)
+    {
+        if (string.IsNullOrWhiteSpace(licensePlate)) return false;
+        var trimmed = licensePlate.Trim();
+
+        if (trimmed.StartsWith("[") && trimmed.EndsWith("]"))
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(trimmed);
+                if (doc.RootElement.ValueKind != JsonValueKind.Array) return false;
+                
+                var array = doc.RootElement;
+                if (array.GetArrayLength() == 0) return false;
+
+                foreach (var element in array.EnumerateArray())
+                {
+                    string? plate = null;
+                    if (element.TryGetProperty("plate", out var plateProp))
+                    {
+                        plate = plateProp.GetString();
+                    }
+                    else if (element.TryGetProperty("Plate", out var platePropUpper))
+                    {
+                        plate = platePropUpper.GetString();
+                    }
+
+                    if (string.IsNullOrWhiteSpace(plate) || !ValidateSinglePlate(plate))
+                    {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            catch
+            {
+                // Fallback
+            }
+        }
+
+        return ValidateSinglePlate(trimmed);
+    }
 
     private async Task<User> CreateGoogleUserAsync(string email, string firstName, string lastName, string? avatarUrl)
     {

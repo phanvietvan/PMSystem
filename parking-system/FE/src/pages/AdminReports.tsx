@@ -1,178 +1,960 @@
-import {
-  TrendingUp,
-  Leaf,
-  ShieldCheck,
-  MoreVertical,
-} from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Building2, MapPin, Layers, LayoutGrid, Search, Plus, CarFront, Users, Banknote, ShieldAlert, Navigation } from 'lucide-react';
+import { Trash2, Globe } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import AdminLayout from '../components/admin/AdminLayout';
+import api from '../services/api';
+import { useSettings } from '../hooks/useSettings.tsx';
 
 const AdminReports = () => {
-  console.log("AdminReports rendered");
+  const { language } = useSettings();
+  const [branches, setBranches] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const monthlyData = [
-    { month: 'Th.1', lastYear: 40, current: 55 },
-    { month: 'Th.2', lastYear: 35, current: 48 },
-    { month: 'Th.3', lastYear: 60, current: 75 },
-    { month: 'Th.4', lastYear: 50, current: 65 },
-    { month: 'Th.5', lastYear: 80, current: 95, active: true },
-    { month: 'Th.6', lastYear: 40, current: 50, forecast: true },
-  ];
+  const [globalStats, setGlobalStats] = useState({
+    totalCapacity: 0,
+    currentOccupancy: 0,
+    totalRevenue: 0,
+    totalSessions: 0
+  });
+  
+  const [monthlyRevenueData, setMonthlyRevenueData] = useState<{month: string, revenue: number}[]>([]);
 
-  const heatmapDays = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
-  const heatmapColors = [
-    'bg-blue-50', 'bg-blue-100', 'bg-blue-50', 'bg-blue-200', 'bg-blue-600/60', 'bg-blue-600', 'bg-slate-900',
-    'bg-blue-200', 'bg-blue-200', 'bg-blue-600', 'bg-blue-600', 'bg-slate-900', 'bg-slate-900', 'bg-slate-900',
-    'bg-blue-50', 'bg-blue-50', 'bg-blue-100', 'bg-blue-200', 'bg-blue-600', 'bg-blue-600', 'bg-blue-600',
-    'bg-blue-50', 'bg-blue-50', 'bg-blue-50', 'bg-blue-100', 'bg-blue-200', 'bg-blue-600', 'bg-blue-600',
-  ];
+  const [searchTerm, setSearchTerm] = useState('');
 
-  const zones = [
-    { id: 'A1', name: 'Khu A1 - Hầm B2', count: '1,240', revenue: '45,2tr ₫' },
-    { id: 'C3', name: 'Khu C3 - Ngoài trời', count: '980', revenue: '32,1tr ₫' },
-    { id: 'B2', name: 'Khu B2 - Hầm B1', count: '850', revenue: '28,5tr ₫' },
-    { id: 'D1', name: 'Khu D1 - VIP', count: '420', revenue: '25,8tr ₫' },
-  ];
+  const fetchRealData = async () => {
+    try {
+      const [lotsRes, sessionsRes] = await Promise.all([
+        api.get('/ParkingLots'),
+        api.get('/ParkingSessions')
+      ]);
 
+        const lots = lotsRes.data || [];
+        const sessions = Array.isArray(sessionsRes.data) ? sessionsRes.data : (sessionsRes.data?.data || []);
+
+        let gCapacity = 0;
+        let gOccupancy = 0;
+        let gRevenue = 0;
+        let gSessions = 0;
+
+        const enhancedLots = lots.map((lot: any) => {
+          const lotSessions = sessions.filter((s: any) => s.parkingLotName === lot.name);
+          
+          // Calculate occupancy (currently parked)
+          const activeSessions = lotSessions.filter((s: any) => s.isCheckedIn && s.status !== 'Completed' && s.status !== 'Cancelled');
+          const currentOccupancy = activeSessions.length;
+          
+          // Calculate revenue (completed sessions)
+          const completedSessions = lotSessions.filter((s: any) => s.status === 'Completed');
+          const revenue = completedSessions.reduce((sum: number, s: any) => sum + (s.totalFee || 0), 0);
+
+          // Calculate true capacity based on actual active floors
+          const activeFloors = lot.floors && lot.floors.length > 0 ? lot.floors : [1];
+          const trueCapacity = lot.floorCapacities && Object.keys(lot.floorCapacities).length > 0 
+            ? activeFloors.reduce((sum: number, f: number) => sum + (lot.floorCapacities[f.toString()] || 24), 0)
+            : (lot.capacity || 24);
+
+          gCapacity += trueCapacity;
+          gOccupancy += currentOccupancy;
+          gRevenue += revenue;
+          gSessions += lotSessions.length;
+
+          return {
+            ...lot,
+            capacity: trueCapacity,
+            currentOccupancy,
+            totalSessions: lotSessions.length,
+            totalRevenue: revenue
+          };
+        });
+
+        // Compute Monthly Revenue for Current Year
+        const currentYear = new Date().getFullYear();
+        const monthlyTotals = Array(12).fill(0);
+        
+        sessions.forEach((s: any) => {
+          if (s.status === 'Completed' && s.totalFee) {
+            const exitDate = new Date(s.exitTime || s.createdAt);
+            if (exitDate.getFullYear() === currentYear) {
+              monthlyTotals[exitDate.getMonth()] += s.totalFee;
+            }
+          }
+        });
+
+        const mData = monthlyTotals.map((val, index) => ({
+          month: language === 'en' ? `M.${index + 1}` : `Th.${index + 1}`,
+          revenue: val
+        }));
+        setMonthlyRevenueData(mData);
+
+        setGlobalStats({
+          totalCapacity: gCapacity,
+          currentOccupancy: gOccupancy,
+          totalRevenue: gRevenue,
+          totalSessions: gSessions
+        });
+
+        setBranches(enhancedLots);
+      } catch (error) {
+        console.error('Error fetching real data:', error);
+      } finally {
+        setLoading(false);
+      }
+  };
+
+  useEffect(() => {
+    fetchRealData();
+  }, []);
+
+  
+  const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  const showToast = (text: string, type: 'success' | 'error' | 'info' = 'success') => {
+    setToastMessage({ text, type });
+  };
+
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => setToastMessage(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
+
+  const [newLotAddress, setNewLotAddress] = useState('');
+  const [isSearchingLocation, setIsSearchingLocation] = useState(false);
+  const [searchFeedback, setSearchFeedback] = useState('');
+  
+  // Floor configuration for the new lot
+  const [newLotFloors, setNewLotFloors] = useState<number[]>([1, 2, 3]);
+
+  const [addressSuggestions, setAddressSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  useEffect(() => {
+    if (newLotAddress.trim().length < 3) {
+      setAddressSuggestions([]);
+      return;
+    }
+
+    const delayDebounceFn = setTimeout(async () => {
+      try {
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(newLotAddress)}&limit=5`);
+        const data = await response.json();
+        if (Array.isArray(data)) {
+          setAddressSuggestions(data);
+        }
+      } catch (e) {
+        console.error("Suggestions fetch error:", e);
+      }
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [newLotAddress]);
+
+  const handleSelectSuggestion = (item: any) => {
+    const lat = item.lat;
+    const lon = item.lon;
+    const fullAddress = item.display_name;
+
+    setNewLotAddress(fullAddress);
+    setNewLot(prev => ({
+      ...prev,
+      latitude: lat,
+      longitude: lon
+    }));
+    
+    setSearchFeedback(language === 'en' ? 'Located successfully!' : 'Đã định vị thành công!');
+    setAddressSuggestions([]);
+    setShowSuggestions(false);
+  };
+
+  const [newLot, setNewLot] = useState({
+    name: '',
+    floor: language === 'en' ? 'Floor 1' : 'Tầng 1',
+    block: 'Block A',
+    latitude: '10.7717',
+    longitude: '106.7044',
+    capacity: 24
+  });
+  
+  const [newLotFloorCapacities, setNewLotFloorCapacities] = useState<Record<string, number>>({});
+
+  const handleSearchAddress = async () => {
+    if (!newLotAddress.trim()) return;
+    setIsSearchingLocation(true);
+    setSearchFeedback(language === 'en' ? 'Locating...' : 'Đang tìm vị trí...');
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(newLotAddress)}`);
+      const data = await response.json();
+      if (data && data.length > 0) {
+        const { lat, lon } = data[0];
+        setNewLot(prev => ({
+          ...prev,
+          latitude: lat,
+          longitude: lon
+        }));
+        setSearchFeedback(language === 'en' ? 'Located successfully!' : 'Đã định vị thành công!');
+      } else {
+        setSearchFeedback(language === 'en' ? 'Location not found. Try another address.' : 'Không tìm thấy địa điểm. Hãy thử địa chỉ khác.');
+      }
+    } catch (e) {
+      setSearchFeedback(language === 'en' ? 'Map connection error. Please try again.' : 'Lỗi kết nối bản đồ. Hãy thử lại.');
+      console.error(e);
+    } finally {
+      setIsSearchingLocation(false);
+    }
+  };
+
+  const handleAddLot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newLot.name.trim()) return;
+
+    try {
+      await api.post('/ParkingLots', {
+        name: newLot.name,
+        latitude: newLot.latitude,
+        longitude: newLot.longitude,
+        floor: newLot.floor,
+        block: newLot.block,
+        capacity: newLot.capacity,
+        floorCapacities: newLotFloorCapacities,
+        floors: [...newLotFloors]
+      });
+      await fetchRealData();
+    } catch (error) {
+      console.error('Error adding parking lot:', error);
+    }
+    
+    setNewLot({
+      name: '',
+      floor: language === 'en' ? 'Floor 1' : 'Tầng 1',
+      block: 'Block A',
+      latitude: '10.7717',
+      longitude: '106.7044',
+      capacity: 24
+    });
+    setNewLotAddress('');
+    setSearchFeedback('');
+    setNewLotFloors([1, 2, 3]);
+    setNewLotFloorCapacities({});
+    showToast(language === 'en' ? 'New branch added successfully!' : 'Thêm chi nhánh mới thành công!', 'success');
+  };
+
+  const handleDeleteLot = async (id: any) => {
+    try {
+      await api.delete(`/ParkingLots/${id}`);
+      await fetchRealData();
+      showToast(language === 'en' ? 'Branch deleted successfully!' : 'Đã xóa chi nhánh thành công!', 'info');
+    } catch (error) {
+      console.error('Error deleting parking lot:', error);
+      showToast(language === 'en' ? 'Failed to delete branch!' : 'Xóa chi nhánh thất bại!', 'error');
+    }
+  };
+
+  const handleAddFloorToLot = async (id: any) => {
+    const lot = branches.find(p => p.id === id);
+    if (!lot) return;
+    const currentFloors = lot.floors || [1, 2, 3];
+    
+    let nextFloor = 1;
+    while(currentFloors.includes(nextFloor)) {
+      nextFloor++;
+    }
+    
+    const updatedFloors = [...currentFloors, nextFloor].sort((a, b) => a - b);
+    
+    const updatedCaps = { ...(lot.floorCapacities || {}) };
+    updatedCaps[nextFloor.toString()] = 24; // Default capacity for new floor
+
+    try {
+      await api.put(`/ParkingLots/${id}`, { ...lot, floors: updatedFloors, floorCapacities: updatedCaps });
+      await fetchRealData();
+      showToast(language === 'en' ? 'New floor added successfully!' : 'Đã thêm tầng mới thành công!', 'success');
+    } catch (error) {
+      console.error('Error adding floor:', error);
+      showToast(language === 'en' ? 'Failed to add floor!' : 'Thêm tầng thất bại!', 'error');
+    }
+  };
+
+  const handleRemoveFloorFromLot = async (id: any, floorToRemove: number) => {
+    const lot = branches.find(p => p.id === id);
+    if (!lot) return;
+    const currentFloors = lot.floors || [1, 2, 3];
+    const updatedFloors = currentFloors.filter((f: number) => f !== floorToRemove);
+
+    const updatedCaps = { ...(lot.floorCapacities || {}) };
+    delete updatedCaps[floorToRemove.toString()];
+
+    try {
+      await api.put(`/ParkingLots/${id}`, { ...lot, floors: updatedFloors, floorCapacities: updatedCaps });
+      await fetchRealData();
+      showToast(language === 'en' ? 'Floor deleted successfully!' : 'Đã xóa tầng thành công!', 'info');
+    } catch (error) {
+      console.error('Error removing floor:', error);
+      showToast(language === 'en' ? 'Failed to delete floor!' : 'Xóa tầng thất bại!', 'error');
+    }
+  };
+
+  const handleFloorCapacityChange = (id: any, floorNumber: number, newCapacity: number) => {
+    setBranches(prev => prev.map(p => {
+      if (p.id === id) {
+        const caps = { ...(p.floorCapacities || {}) };
+        caps[floorNumber.toString()] = newCapacity;
+        return { ...p, floorCapacities: caps };
+      }
+      return p;
+    }));
+  };
+
+  const handleFloorCapacityBlur = async (id: any) => {
+    const lot = branches.find(p => p.id === id);
+    if (!lot) return;
+    try {
+      await api.put(`/ParkingLots/${id}`, lot);
+      showToast(language === 'en' ? 'Capacity updated successfully!' : 'Cập nhật số ô thành công!', 'success');
+    } catch (error) {
+      console.error('Error updating capacity:', error);
+      showToast(language === 'en' ? 'Failed to update capacity!' : 'Cập nhật số ô thất bại!', 'error');
+      fetchRealData();
+    }
+  };
+
+  const handleFieldChange = (id: any, field: string, value: string) => {
+    setBranches(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
+  };
+
+  const handleCoordinatesChange = (id: any, value: string) => {
+    const parts = value.split(',');
+    const lat = parts[0]?.trim() || '';
+    const lng = parts[1]?.trim() || '';
+    setBranches(prev => prev.map(p => p.id === id ? { ...p, latitude: lat, longitude: lng, _tempCoords: value } : p));
+  };
+  
+  const handleFieldBlur = async (id: any) => {
+    const lot = branches.find(p => p.id === id);
+    if (!lot) return;
+    try {
+      await api.put(`/ParkingLots/${id}`, lot);
+      showToast(language === 'en' ? 'Information updated successfully!' : 'Cập nhật thông tin thành công!', 'success');
+    } catch (error) {
+      console.error('Error updating lot info:', error);
+      showToast(language === 'en' ? 'Failed to update information!' : 'Cập nhật thông tin thất bại!', 'error');
+      fetchRealData();
+    }
+  };
+
+  const filteredBranches = branches.filter(b => b.name?.toLowerCase().includes(searchQuery.toLowerCase()) || b.address?.toLowerCase().includes(searchQuery.toLowerCase()));
+
+  const formatCurrency = (amount: number) => {
+    return language === 'en' ? amount.toLocaleString('en-US') + ' VND' : amount.toLocaleString('vi-VN') + ' ₫';
+  };
 
   return (
     <AdminLayout>
-      {/* Page Content */}
-        <div className="p-10 space-y-8">
-           {/* Summary Cards */}
-           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
-                 <div className="flex justify-between items-center mb-4">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tổng lượt gửi</span>
-                    <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">+12.5%</span>
-                 </div>
-                 <div className="text-4xl font-black text-blue-600">24,592</div>
-                 <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase tracking-widest">Giao dịch trong tháng 5</p>
-              </div>
-              <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
-                 <div className="flex justify-between items-center mb-4">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tỷ lệ lấp đầy</span>
-                    <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full uppercase">Cao nhất</span>
-                 </div>
-                 <div className="text-4xl font-black text-slate-900">88.4%</div>
-                 <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase tracking-widest">Giờ cao điểm (18:00 - 21:00)</p>
-              </div>
-              <div className="bg-blue-600 p-8 rounded-3xl shadow-xl shadow-blue-600/20 text-white relative overflow-hidden group">
-                 <div className="relative z-10">
-                    <h4 className="text-lg font-black mb-2">Dự báo tuần tới</h4>
-                    <p className="text-xs text-white/70 mb-6 leading-relaxed">Tải trọng dự kiến tăng 15% do sự kiện cuối tuần.</p>
-                    <button className="bg-white text-blue-600 px-6 py-2 rounded-xl text-[10px] font-black uppercase hover:scale-105 transition-transform">Xem dự báo AI</button>
-                 </div>
-                 <TrendingUp className="absolute -right-4 -bottom-4 w-32 h-32 opacity-10 rotate-12 group-hover:rotate-0 transition-transform duration-500" />
-              </div>
-           </div>
+      <div className="p-8 md:p-10 space-y-8 min-h-screen">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="flex flex-col gap-1.5">
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+              {language === 'en' ? 'Branch & Building Management' : 'Quản lý Chi nhánh & Tòa nhà'}
+            </h1>
+            <p className="text-sm font-semibold text-slate-500">
+              {language === 'en' ? 'Monitor capacity, performance, and revenue of all areas.' : 'Giám sát sức chứa, hiệu suất và doanh thu của tất cả khu vực.'}
+            </p>
+          </div>
+          <button className="flex items-center gap-2 px-6 py-3.5 bg-blue-600 text-white rounded-full text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20">
+            <Plus className="w-5 h-5" />
+            {language === 'en' ? 'Add New Building' : 'Thêm Tòa nhà mới'}
+          </button>
+        </div>
 
-           <div className="grid grid-cols-12 gap-8">
-              {/* Bar Chart Comparison */}
-              <div className="col-span-12 lg:col-span-8 bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
-                 <div className="flex justify-between items-center mb-10">
-                    <h3 className="text-lg font-black text-slate-900 tracking-tight">So sánh Doanh thu Hàng tháng</h3>
-                    <div className="flex items-center gap-6">
-                       <div className="flex items-center gap-2">
-                          <div className="w-2.5 h-2.5 bg-blue-600 rounded-full"></div>
-                          <span className="text-[10px] font-black text-slate-400 uppercase">Hiện tại</span>
-                       </div>
-                       <div className="flex items-center gap-2">
-                          <div className="w-2.5 h-2.5 bg-slate-200 rounded-full"></div>
-                          <span className="text-[10px] font-black text-slate-400 uppercase">Năm ngoái</span>
-                       </div>
-                    </div>
-                 </div>
-                 <div className="h-64 flex items-end justify-between px-2 gap-4">
-                    {monthlyData.map((d, i) => (
-                       <div key={i} className={`flex-1 flex flex-col items-center group ${d.forecast ? 'opacity-30' : ''}`}>
-                          <div className="w-full flex items-end gap-1.5 h-full">
-                             <div className="flex-1 bg-slate-100 rounded-t-lg transition-all" style={{ height: `${d.lastYear}%` }}></div>
-                             <div className={`flex-1 bg-blue-600 rounded-t-lg transition-all group-hover:scale-y-105 origin-bottom`} style={{ height: `${d.current}%` }}></div>
-                          </div>
-                          <span className={`mt-4 text-[10px] font-black ${d.active ? 'text-blue-600' : 'text-slate-400'}`}>{d.month}</span>
-                       </div>
-                    ))}
-                 </div>
-              </div>
+        {/* Real-time Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="bg-white p-7 rounded-[24px] border border-slate-100 shadow-[0_4px_24px_rgba(0,0,0,0.02)] relative overflow-hidden group hover:-translate-y-1 transition-all duration-300">
+            <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full blur-3xl opacity-10 bg-blue-500 group-hover:opacity-20 transition-opacity"></div>
+            <div className="flex justify-between items-start mb-6">
+              <div className="p-3.5 rounded-2xl bg-blue-50 text-blue-600 relative z-10"><Building2 className="w-5 h-5" /></div>
+              <span className="text-[10px] font-black px-3 py-1 rounded-full bg-blue-100/50 text-blue-700 relative z-10">
+                {language === 'en' ? 'TOTAL' : 'TỔNG SỐ'}
+              </span>
+            </div>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] mb-2 relative z-10">
+              {language === 'en' ? 'ACTIVE BRANCHES' : 'CHI NHÁNH HOẠT ĐỘNG'}
+            </p>
+            <div className="text-3xl font-black text-slate-800 tracking-tight relative z-10">{loading ? '-' : branches.length}</div>
+          </div>
+          
+          <div className="bg-white p-7 rounded-[24px] border border-slate-100 shadow-[0_4px_24px_rgba(0,0,0,0.02)] relative overflow-hidden group hover:-translate-y-1 transition-all duration-300">
+            <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full blur-3xl opacity-10 bg-amber-500 group-hover:opacity-20 transition-opacity"></div>
+            <div className="flex justify-between items-start mb-6">
+              <div className="p-3.5 rounded-2xl bg-amber-50 text-amber-600 relative z-10"><CarFront className="w-5 h-5" /></div>
+              <span className="text-[10px] font-black px-3 py-1 rounded-full bg-amber-100/50 text-amber-700 relative z-10">
+                {language === 'en' ? 'ACTUAL' : 'THỰC TẾ'}
+              </span>
+            </div>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] mb-2 relative z-10">
+              {language === 'en' ? 'CAPACITY / OCCUPIED' : 'SỨC CHỨA / ĐANG ĐỖ'}
+            </p>
+            <div className="flex items-baseline gap-2 relative z-10">
+              <span className="text-3xl font-black text-slate-800 tracking-tight">{loading ? '-' : globalStats.currentOccupancy}</span>
+              <span className="text-sm font-bold text-slate-400">/ {loading ? '-' : globalStats.totalCapacity}</span>
+            </div>
+          </div>
+          
+          <div className="bg-white p-7 rounded-[24px] border border-slate-100 shadow-[0_4px_24px_rgba(0,0,0,0.02)] relative overflow-hidden group hover:-translate-y-1 transition-all duration-300">
+            <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full blur-3xl opacity-10 bg-emerald-500 group-hover:opacity-20 transition-opacity"></div>
+            <div className="flex justify-between items-start mb-6">
+              <div className="p-3.5 rounded-2xl bg-emerald-50 text-emerald-600 relative z-10"><Users className="w-5 h-5" /></div>
+              <span className="text-[10px] font-black px-3 py-1 rounded-full bg-emerald-100/50 text-emerald-700 relative z-10">
+                {language === 'en' ? 'ACCUMULATED' : 'LŨY KẾ'}
+              </span>
+            </div>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] mb-2 relative z-10">
+              {language === 'en' ? 'TOTAL SESSIONS' : 'TỔNG LƯỢT GIAO DỊCH'}
+            </p>
+            <div className="text-3xl font-black text-slate-800 tracking-tight relative z-10">{loading ? '-' : globalStats.totalSessions.toLocaleString()} <span className="text-sm font-bold text-slate-400">{language === 'en' ? 'times' : 'lượt'}</span></div>
+          </div>
 
-              {/* Heatmap Section */}
-              <div className="col-span-12 lg:col-span-4 bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
-                 <div className="flex justify-between items-center mb-8">
-                    <h3 className="text-lg font-black text-slate-900 tracking-tight">Bản đồ Nhiệt Cao Điểm</h3>
-                    <div className="flex items-center gap-1">
-                       <div className="w-2 h-2 bg-blue-50 rounded-sm"></div>
-                       <div className="w-2 h-2 bg-blue-600 rounded-sm"></div>
-                    </div>
-                 </div>
-                 <div className="grid grid-cols-7 gap-1.5">
-                    {heatmapDays.map((day, i) => (
-                       <div key={i} className={`text-center text-[10px] font-black mb-2 ${i >= 5 ? 'text-blue-600' : 'text-slate-400'}`}>{day}</div>
-                    ))}
-                    {heatmapColors.map((color, i) => (
-                       <div key={i} className={`h-11 ${color} rounded-lg transition-all hover:scale-110 cursor-pointer`}></div>
-                    ))}
-                 </div>
-                 <div className="mt-6 flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    <span>Sáng</span><span>Trưa</span><span>Chiều</span><span>Đêm</span>
-                 </div>
-              </div>
-           </div>
+          <div className="bg-white p-7 rounded-[24px] border border-slate-100 shadow-[0_4px_24px_rgba(0,0,0,0.02)] relative overflow-hidden group hover:-translate-y-1 transition-all duration-300">
+            <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full blur-3xl opacity-10 bg-indigo-500 group-hover:opacity-20 transition-opacity"></div>
+            <div className="flex justify-between items-start mb-6">
+              <div className="p-3.5 rounded-2xl bg-indigo-50 text-indigo-600 relative z-10"><Banknote className="w-5 h-5" /></div>
+              <span className="text-[10px] font-black px-3 py-1 rounded-full bg-indigo-100/50 text-indigo-700 relative z-10">
+                {language === 'en' ? 'ACTUAL' : 'THỰC TẾ'}
+              </span>
+            </div>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] mb-2 relative z-10">
+              {language === 'en' ? 'TOTAL REVENUE' : 'TỔNG DOANH THU'}
+            </p>
+            <div className="text-2xl font-black text-slate-800 tracking-tight relative z-10 line-clamp-1">{loading ? '-' : formatCurrency(globalStats.totalRevenue)}</div>
+          </div>
+        </div>
 
-           {/* Table & Insights Grid */}
-           <div className="grid grid-cols-12 gap-8">
-              <div className="col-span-12 lg:col-span-7 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-                 <div className="p-8 border-b border-slate-100 flex justify-between items-center">
-                    <h3 className="text-lg font-black text-slate-900 tracking-tight">Khu vực Hiệu quả nhất</h3>
-                    <MoreVertical className="text-slate-400 w-5 h-5 cursor-pointer" />
-                 </div>
-                 <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                       <thead>
-                          <tr className="bg-slate-50/50">
-                             <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Khu vực</th>
-                             <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Lượt xe</th>
-                             <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Doanh thu</th>
-                          </tr>
-                       </thead>
-                       <tbody className="divide-y divide-slate-100">
-                          {zones.map((zone, i) => (
-                             <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
-                                <td className="px-8 py-5">
-                                   <div className="flex items-center gap-4">
-                                      <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center font-black text-blue-600 text-[10px] border border-blue-100">{zone.id}</div>
-                                      <span className="text-sm font-bold text-slate-900">{zone.name}</span>
-                                   </div>
-                                </td>
-                                <td className="px-8 py-5 text-sm text-slate-900 text-center font-bold">{zone.count}</td>
-                                <td className="px-8 py-5 text-sm text-blue-600 text-right font-black">{zone.revenue}</td>
-                             </tr>
-                          ))}
-                       </tbody>
-                    </table>
-                 </div>
-              </div>
+        {/* Monthly Revenue Chart */}
+        <div className="bg-white p-8 md:p-10 rounded-[24px] border border-slate-200/80 shadow-[0_4px_24px_rgba(0,0,0,0.02)] relative z-10">
+          <div className="flex justify-between items-center mb-10">
+            <h3 className="text-lg font-black text-slate-900 tracking-tight">
+              {language === 'en' ? 'Revenue Chart' : 'Biểu đồ Doanh thu'} {new Date().getFullYear()}
+            </h3>
+            <div className="flex items-center gap-2">
+               <div className="w-2.5 h-2.5 bg-blue-600 rounded-full"></div>
+               <span className="text-[10px] font-black text-slate-400 uppercase">
+                 {language === 'en' ? 'Revenue (VND)' : 'Doanh thu (VNĐ)'}
+               </span>
+            </div>
+          </div>
+          
+          <div className="h-56 md:h-64 flex items-end justify-between px-2 gap-2 md:gap-4">
+            {monthlyRevenueData.map((d, i) => {
+              const maxRev = Math.max(...monthlyRevenueData.map(m => m.revenue), 100000);
+              const heightPct = (d.revenue / maxRev) * 100;
+              const isActive = new Date().getMonth() === i;
+              
+              return (
+                <div key={i} className="flex-1 h-full flex flex-col justify-end items-center group relative" title={`${language === 'en' ? 'Month' : 'Tháng'} ${i + 1}: ${formatCurrency(d.revenue)}`}>
+                   {/* Tooltip */}
+                   <div className="absolute -top-12 bg-slate-900 text-white text-[10px] font-bold px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20 shadow-lg">
+                     {formatCurrency(d.revenue)}
+                     <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-900 rotate-45"></div>
+                   </div>
+                   
+                   <div className="w-full max-w-[40px] flex-1 flex items-end gap-1.5 min-h-0">
+                      <div className={`w-full rounded-t-xl transition-all duration-300 group-hover:scale-y-105 origin-bottom shadow-sm ${isActive ? 'bg-blue-600' : 'bg-blue-100 hover:bg-blue-300'}`} style={{ height: `${heightPct}%` }}></div>
+                   </div>
+                   <span className={`mt-4 text-[10px] font-black shrink-0 ${isActive ? 'text-blue-600' : 'text-slate-400'}`}>{d.month}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
-              <div className="col-span-12 lg:col-span-5 space-y-6">
-                 <div className="bg-[#004b58] text-white p-8 rounded-3xl relative overflow-hidden group shadow-xl shadow-[#004b58]/20">
-                    <div className="relative z-10">
-                       <h4 className="text-lg font-black mb-2">Tối ưu hóa năng lượng</h4>
-                       <p className="text-xs text-white/70 mb-6 leading-relaxed">Hệ thống gợi ý giảm 20% độ sáng tại khu vực C3 từ 01:00 đến 05:00 sáng.</p>
-                       <button className="bg-white text-[#004b58] px-6 py-2 rounded-xl text-[10px] font-black uppercase hover:scale-105 transition-transform">Áp dụng ngay</button>
-                    </div>
-                    <Leaf className="absolute -right-4 -bottom-4 w-32 h-32 opacity-10 rotate-12 group-hover:rotate-0 transition-transform duration-500" />
-                 </div>
-                 <div className="bg-white border border-slate-200 p-8 rounded-3xl shadow-sm relative overflow-hidden group">
-                    <div className="relative z-10">
-                       <h4 className="text-lg font-black text-slate-900 mb-2">Báo cáo An ninh</h4>
-                       <p className="text-xs text-slate-400 mb-6 leading-relaxed">03 cảnh báo cần xem xét trong 24 giờ qua liên quan đến lỗi nhận diện biển số.</p>
-                       <button className="bg-blue-600 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase hover:scale-105 transition-transform shadow-lg shadow-blue-600/20">Kiểm tra Logs</button>
-                    </div>
-                    <ShieldCheck className="absolute -right-4 -bottom-4 w-32 h-32 text-blue-600 opacity-5 rotate-12 group-hover:rotate-0 transition-transform duration-500" />
-                 </div>
+        {/* Toolbar */}
+        <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+           <div className="relative w-full md:w-[400px] group">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                 <Search className="text-slate-400 w-5 h-5 group-focus-within:text-blue-500 transition-colors" />
               </div>
+              <input 
+                 className="w-full bg-white border border-slate-200/60 rounded-full pl-12 pr-6 py-3.5 text-sm font-semibold text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/50 transition-all shadow-[0_2px_10px_rgba(0,0,0,0.02)]" 
+                 placeholder={language === 'en' ? "Search branches, buildings, address..." : "Tìm kiếm chi nhánh, tòa nhà, địa chỉ..."}
+                 value={searchQuery}
+                 onChange={e => setSearchQuery(e.target.value)}
+              />
            </div>
         </div>
-    </AdminLayout>
+
+        {/* Branches Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+           {loading ? (
+             Array(3).fill(0).map((_, i) => (
+                <div key={i} className="bg-white rounded-[24px] p-6 h-[400px] animate-pulse border border-slate-100"></div>
+             ))
+           ) : filteredBranches.map(branch => {
+             const occPct = Math.min((branch.currentOccupancy / (branch.capacity || 1)) * 100, 100);
+             const isFull = branch.currentOccupancy >= (branch.capacity || 1);
+             
+             return (
+               <div key={branch.id} className="bg-white rounded-[28px] border border-slate-200/60 shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_24px_50px_rgba(0,0,0,0.08)] hover:-translate-y-1.5 transition-all duration-400 overflow-hidden flex flex-col group cursor-pointer relative">
+                 {/* Premium Background Elements */}
+                 <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-50 to-transparent rounded-full blur-3xl opacity-50 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                 
+                 <div className="p-7 border-b border-slate-100/60 relative z-10">
+                   <div className="flex items-start justify-between mb-5">
+                      <div className="flex items-center gap-4">
+                        <div className="w-14 h-14 bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-2xl flex items-center justify-center text-blue-600 border border-blue-200/50 shadow-inner">
+                           <Building2 className="w-7 h-7 drop-shadow-sm" />
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-black text-slate-900 tracking-tight leading-tight">{branch.name}</h3>
+                          <div className="flex items-center gap-1.5 mt-1.5 text-slate-500">
+                             <MapPin className="w-3.5 h-3.5 shrink-0 text-blue-500" />
+                             <span className="text-xs font-semibold line-clamp-1">{branch.address || (language === 'en' ? 'Updating...' : 'Đang cập nhật...')}</span>
+                          </div>
+                        </div>
+                      </div>
+                   </div>
+
+                   {/* GPS & Tags */}
+                   <div className="flex flex-wrap gap-2 mb-6">
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50/80 border border-slate-200/60 rounded-xl text-xs font-bold text-slate-600 shadow-[inset_0_1px_2px_rgba(255,255,255,1)]">
+                         <Navigation className="w-3.5 h-3.5 text-slate-400" />
+                         {branch.latitude}, {branch.longitude}
+                      </div>
+                      {branch.lockedSlots && branch.lockedSlots.length > 0 && (
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 border border-red-100 rounded-xl text-xs font-bold text-red-600 animate-pulse">
+                           <ShieldAlert className="w-3.5 h-3.5" />
+                           {branch.lockedSlots.length} {language === 'en' ? 'locked spots' : 'ô bị khóa'}
+                        </div>
+                      )}
+                   </div>
+                   
+                   {/* Occupancy Progress Bar */}
+                   <div className="mb-2">
+                     <div className="flex justify-between items-end mb-2">
+                        <div>
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">
+                            {language === 'en' ? 'Capacity' : 'Sức chứa'}
+                          </span>
+                          <div className="flex items-baseline gap-1">
+                            <span className={`text-2xl font-black ${isFull ? 'text-red-500' : 'text-blue-600'}`}>{branch.currentOccupancy}</span>
+                            <span className="text-sm font-bold text-slate-400">/ {branch.capacity}</span>
+                          </div>
+                        </div>
+                        <span className={`text-xs font-black ${isFull ? 'text-red-500' : 'text-blue-600'}`}>{occPct.toFixed(0)}%</span>
+                     </div>
+                     <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden shadow-inner">
+                        <div 
+                           className={`h-full rounded-full transition-all duration-1000 ${isFull ? 'bg-red-500' : 'bg-gradient-to-r from-blue-500 to-indigo-500'}`} 
+                           style={{ width: `${occPct}%` }}
+                        ></div>
+                     </div>
+                   </div>
+                 </div>
+                 
+                 {/* Metrics Grid */}
+                 <div className="p-7 bg-white/50 backdrop-blur-sm flex-1 grid grid-cols-2 gap-4 border-b border-slate-100/60 relative z-10">
+                   <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200/50 group-hover:bg-white transition-colors">
+                      <div className="flex items-center gap-2 text-slate-400 mb-1.5">
+                         <Layers className="w-4 h-4" />
+                         <span className="text-[10px] font-black uppercase tracking-wider">
+                           {language === 'en' ? 'Floors' : 'Số tầng'}
+                         </span>
+                      </div>
+                      <div className="text-lg font-black text-slate-800">{branch.floors?.length || 1} <span className="text-xs text-slate-400 font-bold">{language === 'en' ? 'floors' : 'tầng'}</span></div>
+                   </div>
+                   <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200/50 group-hover:bg-white transition-colors">
+                      <div className="flex items-center gap-2 text-slate-400 mb-1.5">
+                         <LayoutGrid className="w-4 h-4" />
+                         <span className="text-[10px] font-black uppercase tracking-wider">
+                           {language === 'en' ? 'Block/Zone' : 'Block/Khu'}
+                         </span>
+                      </div>
+                      <div className="text-lg font-black text-slate-800 line-clamp-1">{branch.block || (language === 'en' ? 'Unassigned' : 'Chưa chia')}</div>
+                   </div>
+                   <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200/50 group-hover:bg-white transition-colors">
+                      <span className="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1.5">
+                        {language === 'en' ? 'Accumulated Sessions' : 'Giao dịch lũy kế'}
+                      </span>
+                      <span className="text-xl font-black text-slate-800">{branch.totalSessions} <span className="text-xs text-slate-400 font-bold">{language === 'en' ? 'times' : 'lượt'}</span></span>
+                   </div>
+                   <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200/50 group-hover:bg-blue-50 transition-colors">
+                      <span className="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1.5">
+                        {language === 'en' ? 'Revenue' : 'Doanh thu'}
+                      </span>
+                      <span className="text-xl font-black text-emerald-600 line-clamp-1">{formatCurrency(branch.totalRevenue)}</span>
+                   </div>
+                 </div>
+
+                 {/* Footer Status */}
+                 <div className="px-7 py-5 bg-white flex justify-between items-center relative z-10">
+                    <div className="flex items-center gap-2.5">
+                      <div className="relative flex items-center justify-center">
+                         <div className={`absolute inset-0 rounded-full ${isFull ? 'bg-red-400 animate-ping opacity-20' : 'bg-emerald-400 animate-ping opacity-20'}`}></div>
+                         <div className={`w-3 h-3 rounded-full border-2 border-white shadow-sm ${isFull ? 'bg-red-500' : 'bg-emerald-500'}`}></div>
+                      </div>
+                      <span className="text-sm font-bold text-slate-700">
+                        {isFull ? (language === 'en' ? 'Full' : 'Bãi đã đầy') : (language === 'en' ? 'Active' : 'Đang hoạt động')}
+                      </span>
+                    </div>
+                    <button className="px-6 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs font-bold text-white hover:bg-blue-600 hover:border-blue-600 transition-all shadow-md shadow-slate-900/10 hover:shadow-blue-600/20">
+                      {language === 'en' ? 'Details' : 'Chi tiết'}
+                    </button>
+                 </div>
+               </div>
+             );
+           })}
+        </div>
+
+        {/* Branch & Map Management Section */}
+          <div className="grid grid-cols-12 gap-8">
+            {/* Create Branch Card */}
+            <div className="col-span-12 lg:col-span-5 bg-gradient-to-b from-white to-slate-50/80 p-8 rounded-[2rem] border border-slate-200/80 shadow-xl shadow-slate-200/40 flex flex-col justify-between relative overflow-hidden">
+              {/* Ambient Background Glows */}
+              <div className="absolute top-0 left-0 w-40 h-40 bg-blue-400/10 rounded-full blur-3xl pointer-events-none"></div>
+              <div className="absolute bottom-0 right-0 w-40 h-40 bg-indigo-400/10 rounded-full blur-3xl pointer-events-none"></div>
+
+              <div className="relative z-10">
+                <div className="flex items-center gap-3.5 mb-6">
+                  <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl border border-blue-100/50 shadow-inner flex items-center justify-center">
+                    <Plus className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-800 tracking-tight leading-tight">
+                      {language === 'en' ? 'Create new branch' : 'Tạo chi nhánh mới'}
+                    </h3>
+                    <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                      {language === 'en' ? 'Add parking lot branch by searching address' : 'Thêm chi nhánh bãi đỗ xe bằng tìm kiếm địa chỉ'}
+                    </p>
+                  </div>
+                </div>
+                
+                <form onSubmit={handleAddLot} className="space-y-5">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5 ml-1">
+                      {language === 'en' ? 'Branch Name' : 'Tên chi nhánh'}
+                    </label>
+                    <input 
+                      type="text" 
+                      required
+                      placeholder={language === 'en' ? "E.g., Landmark 81 - Lot A1" : "Ví dụ: Landmark 81 - Bãi đỗ A1"}
+                      className="w-full px-5 py-3 bg-white border border-slate-200/80 rounded-full text-xs font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/15 focus:border-blue-600 transition-all shadow-sm"
+                      value={newLot.name}
+                      onChange={e => setNewLot({...newLot, name: e.target.value})}
+                    />
+                  </div>
+
+                  <div className="relative">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5 ml-1">
+                      {language === 'en' ? 'Address / Locate' : 'Địa chỉ / Tìm vị trí'}
+                    </label>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <input 
+                          type="text" 
+                          placeholder={language === 'en' ? "Enter address for suggestions..." : "Nhập địa chỉ để tự động gợi ý..."}
+                          className="w-full px-5 py-3 bg-white border border-slate-200/80 rounded-full text-xs font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/15 focus:border-blue-600 transition-all shadow-sm"
+                          value={newLotAddress}
+                          onChange={e => {
+                            setNewLotAddress(e.target.value);
+                            setShowSuggestions(true);
+                          }}
+                          onFocus={() => setShowSuggestions(true)}
+                          onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                        />
+
+                        {showSuggestions && addressSuggestions.length > 0 && (
+                          <div className="absolute left-0 right-0 mt-2 bg-white/95 backdrop-blur-md border border-slate-200/80 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto divide-y divide-slate-100 py-1">
+                            {addressSuggestions.map((item, index) => {
+                              const name = item.display_name.split(',')[0];
+                              const details = item.display_name.split(',').slice(1).join(',').trim();
+                              
+                              return (
+                                <button
+                                  key={index}
+                                  type="button"
+                                  onClick={() => handleSelectSuggestion(item)}
+                                  className="w-full text-left px-4 py-2.5 hover:bg-blue-50/50 transition-colors flex items-start gap-2.5 cursor-pointer text-slate-800"
+                                >
+                                  <MapPin className="w-3.5 h-3.5 text-blue-500 mt-0.5 shrink-0" />
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-xs font-bold text-slate-900 truncate">{name}</p>
+                                    <p className="text-[10px] font-semibold text-slate-400 truncate">{details}</p>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleSearchAddress}
+                        disabled={isSearchingLocation}
+                        className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-full text-[10px] font-bold uppercase tracking-wider shadow-md shadow-blue-500/10 hover:shadow-blue-500/20 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">explore</span>
+                        {language === 'en' ? 'LOCATE' : 'ĐỊNH VỊ'}
+                      </button>
+                    </div>
+                    
+                    {searchFeedback && (
+                      <p className={`text-[10px] font-bold mt-1.5 ml-1 ${searchFeedback.includes('thành công') || searchFeedback.includes('successfully') ? 'text-emerald-600' : 'text-amber-500'}`}>
+                        {searchFeedback}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5 ml-1">
+                        {language === 'en' ? 'Area / Block' : 'Khu vực / Block'}
+                      </label>
+                      <input 
+                        type="text" 
+                        required
+                        placeholder="Block A"
+                        className="w-full px-5 py-3 bg-white border border-slate-200/80 rounded-full text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/15 focus:border-blue-600 transition-all shadow-sm"
+                        value={newLot.block}
+                        onChange={e => setNewLot({...newLot, block: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5 ml-1">
+                        {language === 'en' ? 'Default Floor' : 'Tầng mặc định'}
+                      </label>
+                      <input 
+                        type="text" 
+                        required
+                        placeholder="Tầng 1"
+                        className="w-full px-5 py-3 bg-white border border-slate-200/80 rounded-full text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/15 focus:border-blue-600 transition-all shadow-sm"
+                        value={newLot.floor}
+                        onChange={e => setNewLot({...newLot, floor: e.target.value})}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5 ml-1">
+                      {language === 'en' ? 'Floor List' : 'Danh sách Tầng'} ({newLotFloors.length})
+                    </label>
+                    <div className="flex flex-wrap items-center gap-2 bg-slate-100/40 border border-slate-200/60 p-3 rounded-2xl min-h-[48px]">
+                      {newLotFloors.map(f => (
+                        <div key={f} className="flex items-center gap-1.5 bg-white border border-slate-200/80 px-2 py-1.5 rounded-full shadow-sm hover:border-slate-350 transition-all">
+                          <span className="text-[10px] font-bold text-slate-700 pl-1">
+                            {language === 'en' ? 'Floor' : 'Tầng'} {f}
+                          </span>
+                          <input 
+                            type="number" 
+                            min="2" step="2"
+                            value={newLotFloorCapacities[f.toString()] || 24}
+                            onChange={e => setNewLotFloorCapacities(prev => ({...prev, [f.toString()]: parseInt(e.target.value) || 24}))}
+                            className="w-10 h-5 px-1 bg-slate-50 border border-slate-200 rounded text-[9px] font-bold text-slate-700 focus:outline-none focus:border-blue-400 text-center hide-number-spinners"
+                            title={language === 'en' ? "Number of spots on this floor" : "Số ô đỗ ở tầng này"}
+                          />
+                          <button 
+                            type="button" 
+                            onClick={() => setNewLotFloors(newLotFloors.filter(x => x !== f))}
+                            className="w-4 h-4 rounded-full bg-slate-100 hover:bg-rose-500 text-slate-400 hover:text-white flex items-center justify-center font-bold cursor-pointer transition-colors text-[8px]"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          let next = 1;
+                          while (newLotFloors.includes(next)) {
+                            next++;
+                          }
+                          setNewLotFloors([...newLotFloors, next].sort((a, b) => a - b));
+                        }}
+                        className="inline-flex items-center gap-1 bg-blue-50/80 hover:bg-blue-600 border border-blue-100/60 text-blue-600 hover:text-white text-[10px] font-bold px-3 py-1.5 rounded-full cursor-pointer transition-all duration-200 shadow-sm"
+                      >
+                        <Plus className="w-3 h-3" /> {language === 'en' ? 'Add Floor' : 'Thêm tầng'}
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <button 
+                    type="submit"
+                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3.5 px-6 rounded-full text-[11px] uppercase tracking-widest transition-all shadow-lg shadow-blue-500/15 hover:shadow-blue-500/25 hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2 mt-6 cursor-pointer relative overflow-hidden group btn-premium"
+                  >
+                    <Plus className="w-4 h-4" />
+                    {language === 'en' ? 'Add New Branch' : 'Thêm Chi Nhánh mới'}
+                    <div className="shimmer-effect"></div>
+                  </button>
+                </form>
+              </div>
+            </div>
+            
+            {/* List Existing Branches Card */}
+            <div className="col-span-12 lg:col-span-7 bg-gradient-to-b from-white to-slate-50/80 p-8 rounded-[2rem] border border-slate-200/80 shadow-xl shadow-slate-200/40 flex flex-col relative overflow-hidden">
+              {/* Ambient Background Glows */}
+              <div className="absolute top-0 right-0 w-40 h-40 bg-indigo-400/10 rounded-full blur-3xl pointer-events-none"></div>
+              <div className="absolute bottom-0 left-0 w-40 h-40 bg-blue-400/10 rounded-full blur-3xl pointer-events-none"></div>
+
+              <div className="relative z-10 flex flex-col h-full">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+                  <div className="flex items-center gap-3.5">
+                    <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl border border-indigo-100/50 shadow-inner flex items-center justify-center">
+                      <MapPin className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-extrabold text-slate-800 tracking-tight leading-tight">
+                        {language === 'en' ? 'Existing Branches' : 'Danh sách chi nhánh hiện có'}
+                      </h3>
+                      <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                        {language === 'en' ? 'Add/remove floors or delete branches directly' : 'Thêm/xóa tầng hoặc xóa chi nhánh trực tiếp trên danh sách'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="relative w-full sm:w-auto">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Search className="h-4 w-4 text-slate-400" />
+                    </div>
+                    <input
+                      type="text"
+                      placeholder={language === 'en' ? "Search parking lot name..." : "Tìm tên bãi đỗ..."}
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full sm:w-64 pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto max-h-[420px] pr-2 space-y-4 scroll-smooth scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+                  {branches.filter(lot => lot.name?.toLowerCase().includes(searchTerm.toLowerCase())).map((lot, idx) => (
+                    <div 
+                      key={lot.id} 
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-5 rounded-2xl border border-slate-100 hover:border-blue-200/80 bg-white hover:bg-blue-50/5 transition-all duration-300 group gap-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 relative z-10"
+                    >
+                      <div className="flex items-start gap-4.5 min-w-0">
+                        <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-blue-50 to-indigo-50 border border-blue-100 text-blue-600 flex items-center justify-center font-extrabold text-sm shrink-0 shadow-sm relative group-hover:scale-105 transition-transform duration-300 overflow-hidden">
+                          <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white animate-pulse z-10"></span>
+                          {idx + 1}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <input 
+                            type="text"
+                            value={lot.name}
+                            onChange={(e) => handleFieldChange(lot.id, 'name', e.target.value)}
+                            onBlur={() => handleFieldBlur(lot.id)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                            className="text-[14px] font-extrabold text-slate-800 tracking-tight leading-snug hover:text-blue-600 transition-all bg-slate-50/50 border border-slate-200/60 hover:border-blue-300 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 focus:outline-none w-full max-w-[280px] px-3 py-1.5 rounded-full shadow-sm"
+                            title={language === 'en' ? "Edit branch name" : "Sửa tên chi nhánh"}
+                            placeholder={language === 'en' ? "Branch name..." : "Tên chi nhánh..."}
+                          />
+                          
+                          {/* Floor config section */}
+                          <div className="flex flex-wrap items-center gap-2 mt-3">
+                            <span className="text-[9px] text-slate-400 font-bold uppercase flex items-center gap-1 shrink-0">
+                              <Layers className="w-3.5 h-3.5 text-slate-400" /> {language === 'en' ? 'Floors:' : 'Tầng:'}
+                            </span>
+                            {(lot.floors || [1, 2, 3]).map((f: number) => (
+                              <span key={f} className="inline-flex items-center gap-1 bg-slate-50 border border-slate-200 px-2 py-1 rounded-full hover:border-slate-300 transition-all">
+                                <span className="text-[10px] font-bold text-slate-600">
+                                  {language === 'en' ? 'Floor' : 'Tầng'} {f}
+                                </span>
+                                <input
+                                  type="number"
+                                  min="2" step="2"
+                                  value={lot.floorCapacities?.[f.toString()] || lot.capacity || 24}
+                                  onChange={(e) => handleFloorCapacityChange(lot.id, f, parseInt(e.target.value) || 24)}
+                                  onBlur={() => handleFloorCapacityBlur(lot.id)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                                  }}
+                                  className="w-10 h-5 px-1 ml-0.5 bg-white border border-slate-200/80 hover:border-slate-300 focus:bg-white focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10 rounded-full text-[10px] font-bold text-slate-700 text-center hide-number-spinners transition-all shadow-sm"
+                                  title={language === 'en' ? `Spots on floor ${f}` : `Số ô ở tầng ${f}`}
+                                />
+                                <button
+                                  onClick={() => handleRemoveFloorFromLot(lot.id, f)}
+                                  className="w-3.5 h-3.5 rounded-full bg-slate-200/70 hover:bg-rose-500 hover:text-white flex items-center justify-center cursor-pointer transition-colors text-[8px] font-bold ml-0.5"
+                                  title={language === 'en' ? "Delete this floor" : "Xóa tầng này"}
+                                >
+                                  ✕
+                                </button>
+                              </span>
+                            ))}
+                            <button
+                              onClick={() => handleAddFloorToLot(lot.id)}
+                              className="inline-flex items-center gap-1 bg-blue-50/50 border border-blue-100/50 hover:bg-blue-600 hover:text-white text-blue-600 text-[10px] font-bold px-2.5 py-1 rounded-full cursor-pointer transition-all duration-200"
+                              title={language === 'en' ? "Add floor" : "Thêm tầng"}
+                            >
+                              <Plus className="w-3 h-3" /> {language === 'en' ? 'Add floor' : 'Thêm tầng'}
+                            </button>
+                          </div>
+                          
+                          <div className="flex flex-wrap items-center gap-4 text-[10px] font-semibold text-slate-400 mt-3 border-t border-slate-100/80 pt-2.5">
+                            <span className="flex items-center gap-1 text-slate-500 hover:text-slate-700 transition-colors group/input relative">
+                              <Globe className="w-3.5 h-3.5 text-blue-500/80" /> 
+                              <input 
+                                type="text"
+                                value={lot._tempCoords !== undefined ? lot._tempCoords : `${lot.latitude || '0'}, ${lot.longitude || '0'}`}
+                                onChange={(e) => handleCoordinatesChange(lot.id, e.target.value)}
+                                onBlur={() => handleFieldBlur(lot.id)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                                className="bg-slate-50/50 border border-slate-200/60 hover:border-slate-300 hover:bg-white focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 focus:outline-none w-32 text-left px-2.5 py-1 rounded-full transition-all shadow-sm"
+                                title={language === 'en' ? "Edit coordinates (Latitude, Longitude)" : "Sửa tọa độ (Vĩ độ, Kinh độ)"}
+                              />
+                            </span>
+                            <span className="text-slate-200">•</span>
+                            <span className="flex items-center gap-1 text-slate-500 group/input relative">
+                              <Layers className="w-3.5 h-3.5 text-indigo-500/85" /> 
+                              <input 
+                                type="text"
+                                value={lot.block || ''}
+                                onChange={(e) => handleFieldChange(lot.id, 'block', e.target.value)}
+                                onBlur={() => handleFieldBlur(lot.id)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                                className="bg-slate-50/50 border border-slate-200/60 hover:border-slate-300 hover:bg-white focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/10 focus:outline-none w-20 text-left px-2.5 py-1 rounded-full transition-all shadow-sm"
+                                title={language === 'en' ? "Edit Block name" : "Sửa tên Block"}
+                                placeholder="Block..."
+                              />
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <button 
+                        onClick={() => handleDeleteLot(lot.id)}
+                        className="p-2.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 transition-all duration-300 opacity-0 group-hover:opacity-100 focus:opacity-100 cursor-pointer sm:self-center self-end shadow-sm hover:shadow-md"
+                        title={language === 'en' ? "Delete branch" : "Xóa chi nhánh"}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+      </div>
+    
+        {/* Custom Floating Toast Notification */}
+        <AnimatePresence>
+          {toastMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: 50, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.9 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+              className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl border backdrop-blur-xl ${
+                toastMessage.type === 'success'
+                  ? 'bg-emerald-500/90 text-white border-emerald-400/50 shadow-emerald-500/10'
+                  : toastMessage.type === 'error'
+                  ? 'bg-rose-500/90 text-white border-rose-400/50 shadow-rose-500/10'
+                  : 'bg-blue-500/90 text-white border-blue-400/50 shadow-blue-500/10'
+              }`}
+            >
+              <span className="font-bold text-sm tracking-wide">{toastMessage.text}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+      </AdminLayout>
   );
 };
 

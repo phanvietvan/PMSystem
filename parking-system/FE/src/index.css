@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-primary: #0050cb;
   --color-primary-container: #0066ff;
@@ -16,7 +18,7 @@
   --color-error: #ba1a1a;
 
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
 
   /* Custom Font Scales */
   --font-size-display-lg: 48px;
@@ -59,6 +61,9 @@
   html {
     font-family: var(--font-sans);
     -webkit-text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
 
   body {
@@ -252,3 +257,87 @@
   border-color: #0055D4;
   background-color: #0055D4;
 }
+
+/* ═══════════════════════════════════════════
+   DARK MODE
+   Applied when <html class="dark"> is set
+═══════════════════════════════════════════ */
+.dark {
+  color-scheme: dark;
+}
+
+.dark body {
+  background-color: #0f1117;
+  color: #e2e8f0;
+}
+
+/* Backgrounds */
+.dark .bg-white { background-color: #1e2130 !important; }
+.dark .bg-white\/70 { background-color: rgba(30, 33, 48, 0.85) !important; }
+.dark .bg-white\/80 { background-color: rgba(30, 33, 48, 0.9) !important; }
+.dark .bg-white\/60 { background-color: rgba(30, 33, 48, 0.75) !important; }
+.dark .bg-slate-50 { background-color: #161827 !important; }
+.dark .bg-slate-100 { background-color: #1a1d2e !important; }
+.dark .bg-slate-50\/40 { background-color: rgba(22, 24, 39, 0.4) !important; }
+.dark .bg-mesh-gradient { background-color: #0f1117 !important; background-image: radial-gradient(at 0% 0%, rgba(30, 58, 138, 0.3) 0, transparent 50%), radial-gradient(at 100% 0%, rgba(30, 58, 138, 0.2) 0, transparent 50%) !important; }
+
+/* Text */
+.dark .text-slate-900 { color: #f1f5f9 !important; }
+.dark .text-slate-800 { color: #e2e8f0 !important; }
+.dark .text-slate-700 { color: #cbd5e1 !important; }
+.dark .text-slate-600 { color: #94a3b8 !important; }
+.dark .text-slate-500 { color: #64748b !important; }
+.dark .text-slate-400 { color: #475569 !important; }
+.dark .text-\[\#191c1e\] { color: #e2e8f0 !important; }
+
+/* Borders */
+.dark .border-slate-200 { border-color: #2d3148 !important; }
+.dark .border-slate-100 { border-color: #1e2130 !important; }
+.dark .border-slate-200\/50 { border-color: rgba(45, 49, 72, 0.5) !important; }
+.dark .border-slate-200\/60 { border-color: rgba(45, 49, 72, 0.6) !important; }
+.dark .border-slate-200\/80 { border-color: rgba(45, 49, 72, 0.8) !important; }
+.dark .border-slate-100\/80 { border-color: rgba(30, 33, 48, 0.8) !important; }
+
+/* Navbar and header */
+.dark header { background-color: rgba(15, 17, 23, 0.85) !important; border-color: rgba(45, 49, 72, 0.5) !important; }
+
+/* Cards, panels */
+.dark .glass-panel { background: rgba(30, 33, 48, 0.75) !important; border-color: rgba(45, 49, 72, 0.8) !important; }
+.dark .glass-card { background: rgba(22, 24, 39, 0.6) !important; border-color: rgba(45, 49, 72, 0.6) !important; }
+.dark .bg-white\/80.backdrop-blur-xl { background-color: rgba(22, 24, 39, 0.9) !important; }
+
+/* Inputs */
+.dark .premium-input {
+  background: #1a1d2e;
+  border-color: #2d3148;
+  color: #e2e8f0;
+}
+.dark .premium-input:focus {
+  background: #1e2130;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+}
+.dark .premium-input::placeholder { color: #475569; }
+
+/* Sidebar admin */
+.dark aside { background-color: rgba(22, 24, 39, 0.95) !important; border-color: rgba(45, 49, 72, 0.6) !important; }
+
+/* Dropdown menus */
+.dark .animate-fade-in-up { background-color: #1e2130; }
+
+/* Hover states */
+.dark .hover\:bg-slate-50:hover { background-color: #1a1d2e !important; }
+.dark .hover\:bg-slate-100:hover { background-color: #1e2130 !important; }
+.dark .hover\:bg-blue-50\/50:hover { background-color: rgba(30, 58, 138, 0.2) !important; }
+
+/* Dividers */
+.dark .bg-slate-200\/50 { background-color: rgba(45, 49, 72, 0.5) !important; }
+.dark .divide-slate-50 > :not([hidden]) ~ :not([hidden]) { border-color: #1a1d2e !important; }
+
+/* Shadows in dark mode */
+.dark .shadow-xl { box-shadow: 0 20px 40px -10px rgba(0,0,0,0.5) !important; }
+.dark .shadow-md { box-shadow: 0 4px 12px -2px rgba(0,0,0,0.4) !important; }
+
+/* Table rows in dark mode */
+.dark .hover\:bg-slate-50\/50:hover { background-color: rgba(26, 29, 46, 0.5) !important; }
+.dark tr { border-color: #1a1d2e !important; }

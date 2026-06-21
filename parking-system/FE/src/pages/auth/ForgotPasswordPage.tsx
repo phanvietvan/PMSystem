@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import BrandLogo from '../../components/brand/BrandLogo';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { AlertCircle, CheckCircle } from 'lucide-react';
+import { useSettings } from '../../hooks/useSettings.tsx';
 
-const getPasswordStrength = (pwd: string) => {
+const getPasswordStrength = (pwd: string, language: string = 'vi') => {
   if (!pwd) return { score: 0, label: '', color: 'bg-slate-200', textColor: 'text-slate-400' };
   let score = 0;
   if (pwd.length >= 8) score++;
@@ -14,13 +15,13 @@ const getPasswordStrength = (pwd: string) => {
   if (/[^A-Za-z0-9]/.test(pwd)) score++;
 
   if (score <= 2) {
-    return { score, label: 'Yếu', color: 'bg-red-500', textColor: 'text-red-500' };
+    return { score, label: language === 'en' ? 'Weak' : 'Yếu', color: 'bg-red-500', textColor: 'text-red-500' };
   } else if (score === 3) {
-    return { score, label: 'Trung bình', color: 'bg-yellow-500', textColor: 'text-yellow-500' };
+    return { score, label: language === 'en' ? 'Medium' : 'Trung bình', color: 'bg-yellow-500', textColor: 'text-yellow-500' };
   } else if (score === 4) {
-    return { score, label: 'Khá mạnh', color: 'bg-blue-500', textColor: 'text-blue-500' };
+    return { score, label: language === 'en' ? 'Strong' : 'Khá mạnh', color: 'bg-blue-500', textColor: 'text-blue-500' };
   } else {
-    return { score, label: 'Rất mạnh', color: 'bg-green-500', textColor: 'text-green-500' };
+    return { score, label: language === 'en' ? 'Very Strong' : 'Rất mạnh', color: 'bg-green-500', textColor: 'text-green-500' };
   }
 };
 
@@ -33,25 +34,58 @@ const ForgotPasswordPage = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-  const [countdown, setCountdown] = useState(0);
-  const [resendLoading, setResendLoading] = useState(false);
-  const countdownRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+  const { t, language } = useSettings();
 
-  const startCountdown = () => {
-    if (countdownRef.current) clearInterval(countdownRef.current);
-    setCountdown(60);
-    countdownRef.current = setInterval(() => {
-      setCountdown((prev) => {
+  const [timer, setTimer] = useState(60);
+  const [canResend, setCanResend] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  
+  const navigate = useNavigate();
+
+  const startTimer = () => {
+    setTimer(60);
+    setCanResend(false);
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setTimer((prev) => {
         if (prev <= 1) {
-          clearInterval(countdownRef.current!);
+          clearInterval(timerRef.current!);
+          setCanResend(true);
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
   };
-  
-  const navigate = useNavigate();
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
+
+  const handleResendOtp = async () => {
+    if (!canResend) return;
+    setLoading(true);
+    setError('');
+    try {
+      const response = await api.post('/auth/password/forgot', {
+        email: email.toLowerCase().trim()
+      });
+
+      const apiResponse = response.data;
+      if (apiResponse.data && apiResponse.data.otpCode) {
+        console.log("Dev OTP Code:", apiResponse.data.otpCode);
+      }
+
+      setLoading(false);
+      startTimer();
+    } catch (err: any) {
+      setLoading(false);
+      console.error('Resend OTP Error:', err.response?.data);
+      setError(err.response?.data?.message || (language === 'en' ? 'Could not resend OTP. Please try again.' : 'Không thể gửi lại mã OTP. Vui lòng thử lại.'));
+    }
+  };
 
   const handleNext = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,7 +94,7 @@ const ForgotPasswordPage = () => {
 
     if (step === 0) {
       if (!email) {
-        setError('Vui lòng nhập email.');
+        setError(language === 'en' ? 'Please enter your email.' : 'Vui lòng nhập email.');
         return;
       }
       setLoading(true);
@@ -70,20 +104,21 @@ const ForgotPasswordPage = () => {
         });
 
         const apiResponse = response.data;
-        // devOtpCode intentionally not shown in production UI
-        void apiResponse;
+        if (apiResponse.data && apiResponse.data.otpCode) {
+          console.log("Dev OTP Code:", apiResponse.data.otpCode);
+        }
 
         setLoading(false);
         setStep(1);
-        startCountdown();
+        startTimer();
       } catch (err: any) {
         setLoading(false);
         console.error('Forgot Password OTP Error:', err.response?.data);
-        setError(err.response?.data?.message || 'Có lỗi xảy ra khi gửi yêu cầu. Vui lòng thử lại.');
+        setError(err.response?.data?.message || (language === 'en' ? 'An error occurred while sending request. Please try again.' : 'Có lỗi xảy ra khi gửi yêu cầu. Vui lòng thử lại.'));
       }
     } else if (step === 1) {
       if (otp.length !== 6) {
-        setError('Mã OTP phải chứa đúng 6 chữ số.');
+        setError(language === 'en' ? 'OTP code must contain exactly 6 digits.' : 'Mã OTP phải chứa đúng 6 chữ số.');
         return;
       }
       setLoading(true);
@@ -97,20 +132,20 @@ const ForgotPasswordPage = () => {
       } catch (err: any) {
         setLoading(false);
         console.error('Verify OTP Error:', err.response?.data);
-        setError(err.response?.data?.message || 'Mã OTP không chính xác hoặc đã hết hạn.');
+        setError(err.response?.data?.message || (language === 'en' ? 'Incorrect or expired OTP code.' : 'Mã OTP không chính xác hoặc đã hết hạn.'));
       }
     } else if (step === 2) {
       if (!newPassword || !confirmPassword) {
-        setError('Vui lòng điền đầy đủ các trường mật khẩu.');
+        setError(language === 'en' ? 'Please fill in all password fields.' : 'Vui lòng điền đầy đủ các trường mật khẩu.');
         return;
       }
       if (newPassword !== confirmPassword) {
-        setError('Mật khẩu xác nhận không khớp.');
+        setError(language === 'en' ? 'Confirm password does not match.' : 'Mật khẩu xác nhận không khớp.');
         return;
       }
-      const strength = getPasswordStrength(newPassword);
+      const strength = getPasswordStrength(newPassword, language);
       if (strength.score < 5) {
-        setError('Mật khẩu chưa đủ mạnh. Mật khẩu phải dài ít nhất 8 ký tự, bao gồm cả chữ hoa, chữ thường, chữ số và ít nhất một ký tự đặc biệt.');
+        setError(language === 'en' ? 'Password is not strong enough. It must be at least 8 characters long, including uppercase, lowercase, numbers, and at least one special character.' : 'Mật khẩu chưa đủ mạnh. Mật khẩu phải dài ít nhất 8 ký tự, bao gồm cả chữ hoa, chữ thường, chữ số và ít nhất một ký tự đặc biệt.');
         return;
       }
 
@@ -123,14 +158,14 @@ const ForgotPasswordPage = () => {
         });
 
         setLoading(false);
-        setSuccessMessage('Mật khẩu của bạn đã được cập nhật thành công!');
+        setSuccessMessage(language === 'en' ? 'Your password has been updated successfully!' : 'Mật khẩu của bạn đã được cập nhật thành công!');
         setTimeout(() => {
           navigate('/login');
         }, 2000);
       } catch (err: any) {
         setLoading(false);
         console.error('Reset Password Error:', err.response?.data);
-        setError(err.response?.data?.message || 'Không thể đặt lại mật khẩu. Vui lòng thử lại.');
+        setError(err.response?.data?.message || (language === 'en' ? 'Could not reset password. Please try again.' : 'Không thể đặt lại mật khẩu. Vui lòng thử lại.'));
       }
     }
   };
@@ -146,36 +181,45 @@ const ForgotPasswordPage = () => {
         <BrandLogo size="lg" asLink />
 
         <div className="max-w-2xl opacity-0 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-          <h2 className="text-[72px] font-display font-extrabold leading-[1.05] tracking-tight mb-8 text-on-surface">
-            Khôi phục<br/>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-500 to-blue-500">tài khoản của bạn.</span>
+          <h2 className="text-[72px] font-display font-extrabold leading-[1.05] tracking-tight mb-8 text-slate-900">
+            {language === 'en' ? (
+              <>Recover<br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-500 to-blue-500">your account.</span></>
+            ) : (
+              <>Khôi phục<br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-500 to-blue-500">tài khoản của bạn.</span></>
+            )}
           </h2>
-          <p className="text-on-surface-variant text-xl leading-relaxed max-w-lg font-medium">
-            Đừng lo lắng, chúng tôi sẽ giúp bạn lấy lại mật khẩu chỉ trong vài phút thông qua quy trình xác thực an toàn.
+          <p className="text-slate-500 text-xl leading-relaxed max-w-lg font-medium">
+            {language === 'en'
+              ? "Don't worry, we will help you recover your password in just a few minutes through a secure verification process."
+              : 'Đừng lo lắng, chúng tôi sẽ giúp bạn lấy lại mật khẩu chỉ trong vài phút thông qua quy trình xác thực an toàn.'}
           </p>
         </div>
       </section>
 
       {/* Form Section */}
       <section className="flex flex-col items-center justify-center w-full lg:w-[45%] p-8 md:p-16 relative z-20">
-        <div className="w-full max-w-[460px] glass-panel p-10 md:p-12 rounded-[2.5rem] glow-border">
+        <div className="w-full max-w-[460px] bg-white/80 border border-slate-200/40 backdrop-blur-md p-10 md:p-12 rounded-[2.5rem] shadow-soft">
           {/* Back Button */}
           {step > 0 ? (
-            <button onClick={() => setStep(step - 1)} className="flex items-center gap-2 text-outline hover:text-primary transition-colors text-xs font-bold uppercase tracking-widest mb-6">
+            <button onClick={() => setStep(step - 1)} className="flex items-center gap-2 text-slate-400 hover:text-slate-700 transition-colors text-[10px] font-extrabold uppercase tracking-widest mb-6 cursor-pointer">
               <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-              Quay lại
+              {language === 'en' ? 'Back' : 'Quay lại'}
             </button>
           ) : (
-            <Link to="/login" className="flex items-center gap-2 text-outline hover:text-primary transition-colors text-xs font-bold uppercase tracking-widest mb-6">
+            <Link to="/login" className="flex items-center gap-2 text-slate-400 hover:text-slate-700 transition-colors text-[10px] font-extrabold uppercase tracking-widest mb-6">
               <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-              Về trang đăng nhập
+              {language === 'en' ? 'Back to login' : 'Về trang đăng nhập'}
             </Link>
           )}
 
           {/* Welcome Header */}
           <div className="mb-10 text-center">
-            <h2 className="text-4xl font-display font-extrabold text-on-surface tracking-tight mb-3">Quên mật khẩu</h2>
-            <p className="text-on-surface-variant font-medium">Nhập thông tin bên dưới để tiếp tục.</p>
+            <h2 className="text-3xl font-display font-extrabold text-slate-900 tracking-tight mb-3">
+              {language === 'en' ? 'Forgot Password' : 'Quên mật khẩu'}
+            </h2>
+            <p className="text-slate-500 font-medium text-sm">
+              {language === 'en' ? 'Enter your details below to continue.' : 'Nhập thông tin bên dưới để tiếp tục.'}
+            </p>
           </div>
 
           {/* Form Wrapper */}
@@ -197,18 +241,18 @@ const ForgotPasswordPage = () => {
                 </div>
               )}
 
-
-
               {step === 0 && (
                 <div className="space-y-6 animate-fade-in-up">
-                  <div className="space-y-2.5">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/70 ml-1">Email khôi phục</label>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-1 block">
+                      {language === 'en' ? 'Recovery Email' : 'Email khôi phục'}
+                    </label>
                     <div className="relative group">
-                      <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-outline group-focus-within:text-primary transition-colors">
+                      <div className="absolute inset-y-0 left-0 pl-4.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-600 transition-colors">
                         <span className="material-symbols-outlined text-[20px]">mail</span>
                       </div>
                       <input 
-                        className="premium-input block w-full pl-14 pr-5 py-4 rounded-full border border-outline-variant focus:outline-none transition-all text-[15px] font-medium" 
+                        className="block w-full pl-12 pr-4 py-3 rounded-full border border-slate-200/80 bg-slate-50/40 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all text-sm font-medium focus:outline-none" 
                         type="email" 
                         placeholder="email@example.com" 
                         required 
@@ -218,67 +262,34 @@ const ForgotPasswordPage = () => {
                     </div>
                   </div>
                   <button 
-                    className={`w-full py-3.5 bg-primary hover:bg-primary-container text-white font-bold rounded-full transition-all duration-300 shadow-lg shadow-primary/10 tracking-wider uppercase text-xs ${loading ? 'opacity-80 cursor-wait' : ''}`} 
+                    className={`w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-full transition-all duration-300 shadow-md shadow-blue-500/10 hover:shadow-lg hover:shadow-blue-500/20 active:scale-[0.98] text-[10px] uppercase tracking-widest cursor-pointer ${loading ? 'opacity-80 cursor-wait' : ''}`} 
                     type="submit"
                     disabled={loading}
                   >
-                    {loading ? 'ĐANG GỬI...' : 'Gửi mã xác thực'}
+                    {loading ? (language === 'en' ? 'SENDING...' : 'ĐANG GỬI...') : (language === 'en' ? 'Send verification code' : 'Gửi mã xác thực')}
                   </button>
                 </div>
               )}
 
               {step === 1 && (
                 <div className="space-y-6 animate-fade-in-up">
-                  <div className="text-center p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30">
-                    <span className="material-symbols-outlined text-indigo-500 text-[28px] mb-2 block">mark_email_read</span>
-                    <p className="text-sm font-bold text-on-surface mb-1">Kiểm tra hộp thư của bạn</p>
-                    <p className="text-xs text-on-surface-variant">
-                      Mã OTP đã được gửi đến email
+                  <div className="text-center p-4 rounded-2xl bg-indigo-50/40 border border-indigo-100/50">
+                    <p className="text-xs text-slate-500">
+                      {language === 'en' 
+                        ? 'OTP code has been sent to your email successfully. Please enter the code to reset password.' 
+                        : 'Mã OTP đã được gửi đến email của bạn thành công. Vui lòng nhập mã để đặt lại mật khẩu.'}
                     </p>
-                    <p className="text-xs font-black text-indigo-600 mt-1 bg-indigo-50 py-1 px-3 rounded-full inline-block">
-                      {email}
-                    </p>
-                    <p className="text-[10px] text-on-surface-variant/60 mt-2">Kiểm tra cả mục spam nếu không thấy.</p>
-                    {/* Countdown + Resend */}
-                    <div className="mt-3 flex items-center justify-center gap-3">
-                      {countdown > 0 ? (
-                        <div className="flex items-center gap-1.5 text-xs text-on-surface-variant">
-                          <span className="material-symbols-outlined text-[14px] text-amber-500 animate-pulse">timer</span>
-                          <span>Mã hết hiệu lực sau </span>
-                          <span className="font-black text-amber-600 tabular-nums w-6 text-center">{countdown}s</span>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={resendLoading}
-                          onClick={async () => {
-                            setResendLoading(true);
-                            setError('');
-                            try {
-                              await api.post('/auth/password/forgot', { email: email.toLowerCase().trim() });
-                              setOtp('');
-                              startCountdown();
-                            } catch (err: any) {
-                              setError(err.response?.data?.message || 'Không thể gửi lại mã OTP.');
-                            } finally {
-                              setResendLoading(false);
-                            }
-                          }}
-                          className="text-xs font-bold text-indigo-600 hover:text-indigo-700 underline underline-offset-2 transition-colors disabled:opacity-50 disabled:cursor-wait"
-                        >
-                          {resendLoading ? 'Đang gửi lại...' : '↺ Gửi lại mã OTP'}
-                        </button>
-                      )}
-                    </div>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/70 ml-1">Mã xác thực OTP (6 chữ số)</label>
+                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-1 block">
+                      {language === 'en' ? 'OTP Verification Code (6 digits)' : 'Mã xác thực OTP (6 chữ số)'}
+                    </label>
                     <div className="relative group">
-                      <div className="absolute inset-y-0 left-0 pl-4.5 flex items-center pointer-events-none text-outline group-focus-within:text-primary transition-colors">
+                      <div className="absolute inset-y-0 left-0 pl-4.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-600 transition-colors">
                         <span className="material-symbols-outlined text-[20px]">verified</span>
                       </div>
                       <input 
-                        className="premium-input block w-full pl-12 pr-4 py-3 rounded-full border border-outline-variant focus:outline-none transition-all text-center text-lg font-bold tracking-[0.25em]" 
+                        className="block w-full pl-12 pr-4 py-3 rounded-full border border-slate-200/80 bg-slate-50/40 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all text-center text-lg font-bold tracking-[0.25em] focus:outline-none" 
                         maxLength={6} 
                         required 
                         value={otp} 
@@ -287,22 +298,41 @@ const ForgotPasswordPage = () => {
                       />
                     </div>
                   </div>
+
+                  <div className="flex justify-center items-center text-xs px-1 text-slate-500 mt-2">
+                    {canResend ? (
+                      <button
+                        type="button"
+                        onClick={handleResendOtp}
+                        className="text-blue-600 hover:text-blue-700 font-bold underline cursor-pointer bg-transparent border-none"
+                        disabled={loading}
+                      >
+                        {language === 'en' ? 'Resend OTP code' : 'Gửi lại mã OTP'}
+                      </button>
+                    ) : (
+                      <p>
+                        {language === 'en' ? 'Resend code in: ' : 'Gửi lại mã sau: '}<span className="font-bold text-slate-700">{timer}s</span>
+                      </p>
+                    )}
+                  </div>
                   <button 
-                    className={`w-full py-3.5 bg-primary hover:bg-primary-container text-white font-bold rounded-full transition-all duration-300 shadow-lg shadow-primary/10 tracking-wider uppercase text-xs ${loading ? 'opacity-80 cursor-wait' : ''}`} 
+                    className={`w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-full transition-all duration-300 shadow-md shadow-blue-500/10 hover:shadow-lg hover:shadow-blue-500/20 active:scale-[0.98] text-[10px] uppercase tracking-widest cursor-pointer ${loading ? 'opacity-80 cursor-wait' : ''}`} 
                     type="submit"
                     disabled={loading}
                   >
-                    {loading ? 'ĐANG XÁC THỰC...' : 'Xác nhận mã OTP'}
+                    {loading ? (language === 'en' ? 'VERIFYING...' : 'ĐANG XÁC THỰC...') : (language === 'en' ? 'Verify OTP Code' : 'Xác nhận mã OTP')}
                   </button>
                 </div>
               )}
 
               {step === 2 && (
                 <div className="space-y-6 animate-fade-in-up">
-                  <div className="space-y-2.5">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/70 ml-1">Mật khẩu mới</label>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-1 block">
+                      {language === 'en' ? 'New Password' : 'Mật khẩu mới'}
+                    </label>
                     <input 
-                      className="premium-input block w-full px-5 py-3 rounded-full border border-outline-variant focus:outline-none transition-all text-[15px] font-medium" 
+                      className="block w-full px-5 py-3 rounded-full border border-slate-200/80 bg-slate-50/40 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all text-sm font-medium focus:outline-none" 
                       type="password" 
                       placeholder="••••••••" 
                       required 
@@ -313,14 +343,14 @@ const ForgotPasswordPage = () => {
                   {newPassword && (
                     <div className="space-y-1.5 px-1">
                       <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-[0.1em]">
-                        <span className="text-on-surface-variant/70">Độ mạnh mật khẩu:</span>
-                        <span className={getPasswordStrength(newPassword).textColor}>
-                          {getPasswordStrength(newPassword).label}
+                        <span className="text-slate-400">{language === 'en' ? 'Password Strength:' : 'Độ mạnh mật khẩu:'}</span>
+                        <span className={getPasswordStrength(newPassword, language).textColor}>
+                          {getPasswordStrength(newPassword, language).label}
                         </span>
                       </div>
                       <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex gap-0.5">
                         {[1, 2, 3, 4, 5].map((i) => {
-                          const strength = getPasswordStrength(newPassword);
+                          const strength = getPasswordStrength(newPassword, language);
                           const isActive = strength.score >= i;
                           return (
                             <div
@@ -332,15 +362,19 @@ const ForgotPasswordPage = () => {
                           );
                         })}
                       </div>
-                      <p className="text-[10px] text-on-surface-variant/50 leading-relaxed">
-                        Yêu cầu: dài ít nhất 8 ký tự, gồm chữ hoa, chữ thường, chữ số và ký tự đặc biệt.
+                      <p className="text-[10px] text-slate-400 leading-relaxed">
+                        {language === 'en'
+                          ? 'Requirement: at least 8 characters, including uppercase, lowercase, numbers, and special characters.'
+                          : 'Yêu cầu: dài ít nhất 8 ký tự, gồm chữ hoa, chữ thường, chữ số và ký tự đặc biệt.'}
                       </p>
                     </div>
                   )}
-                  <div className="space-y-2.5">
-                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/70 ml-1">Xác nhận mật khẩu mới</label>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-1 block">
+                      {language === 'en' ? 'Confirm New Password' : 'Xác nhận mật khẩu mới'}
+                    </label>
                     <input 
-                      className="premium-input block w-full px-5 py-3 rounded-full border border-outline-variant focus:outline-none transition-all text-[15px] font-medium" 
+                      className="block w-full px-5 py-3 rounded-full border border-slate-200/80 bg-slate-50/40 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all text-sm font-medium focus:outline-none" 
                       type="password" 
                       placeholder="••••••••" 
                       required 
@@ -349,11 +383,11 @@ const ForgotPasswordPage = () => {
                     />
                   </div>
                   <button 
-                    className={`w-full py-3.5 bg-primary hover:bg-primary-container text-white font-bold rounded-full transition-all duration-300 shadow-lg shadow-primary/10 tracking-wider uppercase text-xs ${loading ? 'opacity-80 cursor-wait' : ''}`} 
+                    className={`w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-full transition-all duration-300 shadow-md shadow-blue-500/10 hover:shadow-lg hover:shadow-blue-500/20 active:scale-[0.98] text-[10px] uppercase tracking-widest cursor-pointer ${loading ? 'opacity-80 cursor-wait' : ''}`} 
                     type="submit"
                     disabled={loading}
                   >
-                    {loading ? 'ĐANG CẬP NHẬT...' : 'Cập nhật mật khẩu'}
+                    {loading ? (language === 'en' ? 'UPDATING...' : 'ĐANG CẬP NHẬT...') : (language === 'en' ? 'Update Password' : 'Cập nhật mật khẩu')}
                   </button>
                 </div>
               )}

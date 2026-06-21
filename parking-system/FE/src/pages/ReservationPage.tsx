@@ -6,14 +6,16 @@ import { ArrowRight, Calendar, Clock, MapPin, Info, Map, Layers, Compass, Cpu, L
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
 import { addActiveQr } from '../utils/auth';
+import { useSettings } from '../hooks/useSettings.tsx';
 
 const ReservationPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const fromStatus = location.state?.fromStatus || false;
   const [, setUser] = useState<any>(null);
+  const { t } = useSettings();
 
-  const parkingLots = [
+  const defaultLots = [
     { id: 1, name: "Landmark 81 - Bãi đỗ A1", latitude: "10.7949", longitude: "106.7218", floor: "Tầng 1", block: "Block A" },
     { id: 2, name: "Bitexco Financial - Bãi đỗ B2", latitude: "10.7717", longitude: "106.7044", floor: "Tầng 2", block: "Block B" },
     { id: 3, name: "Vincom Center - Bãi đỗ V3", latitude: "10.7781", longitude: "106.7020", floor: "Hầm B3", block: "Block V" },
@@ -22,6 +24,33 @@ const ReservationPage = () => {
     { id: 6, name: "Crescent Mall Q7 - Bãi đỗ C1", latitude: "10.7287", longitude: "106.7169", floor: "Tầng G", block: "Block C" },
     { id: 7, name: "Sân bay Tân Sơn Nhất - Block A", latitude: "10.8160", longitude: "106.6630", floor: "Ga quốc tế", block: "Khu vực A" }
   ];
+
+  const [parkingLots, setParkingLots] = useState<any[]>(() => {
+    const stored = localStorage.getItem('selectedParking');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (parsed && parsed.id && !defaultLots.some((p: any) => p.id === parsed.id)) {
+          return [...defaultLots, parsed];
+        }
+      } catch (e) {}
+    }
+    return defaultLots;
+  });
+
+  useEffect(() => {
+    const loadLots = async () => {
+      try {
+        const response = await api.get('/ParkingLots');
+        if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+          setParkingLots(response.data);
+        }
+      } catch (e) {
+        console.error('Error fetching parking lots:', e);
+      }
+    };
+    loadLots();
+  }, []);
 
   const today = new Date().toISOString().split('T')[0];
   const currentTime = new Date().toTimeString().slice(0, 5);
@@ -32,16 +61,12 @@ const ReservationPage = () => {
     if (storedParking) {
       try {
         const parsed = JSON.parse(storedParking);
-        const matched = [
-          { id: 1, name: "Landmark 81 - Bãi đỗ A1" },
-          { id: 2, name: "Bitexco Financial - Bãi đỗ B2" },
-          { id: 3, name: "Vincom Center - Bãi đỗ V3" },
-          { id: 4, name: "Saigon Centre - Bãi đỗ S1" },
-          { id: 5, name: "Lotte Mart Q7 - Bãi đỗ L1" },
-          { id: 6, name: "Crescent Mall Q7 - Bãi đỗ C1" },
-          { id: 7, name: "Sân bay Tân Sơn Nhất - Block A" }
-        ].find(p => p.name === parsed.name);
-        if (matched) initialParkingLotId = matched.id;
+        if (parsed && parsed.id) {
+          initialParkingLotId = parsed.id;
+        } else {
+          const matched = parkingLots.find((p: any) => p.name === parsed?.name);
+          if (matched) initialParkingLotId = matched.id;
+        }
       } catch (e) {}
     }
     return {
@@ -56,7 +81,7 @@ const ReservationPage = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isVehicleDropdownOpen, setIsVehicleDropdownOpen] = useState(false);
 
-  const selectedParking = parkingLots.find(p => p.id === formData.parkingLotId) || parkingLots[0];
+  const selectedParking = parkingLots.find((p: any) => p.id === formData.parkingLotId) || parkingLots[0];
 
   const [isSlotSelected, setIsSlotSelected] = useState(fromStatus);
   const [currentSlot, setCurrentSlot] = useState(() => localStorage.getItem('selectedSlot') || '');
@@ -115,7 +140,7 @@ const ReservationPage = () => {
             setActivePlates(normalizedActive);
 
             // Auto-select the first available (non-active in current building) vehicle
-            const currentLotName = parkingLots.find(p => p.id === formData.parkingLotId)?.name || parkingLots[0].name;
+            const currentLotName = parkingLots.find((p: any) => p.id === formData.parkingLotId)?.name || parkingLots[0].name;
             const firstAvailable = parsedVehicles.find(v => {
               const norm = v.plate.replace(/[-. ]/g, '').toUpperCase();
               return !normalizedActive.some(a => a.plate === norm && a.parkingLotName === currentLotName);
@@ -193,13 +218,13 @@ const ReservationPage = () => {
               <header className="mb-4 shrink-0">
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 border border-blue-100 text-[8px] font-black text-blue-600 uppercase tracking-[0.2em] mb-2 shadow-sm">
                   <span className="w-1.2 h-1.2 rounded-full bg-blue-600 animate-ping"></span>
-                  {fromStatus ? 'BƯỚC 2: HOÀN THIỆN THÔNG TIN' : 'BƯỚC 1: NHẬP THÔNG TIN'}
+                  {fromStatus ? t('reserveStep2') : t('reserveStep1')}
                 </div>
                 <h1 className="text-2xl font-display font-black text-slate-900 tracking-tight leading-none mb-1">
-                  Đăng ký giữ chỗ
+                  {t('reserveHeading')}
                 </h1>
                 <p className="text-slate-500/90 text-[10px] font-medium leading-relaxed">
-                  Thiết lập thời gian và vị trí đỗ xe thông minh chỉ trong vài giây.
+                  {t('reserveSubtitle')}
                 </p>
               </header>
 
@@ -209,7 +234,7 @@ const ReservationPage = () => {
                 {/* Date Picker */}
                 <div className="space-y-1.5">
                   <label className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-slate-400/90 ml-1 flex items-center gap-1.5">
-                    <Calendar size={12} className="text-blue-500" /> Ngày gửi xe
+                    <Calendar size={12} className="text-blue-500" /> {t('chooseParkingDate')}
                   </label>
                   <div className="relative group">
                     <input
@@ -225,7 +250,7 @@ const ReservationPage = () => {
                 {/* Time Picker */}
                 <div className="space-y-1.5">
                   <label className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-slate-400/90 ml-1 flex items-center gap-1.5">
-                    <Clock size={12} className="text-blue-500" /> Giờ bắt đầu
+                    <Clock size={12} className="text-blue-500" /> {t('chooseStartTime')}
                   </label>
                   <div className="relative group">
                     <input
@@ -242,7 +267,7 @@ const ReservationPage = () => {
                 {userVehicles.length > 0 ? (
                   <div className="space-y-1.5 relative">
                     <label className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-slate-400/90 ml-1 flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-[14px] text-blue-500">credit_card</span> Chọn phương tiện gửi
+                      <span className="material-symbols-outlined text-[14px] text-blue-500">credit_card</span> {t('selectVehicle')}
                     </label>
                     <div
                       onClick={() => setIsVehicleDropdownOpen(!isVehicleDropdownOpen)}
@@ -250,10 +275,10 @@ const ReservationPage = () => {
                     >
                       <span className="text-xs truncate pr-2">
                         {formData.licensePlate === 'CUSTOM' || !userVehicles.some(v => v.plate === formData.licensePlate)
-                          ? (formData.licensePlate === 'CUSTOM' ? '+ Nhập biển số xe khác' : (formData.licensePlate || 'Chọn xe của bạn'))
+                          ? (formData.licensePlate === 'CUSTOM' ? t('addOtherPlate') : (formData.licensePlate || t('selectYourCar')))
                           : `${formData.licensePlate} (${
-                              userVehicles.find(v => v.plate === formData.licensePlate)?.type === 'Car' ? 'Ô tô' : 
-                              userVehicles.find(v => v.plate === formData.licensePlate)?.type === 'Motorbike' ? 'Xe máy' : 'Xe đạp/Xe điện'
+                              userVehicles.find(v => v.plate === formData.licensePlate)?.type === 'Car' ? t('carLabel') : 
+                              userVehicles.find(v => v.plate === formData.licensePlate)?.type === 'Motorbike' ? t('motorbikeLabel') : t('bikeLabel')
                             })`
                         }
                       </span>
@@ -301,11 +326,11 @@ const ReservationPage = () => {
                               </div>
                               {isLocked ? (
                                 <span className="text-[8px] bg-red-50 text-red-500 font-black uppercase px-2 py-0.5 rounded-full border border-red-100 flex items-center gap-1">
-                                  <Lock size={8} /> Đang gửi
+                                  <Lock size={8} /> {t('parkedBadge')}
                                 </span>
                               ) : (
                                 <span className="text-[9px] text-slate-400 font-black uppercase">
-                                  {veh.type === 'Car' ? 'Ô tô' : veh.type === 'Motorbike' ? 'Xe máy' : 'Xe đạp/Xe điện'}
+                                  {veh.type === 'Car' ? t('carLabel') : veh.type === 'Motorbike' ? t('motorbikeLabel') : t('bikeLabel')}
                                 </span>
                               )}
                             </div>
@@ -321,7 +346,7 @@ const ReservationPage = () => {
                               ${formData.licensePlate === 'CUSTOM' ? 'bg-blue-50 text-blue-600 font-bold' : 'text-slate-600'}`}
                           >
                             <span className="material-symbols-outlined text-[16px]">add_circle</span>
-                            <span className="font-extrabold text-xs text-slate-800">+ Nhập biển số xe khác</span>
+                            <span className="font-extrabold text-xs text-slate-800">{t('addOtherPlate')}</span>
                           </div>
                         </motion.div>
                       )}
@@ -346,7 +371,7 @@ const ReservationPage = () => {
                 ) : (
                   <div className="space-y-1.5">
                     <label className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-slate-400/90 ml-1 flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-[14px] text-blue-500">credit_card</span> Biển số xe
+                      <span className="material-symbols-outlined text-[14px] text-blue-500">credit_card</span> {t('plateLabelShort')}
                     </label>
                     <div className="relative group">
                       <div className="absolute inset-y-0 left-0 pl-4.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-500 transition-colors">
@@ -367,20 +392,27 @@ const ReservationPage = () => {
                 {/* Custom Parking Lot Dropdown */}
                 <div className="space-y-1.5 relative">
                   <label className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-slate-400/90 ml-1 flex items-center gap-1.5">
-                    <MapPin size={12} className="text-blue-500" /> Chọn vị trí / bãi đỗ
+                    <MapPin size={12} className="text-blue-500" /> {t('selectParkingLot')}
                   </label>
-                  <div
-                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                    className="w-full bg-white border border-outline-variant/80 hover:border-blue-500/40 rounded-full py-2.5 px-5 text-slate-900 font-extrabold flex items-center justify-between cursor-pointer transition-all duration-300 group shadow-sm hover:shadow-md"
-                  >
-                    <span className="text-xs truncate pr-2">{selectedParking.name}</span>
-                    <span className={`material-symbols-outlined text-[18px] text-slate-400 group-hover:text-blue-500 transition-all duration-300 ${isDropdownOpen ? 'rotate-180' : ''}`}>
-                      keyboard_arrow_down
-                    </span>
-                  </div>
+                  {fromStatus ? (
+                    <div className="w-full bg-slate-50 border border-slate-200 rounded-full py-2.5 px-5 text-slate-500 font-extrabold flex items-center justify-between cursor-not-allowed shadow-inner">
+                      <span className="text-xs truncate pr-2">{selectedParking.name}</span>
+                      <Lock size={14} className="text-slate-400" />
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                      className="w-full bg-white border border-outline-variant/80 hover:border-blue-500/40 rounded-full py-2.5 px-5 text-slate-900 font-extrabold flex items-center justify-between cursor-pointer transition-all duration-300 group shadow-sm hover:shadow-md"
+                    >
+                      <span className="text-xs truncate pr-2">{selectedParking.name}</span>
+                      <span className={`material-symbols-outlined text-[18px] text-slate-400 group-hover:text-blue-500 transition-all duration-300 ${isDropdownOpen ? 'rotate-180' : ''}`}>
+                        keyboard_arrow_down
+                      </span>
+                    </div>
+                  )}
 
                   <AnimatePresence>
-                    {isDropdownOpen && (
+                    {!fromStatus && isDropdownOpen && (
                       <motion.div
                         initial={{ opacity: 0, y: -12, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -388,7 +420,7 @@ const ReservationPage = () => {
                         transition={{ duration: 0.2, ease: "easeOut" }}
                         className="absolute z-[2500] left-0 right-0 mt-2 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-100/90 max-h-56 overflow-y-auto divide-y divide-slate-50 scrollbar-thin overflow-hidden p-1.5"
                       >
-                        {parkingLots.map(lot => (
+                        {parkingLots.map((lot: any) => (
                           <div
                             key={lot.id}
                             onClick={() => {
@@ -423,7 +455,7 @@ const ReservationPage = () => {
                 {/* Vehicle Type Tab Selector */}
                 {(userVehicles.length === 0 || formData.licensePlate === 'CUSTOM' || !userVehicles.some(v => v.plate === formData.licensePlate)) && (
                   <div className="space-y-2 animate-fade-in-up">
-                    <p className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-slate-400/90 ml-1">Loại phương tiện</p>
+                    <p className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-slate-400/90 ml-1">{t('vehicleTypeLabel')}</p>
 
                     <div className="grid grid-cols-3 gap-2.5 p-1 bg-slate-50 border border-slate-100 rounded-2xl">
                       {['car', 'suv', 'bike'].map((type) => (
@@ -440,7 +472,7 @@ const ReservationPage = () => {
                             {type === 'car' ? 'directions_car' : type === 'suv' ? 'airport_shuttle' : 'two_wheeler'}
                           </span>
                           <span className="text-[9px] uppercase tracking-wider font-extrabold">
-                            {type === 'car' ? 'Ô tô 4-7' : type === 'suv' ? 'SUV/Tải' : 'Xe máy'}
+                            {type === 'car' ? t('sedan') : type === 'suv' ? t('suv') : t('motorbike')}
                           </span>
                         </button>
                       ))}
@@ -452,7 +484,7 @@ const ReservationPage = () => {
                 <div className="flex items-start gap-2.5 p-3 bg-indigo-50/50 border border-indigo-100/60 rounded-2xl">
                   <Info size={14} className="text-indigo-500 shrink-0 mt-0.5" />
                   <p className="text-[10px] font-bold text-indigo-700 leading-relaxed">
-                    Hệ thống tự động đồng bộ biển số xe và loại phương tiện từ thông tin cá nhân của bạn để tối ưu thời gian thao tác.
+                    {t('autoSyncInfo')}
                   </p>
                 </div>
 
@@ -466,7 +498,7 @@ const ReservationPage = () => {
                       {currentSlot}
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Vị trí đã chọn</span>
+                      <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">{t('selectedSlot')}</span>
                       <span className="text-xs font-black text-slate-800">{selectedParking.name}</span>
                     </div>
                   </div>
@@ -478,7 +510,7 @@ const ReservationPage = () => {
                     }}
                     className="text-[10px] font-bold text-slate-500 hover:text-blue-600 underline cursor-pointer"
                   >
-                    Thay đổi
+                    {t('changeSlotLabel')}
                   </button>
                 </div>
               )}
@@ -489,7 +521,7 @@ const ReservationPage = () => {
                 type="submit"
               >
                 <span className="relative z-10 uppercase tracking-widest font-black text-[10px]">
-                  {isSlotSelected && currentSlot ? 'TIẾP THEO: ĐI TỚI THANH TOÁN' : 'TIẾP THEO: CHỌN VỊ TRÍ CHI TIẾT'}
+                  {isSlotSelected && currentSlot ? t('nextToPayment') : t('nextToSelectSlot')}
                 </span>
                 <ArrowRight size={16} className="relative z-10 transition-transform duration-300 group-hover:translate-x-1" />
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shine_1.5s_infinite] pointer-events-none"></div>
@@ -511,7 +543,7 @@ const ReservationPage = () => {
                 <div className="glass-panel px-4 py-2 rounded-full border border-slate-200/60 shadow-lg backdrop-blur-md flex items-center gap-2.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
                   <span className="text-[10px] font-black uppercase tracking-wider text-slate-800 flex items-center gap-1">
-                    <Cpu size={12} className="text-emerald-500" /> BẢN ĐỒ
+                    <Cpu size={12} className="text-emerald-500" /> {t('mapLabel')}
                   </span>
                 </div>
               </div>
@@ -528,27 +560,27 @@ const ReservationPage = () => {
                   <Map className="w-5 h-5 text-blue-500" />
                 </div>
                 <div>
-                  <h3 className="font-display font-extrabold text-slate-800 text-base leading-none">Thông số Bãi Đỗ Số Hóa</h3>
-                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-wider mt-1.5">Giám sát hạ tầng thời gian thực</p>
+                  <h3 className="font-display font-extrabold text-slate-800 text-base leading-none">{t('digitalTwinTitle')}</h3>
+                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-wider mt-1.5">{t('infraMonitor')}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-4 mt-1">
                 <div className="flex flex-col p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
                   <span className="text-[9px] uppercase tracking-wider text-slate-400 font-extrabold flex items-center gap-1.5">
-                    <Layers size={10} className="text-blue-500" /> Tầng định vị
+                    <Layers size={10} className="text-blue-500" /> {t('floorLocate')}
                   </span>
                   <span className="text-base font-extrabold text-slate-800 mt-1">{selectedParking.floor}</span>
                 </div>
                 <div className="flex flex-col p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
                   <span className="text-[9px] uppercase tracking-wider text-slate-400 font-extrabold flex items-center gap-1.5">
-                    <Compass size={10} className="text-blue-500" /> Phân Khu
+                    <Compass size={10} className="text-blue-500" /> {t('block')}
                   </span>
                   <span className="text-base font-extrabold text-slate-800 mt-1">{selectedParking.block}</span>
                 </div>
                 <div className="flex flex-col p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
                   <span className="text-[9px] uppercase tracking-wider text-slate-400 font-extrabold flex items-center gap-1.5">
-                    <MapPin size={10} className="text-blue-500" /> Tọa độ GPS
+                    <MapPin size={10} className="text-blue-500" /> {t('gps')}
                   </span>
                   <span className="text-xs font-black text-slate-800 mt-2.5 truncate">{selectedParking.latitude}, {selectedParking.longitude}</span>
                 </div>
