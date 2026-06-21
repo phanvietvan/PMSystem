@@ -132,85 +132,6 @@ const ProfilePage = () => {
     }
   }, [navigate]);
 
-  const isDirty = () => {
-    if (!currentUser) return false;
-
-    let initialVehicles: { plate: string; type: string }[] = [];
-    const lp = currentUser.licensePlate || '';
-    if (lp.startsWith('[')) {
-      try {
-        initialVehicles = JSON.parse(lp);
-      } catch (e) {
-        initialVehicles = [{ plate: lp, type: currentUser.vehicleType || 'Car' }];
-      }
-    } else {
-      initialVehicles = [{ plate: lp, type: currentUser.vehicleType || 'Car' }];
-    }
-
-    const hasNameChanged = firstName !== (currentUser.firstName || '');
-    const hasLastNameChanged = lastName !== (currentUser.lastName || '');
-    const hasPhoneChanged = phoneNumber !== (currentUser.phoneNumber || '');
-    const hasAddressChanged = address !== (currentUser.address || '');
-    const hasVehiclesChanged = JSON.stringify(vehicles) !== JSON.stringify(initialVehicles);
-
-    return hasNameChanged || hasLastNameChanged || hasPhoneChanged || hasAddressChanged || hasVehiclesChanged;
-  };
-
-  // Đồng bộ isDirtyRef với giá trị isDirty() mới nhất sau mỗi lần render
-  useEffect(() => {
-    isDirtyRef.current = isDirty();
-    successRef.current = success;
-  });
-
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (isDirtyRef.current && !successRef.current) {
-        e.preventDefault();
-        e.returnValue = ''; // Required for Chrome/Firefox
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, []);
-
-  useEffect(() => {
-    const handleCaptureClick = (e: MouseEvent) => {
-      // Đọc từ ref để luôn lấy giá trị mới nhất, tránh stale closure
-      if (!isDirtyRef.current || successRef.current) return;
-
-      const target = e.target as HTMLElement;
-
-      // 1. Check for standard <a> link clicks
-      const anchor = target.closest('a');
-      if (anchor) {
-        const href = anchor.getAttribute('href');
-        // Only block if it's a relative URL or matches origin, and is not a hash link or target="_blank"
-        if (href && (href.startsWith('/') || href.startsWith(window.location.origin)) && !href.startsWith('#') && anchor.getAttribute('target') !== '_blank') {
-          let targetPath = href;
-          if (href.startsWith(window.location.origin)) {
-            targetPath = href.substring(window.location.origin.length);
-          }
-          e.preventDefault();
-          e.stopPropagation();
-          setPendingUrl(targetPath);
-          return;
-        }
-      }
-
-      // 2. Check for "Đăng xuất" button click in the Navbar dropdown
-      const button = target.closest('button');
-      if (button && button.textContent?.includes('Đăng xuất')) {
-        e.preventDefault();
-        e.stopPropagation();
-        setPendingUrl('logout');
-        return;
-      }
-    };
-
-    document.addEventListener('click', handleCaptureClick, true);
-    return () => document.removeEventListener('click', handleCaptureClick, true);
-  }, []); // Chỉ đăng ký 1 lần khi mount, dùng ref để đọc giá trị mới nhất
-
   const handleAddVehicle = () => {
     setVehicles([...vehicles, { plate: '', type: 'Car' }]);
   };
@@ -229,13 +150,13 @@ const ProfilePage = () => {
 
   // Determine if profile update is mandatory based on persisted user profile fields
   const isForceUpdate = currentUser && (
-    !currentUser.firstName ||
-    !currentUser.lastName ||
-    !currentUser.phoneNumber ||
-    !currentUser.licensePlate ||
-    !currentUser.vehicleType ||
-    !currentUser.address ||
-    currentUser.firstName === 'Google' ||
+    !currentUser.firstName || 
+    !currentUser.lastName || 
+    !currentUser.phoneNumber || 
+    !currentUser.licensePlate || 
+    !currentUser.vehicleType || 
+    !currentUser.address || 
+    currentUser.firstName === 'Google' || 
     currentUser.lastName === 'User'
   );
 
@@ -304,39 +225,6 @@ const ProfilePage = () => {
       setVehicleErrors(vErrors);
       hasError = true;
     }
-    if (!nameRegex.test(lastName.trim())) {
-      setError('Họ chỉ được chứa chữ cái và khoảng trắng.');
-      return;
-    }
-
-    if (firstName.trim().length < 2 || firstName.trim().length > 50) {
-      setError('Tên phải chứa từ 2 đến 50 ký tự.');
-      return;
-    }
-    if (!nameRegex.test(firstName.trim())) {
-      setError('Tên chỉ được chứa chữ cái và khoảng trắng.');
-      return;
-    }
-
-    // Validate Vietnamese Phone Number
-    const vnPhoneRegex = /^(0|\+84|84)(3|5|7|8|9)[0-9]{8}$/;
-    if (!vnPhoneRegex.test(phoneNumber.trim())) {
-      setError('Số điện thoại không đúng định dạng Việt Nam.');
-      return;
-    }
-
-    const plateRegex = /^[0-9]{2}[A-Z]{1}[A-Z0-9]{0,1}[-. ]?(?:[0-9]{4,5}|[0-9]{3}\.[0-9]{2})$/i;
-    for (let i = 0; i < vehicles.length; i++) {
-      const plate = vehicles[i].plate.trim();
-      if (!plate) {
-        setError(`Vui lòng điền biển số xe cho xe thứ ${i + 1}.`);
-        return;
-      }
-      if (!plateRegex.test(plate)) {
-        setError(`Biển số xe thứ ${i + 1} (${plate}) không đúng định dạng biển số Việt Nam (ví dụ: 29A-12345, 30F-9999, 59G1-123.45).`);
-        return;
-      }
-    }
 
     if (firstName.trim() === 'Google' || lastName.trim() === 'User') {
       setError('Vui lòng nhập Họ Tên thật của bạn.');
@@ -382,7 +270,7 @@ const ProfilePage = () => {
         
         // Notify Navbar and other listening components
         window.dispatchEvent(new Event('user-login'));
-
+        
         setSuccess(true);
         setTimeout(() => {
           navigate('/');
@@ -692,7 +580,7 @@ const ProfilePage = () => {
                     <div className="sm:col-span-1 flex justify-center pb-1">
                       <button
                         type="button"
-                        onClick={() => setVehicleToDelete(index)}
+                        onClick={() => handleRemoveVehicle(index)}
                         className="w-9 h-9 rounded-full bg-red-50 hover:bg-red-100 text-red-500 flex items-center justify-center transition-colors"
                       >
                         <span className="material-symbols-outlined text-[18px]">delete</span>
@@ -728,6 +616,7 @@ const ProfilePage = () => {
               )}
             </div>
 
+            {/* Notifications */}
             <AnimatePresence mode="wait">
               {error && (
                 <motion.div
@@ -740,17 +629,8 @@ const ProfilePage = () => {
                   <p className="text-[11px] font-bold text-red-600 leading-tight">{error}</p>
                 </motion.div>
               )}
-            </AnimatePresence>
 
-            {/* Dirty warning notice */}
-            {isDirty() && !success && (
-              <div className="flex items-center gap-3 p-3.5 bg-amber-50 border border-amber-100 rounded-2xl animate-pulse">
-                <AlertCircle className="text-amber-600 shrink-0" size={16} />
-                <p className="text-[11px] font-bold text-amber-800 leading-normal">
-                  Bạn có thay đổi chưa lưu. Vui lòng bấm "LƯU THÔNG TIN" bên dưới để hoàn tất và lưu các thông tin đã cập nhật.
-                </p>
-              </div>
-            )}
+            </AnimatePresence>
 
             {/* Save Button */}
             <button

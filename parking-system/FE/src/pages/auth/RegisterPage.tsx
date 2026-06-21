@@ -129,34 +129,6 @@ const RegisterPage = () => {
     setError('');
 
     if (step === 0) {
-      const nameRegex = /^[\p{L}\s]+$/u;
-      
-      if (!lastName.trim()) {
-        setError('Họ không được để trống.');
-        return;
-      }
-      if (lastName.trim().length < 2 || lastName.trim().length > 50) {
-        setError('Họ phải chứa từ 2 đến 50 ký tự.');
-        return;
-      }
-      if (!nameRegex.test(lastName.trim())) {
-        setError('Họ chỉ được chứa chữ cái và khoảng trắng.');
-        return;
-      }
-
-      if (!firstName.trim()) {
-        setError('Tên không được để trống.');
-        return;
-      }
-      if (firstName.trim().length < 2 || firstName.trim().length > 50) {
-        setError('Tên phải chứa từ 2 đến 50 ký tự.');
-        return;
-      }
-      if (!nameRegex.test(firstName.trim())) {
-        setError('Tên chỉ được chứa chữ cái và khoảng trắng.');
-        return;
-      }
-
       if (!email || !email.includes('@')) {
         setError(language === 'en' ? 'Please enter a valid email.' : 'Vui lòng nhập email hợp lệ.');
         return;
