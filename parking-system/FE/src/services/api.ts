@@ -1,9 +1,9 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  baseURL: import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'https://localhost:53568/api'
-    : `https://${window.location.hostname}:53568/api`,
+    : 'https://pmsystem-oxl8.onrender.com/api'),
   headers: {
     'Content-Type': 'application/json',
   },
