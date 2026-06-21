@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Layers, Sparkles } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
-import { hasActiveSessions } from '../utils/auth';
+import { hasActiveSessions, addActiveQr } from '../utils/auth';
 import api from '../services/api';
 
 /* ─── Types ─── */
@@ -75,6 +75,20 @@ const ParkingStatus: React.FC = () => {
     const interval = setInterval(fetchStatus, 2000);
     return () => clearInterval(interval);
   }, [selectedParking.name]);
+
+  // Verify and sync active session from database
+  useEffect(() => {
+    api.get('/ParkingSessions/my-session')
+      .then(res => {
+        if (res.data && res.data.qrCode) {
+          addActiveQr(res.data.qrCode);
+          setShowActiveSessionWarning(true);
+        }
+      })
+      .catch(err => {
+        console.log('No active session on database.', err);
+      });
+  }, []);
 
   // Clear selection on floor change
   useEffect(() => { setSelectedSlot(null); }, [selectedLevel]);
@@ -456,16 +470,12 @@ const ParkingStatus: React.FC = () => {
                   localStorage.setItem('selectedSlot', selectedSlot || 'A3');
                   localStorage.setItem('selectedLevel', selectedLevel.toString());
                   
-                  const hasReservationDetails = localStorage.getItem('reservationDate') && localStorage.getItem('reservationLicensePlate');
-                  if (hasReservationDetails) {
-                    navigate('/payment');
-                  } else {
-                    setShowReservePrompt(true);
-                  }
+                  // Always navigate to reserve page so user can choose vehicle/date/time cleanly
+                  navigate('/reserve', { state: { fromStatus: true } });
                 }}
                 className="bg-blue-600 text-white px-5 py-2.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider hover:bg-blue-700 hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 shadow-lg shadow-blue-500/20 cursor-pointer"
               >
-                Tiếp tục thanh toán
+                Tiếp tục đăng ký xe
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
