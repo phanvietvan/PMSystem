@@ -4,6 +4,26 @@ import { Link, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 
+const getPasswordStrength = (pwd: string) => {
+  if (!pwd) return { score: 0, label: '', color: 'bg-slate-200', textColor: 'text-slate-400' };
+  let score = 0;
+  if (pwd.length >= 8) score++;
+  if (/[A-Z]/.test(pwd)) score++;
+  if (/[a-z]/.test(pwd)) score++;
+  if (/[0-9]/.test(pwd)) score++;
+  if (/[^A-Za-z0-9]/.test(pwd)) score++;
+
+  if (score <= 2) {
+    return { score, label: 'Yếu', color: 'bg-red-500', textColor: 'text-red-500' };
+  } else if (score === 3) {
+    return { score, label: 'Trung bình', color: 'bg-yellow-500', textColor: 'text-yellow-500' };
+  } else if (score === 4) {
+    return { score, label: 'Khá mạnh', color: 'bg-blue-500', textColor: 'text-blue-500' };
+  } else {
+    return { score, label: 'Rất mạnh', color: 'bg-green-500', textColor: 'text-green-500' };
+  }
+};
+
 const ForgotPasswordPage = () => {
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -74,8 +94,9 @@ const ForgotPasswordPage = () => {
         setError('Mật khẩu xác nhận không khớp.');
         return;
       }
-      if (newPassword.length < 6) {
-        setError('Mật khẩu mới phải chứa ít nhất 6 ký tự.');
+      const strength = getPasswordStrength(newPassword);
+      if (strength.score < 5) {
+        setError('Mật khẩu chưa đủ mạnh. Mật khẩu phải dài ít nhất 8 ký tự, bao gồm cả chữ hoa, chữ thường, chữ số và ít nhất một ký tự đặc biệt.');
         return;
       }
 
@@ -113,7 +134,7 @@ const ForgotPasswordPage = () => {
         <div className="max-w-2xl opacity-0 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
           <h2 className="text-[72px] font-display font-extrabold leading-[1.05] tracking-tight mb-8 text-on-surface">
             Khôi phục<br/>
-            <span className="text-primary">tài khoản của bạn.</span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-500 to-blue-500">tài khoản của bạn.</span>
           </h2>
           <p className="text-on-surface-variant text-xl leading-relaxed max-w-lg font-medium">
             Đừng lo lắng, chúng tôi sẽ giúp bạn lấy lại mật khẩu chỉ trong vài phút thông qua quy trình xác thực an toàn.
@@ -197,8 +218,8 @@ const ForgotPasswordPage = () => {
                   <div className="text-center p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30">
                     <p className="text-xs text-on-surface-variant">Mã OTP đã được gửi. Vui lòng nhập mã để đặt lại mật khẩu.</p>
                     {devOtpCode && (
-                      <p className="mt-2 text-[10px] font-black text-amber-600 bg-amber-50 py-1 px-2 rounded-lg border border-amber-100 inline-block">
-                        [ Giả lập: Mã OTP gửi qua email là {devOtpCode} ]
+                      <p className="text-[11px] font-black text-indigo-600 mt-2 bg-indigo-50 py-1 px-3 rounded-full inline-block">
+                        Mã OTP của bạn: {devOtpCode}
                       </p>
                     )}
                   </div>
@@ -241,6 +262,33 @@ const ForgotPasswordPage = () => {
                       onChange={(e) => setNewPassword(e.target.value)}
                     />
                   </div>
+                  {newPassword && (
+                    <div className="space-y-1.5 px-1">
+                      <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-[0.1em]">
+                        <span className="text-on-surface-variant/70">Độ mạnh mật khẩu:</span>
+                        <span className={getPasswordStrength(newPassword).textColor}>
+                          {getPasswordStrength(newPassword).label}
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex gap-0.5">
+                        {[1, 2, 3, 4, 5].map((i) => {
+                          const strength = getPasswordStrength(newPassword);
+                          const isActive = strength.score >= i;
+                          return (
+                            <div
+                              key={i}
+                              className={`h-full flex-1 transition-all duration-300 ${
+                                isActive ? strength.color : 'bg-slate-200 dark:bg-slate-700/50'
+                              }`}
+                            />
+                          );
+                        })}
+                      </div>
+                      <p className="text-[10px] text-on-surface-variant/50 leading-relaxed">
+                        Yêu cầu: dài ít nhất 8 ký tự, gồm chữ hoa, chữ thường, chữ số và ký tự đặc biệt.
+                      </p>
+                    </div>
+                  )}
                   <div className="space-y-2.5">
                     <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/70 ml-1">Xác nhận mật khẩu mới</label>
                     <input 

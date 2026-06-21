@@ -14,10 +14,11 @@ const ProfilePage = () => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [licensePlate, setLicensePlate] = useState('');
-  const [vehicleType, setVehicleType] = useState('Car');
   const [address, setAddress] = useState('');
-  
+
+  // Dynamic multiple vehicles list
+  const [vehicles, setVehicles] = useState<{ plate: string; type: string }[]>([]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -33,10 +34,29 @@ const ProfilePage = () => {
     setFirstName(parsedUser.firstName || '');
     setLastName(parsedUser.lastName || '');
     setPhoneNumber(parsedUser.phoneNumber || '');
-    setLicensePlate(parsedUser.licensePlate || '');
-    setVehicleType(parsedUser.vehicleType || 'Car');
     setAddress(parsedUser.address || '');
+
+    // Parse vehicles list from licensePlate field
+    const lp = parsedUser.licensePlate || '';
+    if (lp.startsWith('[')) {
+      try {
+        setVehicles(JSON.parse(lp));
+      } catch (e) {
+        setVehicles([{ plate: lp, type: parsedUser.vehicleType || 'Car' }]);
+      }
+    } else {
+      setVehicles([{ plate: lp, type: parsedUser.vehicleType || 'Car' }]);
+    }
   }, [navigate]);
+
+  const handleAddVehicle = () => {
+    setVehicles([...vehicles, { plate: '', type: 'Car' }]);
+  };
+
+  const handleRemoveVehicle = (index: number) => {
+    if (vehicles.length <= 1) return;
+    setVehicles(vehicles.filter((_, i) => i !== index));
+  };
 
   // Determine if profile update is mandatory based on persisted user profile fields
   const isForceUpdate = currentUser && (
@@ -52,15 +72,22 @@ const ProfilePage = () => {
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate empty inputs
     if (
       !firstName.trim() || 
       !lastName.trim() || 
       !phoneNumber.trim() || 
-      !licensePlate.trim() || 
-      !vehicleType.trim() || 
-      !address.trim()
+      !address.trim() ||
+      vehicles.length === 0
     ) {
       setError('Vui lòng điền đầy đủ tất cả thông tin yêu cầu.');
+      return;
+    }
+
+    const hasEmptyPlate = vehicles.some(v => !v.plate.trim());
+    if (hasEmptyPlate) {
+      setError('Vui lòng điền đầy đủ biển số xe cho tất cả các xe.');
       return;
     }
 
@@ -74,12 +101,15 @@ const ProfilePage = () => {
     setSuccess(false);
 
     try {
+      const serializedPlates = JSON.stringify(vehicles);
+      const primaryVehicleType = vehicles[0]?.type || 'Car';
+
       const response = await api.put('/auth/profile', {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         phoneNumber: phoneNumber.trim(),
-        licensePlate: licensePlate.trim(),
-        vehicleType: vehicleType.trim(),
+        licensePlate: serializedPlates,
+        vehicleType: primaryVehicleType,
         address: address.trim()
       });
 
@@ -101,15 +131,28 @@ const ProfilePage = () => {
         window.dispatchEvent(new Event('user-login'));
         
         setSuccess(true);
-        setTimeout(() => {
-          navigate('/');
-        }, 1500);
+        if (isForceUpdate) {
+          setTimeout(() => {
+            navigate('/');
+          }, 1500);
+        } else {
+          setTimeout(() => {
+            setSuccess(false);
+          }, 3000);
+        }
       } else {
         setError(response.data.message || 'Cập nhật thông tin thất bại.');
       }
     } catch (err: any) {
-      console.error(err);
-      setError(err.response?.data?.message || 'Có lỗi xảy ra trong quá trình cập nhật.');
+      console.error('Update Profile Error Details:', err.response?.data);
+      const beErrors = err.response?.data?.errors;
+      let errorMessage = 'Có lỗi xảy ra trong quá trình cập nhật.';
+      if (beErrors) {
+        errorMessage = Object.values(beErrors).flat().join(' | ');
+      } else {
+        errorMessage = err.response?.data?.message || 'Có lỗi xảy ra trong quá trình cập nhật.';
+      }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -118,7 +161,23 @@ const ProfilePage = () => {
   if (!currentUser) return null;
 
   return (
-    <div className="min-h-screen bg-mesh-gradient text-[#191c1e] selection:bg-blue-500/10" style={{ fontFamily: "'Manrope', sans-serif" }}>
+    <div className="min-h-screen bg-mesh-gradient text-[#191c1e] selection:bg-blue-500/10">
+      {/* Viewport-fixed premium emerald success toast */}
+      <AnimatePresence>
+        {success && (
+          <motion.div
+            initial={{ opacity: 0, y: -80, x: "-50%" }}
+            animate={{ opacity: 1, y: 24, x: "-50%" }}
+            exit={{ opacity: 0, y: -80, x: "-50%" }}
+            transition={{ type: "spring", stiffness: 120, damping: 14 }}
+            className="fixed top-0 left-1/2 z-[99999] flex items-center gap-2.5 px-4.5 py-2 bg-emerald-500 text-white rounded-full shadow-lg shadow-emerald-500/20 border border-emerald-400/20 whitespace-nowrap"
+          >
+            <CheckCircle2 className="text-white shrink-0" size={15} />
+            <span className="text-xs font-semibold tracking-normal text-white">Cập nhật thành công!</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Hide standard navbar to prevent navigation if force update is active */}
       {!isForceUpdate ? (
         <Navbar />
@@ -252,43 +311,78 @@ const ProfilePage = () => {
               </div>
             </div>
 
-            {/* Biển số xe & Loại xe */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 ml-1">Biển số xe</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                    <Tag size={16} />
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Ví dụ: 29A-12345"
-                    value={licensePlate}
-                    onChange={(e) => setLicensePlate(e.target.value)}
-                    required
-                    className="premium-input block w-full pl-10 pr-4 py-2.5 rounded-full focus:outline-none transition-all text-xs font-medium"
-                  />
-                </div>
+            {/* Vehicles List */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between ml-1">
+                <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">Thông tin phương tiện</label>
+                <button
+                  type="button"
+                  onClick={handleAddVehicle}
+                  className="text-[10px] font-black text-blue-600 uppercase tracking-wider hover:underline"
+                >
+                  + Thêm xe mới
+                </button>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 ml-1">Loại phương tiện</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                    <Car size={16} />
+              {vehicles.map((veh, index) => (
+                <div key={index} className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end p-4 bg-slate-50/40 rounded-3xl border border-slate-100/50 relative">
+                  <div className="sm:col-span-6 space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 ml-1">Biển số xe #{index + 1}</label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                        <Tag size={16} />
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="Ví dụ: 29A-12345"
+                        value={veh.plate}
+                        onChange={(e) => {
+                          const updated = [...vehicles];
+                          updated[index].plate = e.target.value.toUpperCase();
+                          setVehicles(updated);
+                        }}
+                        required
+                        className="premium-input block w-full pl-10 pr-4 py-2.5 rounded-full focus:outline-none transition-all text-xs font-medium uppercase"
+                      />
+                    </div>
                   </div>
-                  <select
-                    value={vehicleType}
-                    onChange={(e) => setVehicleType(e.target.value)}
-                    required
-                    className="premium-input block w-full pl-10 pr-4 py-2.5 rounded-full focus:outline-none transition-all text-xs font-medium appearance-none bg-white cursor-pointer"
-                  >
-                    <option value="Car">Ô tô (Car)</option>
-                    <option value="Motorbike">Xe máy (Motorbike)</option>
-                    <option value="Bicycle">Xe đạp / Xe điện (Bicycle)</option>
-                  </select>
+
+                  <div className="sm:col-span-5 space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 ml-1">Loại phương tiện</label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                        <Car size={16} />
+                      </div>
+                      <select
+                        value={veh.type}
+                        onChange={(e) => {
+                          const updated = [...vehicles];
+                          updated[index].type = e.target.value;
+                          setVehicles(updated);
+                        }}
+                        required
+                        className="premium-input block w-full pl-10 pr-4 py-2.5 rounded-full focus:outline-none transition-all text-xs font-medium appearance-none bg-white cursor-pointer"
+                      >
+                        <option value="Car">Ô tô (Car)</option>
+                        <option value="Motorbike">Xe máy (Motorbike)</option>
+                        <option value="Bicycle">Xe đạp / Xe điện (Bicycle)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {vehicles.length > 1 && (
+                    <div className="sm:col-span-1 flex justify-center pb-1">
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveVehicle(index)}
+                        className="w-9 h-9 rounded-full bg-red-50 hover:bg-red-100 text-red-500 flex items-center justify-center transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">delete</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
-              </div>
+              ))}
             </div>
 
             {/* Địa chỉ */}
@@ -323,16 +417,6 @@ const ProfilePage = () => {
                 </motion.div>
               )}
 
-              {success && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex items-center gap-3 p-3 bg-green-50 border border-green-100 rounded-2xl"
-                >
-                  <CheckCircle2 className="text-green-500 shrink-0" size={16} />
-                  <p className="text-[11px] font-bold text-green-600 leading-tight">Đã cập nhật thông tin thành công! Đang chuyển hướng...</p>
-                </motion.div>
-              )}
             </AnimatePresence>
 
             {/* Save Button */}

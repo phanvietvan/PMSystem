@@ -4,6 +4,7 @@ import { CreditCard, Wallet, Apple, ArrowRight, ShieldCheck, Receipt } from 'luc
 import { useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 import api from '../services/api';
+import { parseLicensePlate, getActiveQrs, addActiveQr, removeActiveQr } from '../utils/auth';
 
 const PaymentPage = () => {
   const navigate = useNavigate();
@@ -23,7 +24,7 @@ const PaymentPage = () => {
       try {
         const user = JSON.parse(storedUser);
         if (user.licensePlate) {
-          setLicensePlate(user.licensePlate);
+          setLicensePlate(parseLicensePlate(user.licensePlate));
         }
       } catch (e) {
         console.error(e);
@@ -32,7 +33,8 @@ const PaymentPage = () => {
 
     if (mode === 'checkout') {
       const fetchCheckoutFee = async () => {
-        const sessionQr = localStorage.getItem('activeSessionQr');
+        const sessionQrs = getActiveQrs();
+        const sessionQr = sessionQrs.length > 0 ? sessionQrs[sessionQrs.length - 1] : null;
         if (sessionQr) {
           try {
             const response = await api.get(`/ParkingSessions/verify/${sessionQr}`);
@@ -57,9 +59,12 @@ const PaymentPage = () => {
 
   const handleConfirmPayment = async () => {
     setLoading(true);
+    let qrCode = '';
     if (mode === 'checkout') {
-      const sessionQr = localStorage.getItem('activeSessionQr');
+      const sessionQrs = getActiveQrs();
+      const sessionQr = sessionQrs.length > 0 ? sessionQrs[sessionQrs.length - 1] : null;
       if (sessionQr) {
+        qrCode = sessionQr;
         try {
           // Perform backend checkout
           await api.post('/ParkingSessions/checkout', {
@@ -68,7 +73,7 @@ const PaymentPage = () => {
             exitPhoto: ''
           });
           // Remove from local storage upon successful database checkout completion
-          localStorage.removeItem('activeSessionQr');
+          removeActiveQr(sessionQr);
         } catch (e) {
           console.error('Checkout post error on backend', e);
         }
@@ -86,8 +91,16 @@ const PaymentPage = () => {
         const reservationDate = localStorage.getItem('reservationDate') || '';
         const reservationStartTime = localStorage.getItem('reservationStartTime') || '';
         const reservationVehicleType = localStorage.getItem('reservationVehicleType') || 'car';
-        const reservationLicensePlate = localStorage.getItem('reservationLicensePlate') || licensePlate;
+        const reservationLicensePlate = parseLicensePlate(localStorage.getItem('reservationLicensePlate') || licensePlate);
         const selectedSlot = localStorage.getItem('selectedSlot') || 'A3';
+
+        const storedUser = localStorage.getItem('user');
+        let loggedInUserId = null;
+        if (storedUser) {
+          try {
+            loggedInUserId = JSON.parse(storedUser).id;
+          } catch (e) {}
+        }
 
         const response = await api.post('/ParkingSessions/checkin', {
           licensePlate: reservationLicensePlate,
@@ -96,24 +109,36 @@ const PaymentPage = () => {
           vehicleType: reservationVehicleType,
           reservationDate: reservationDate,
           reservationStartTime: reservationStartTime,
-          parkingSlot: selectedSlot
+          parkingSlot: selectedSlot,
+          userId: loggedInUserId
         });
         if (response.data && response.data.qrCode) {
-          localStorage.setItem('activeSessionQr', response.data.qrCode);
+          qrCode = response.data.qrCode;
+          addActiveQr(response.data.qrCode);
         }
+        localStorage.removeItem('reservationDate');
+        localStorage.removeItem('reservationStartTime');
+        localStorage.removeItem('reservationVehicleType');
+        localStorage.removeItem('reservationLicensePlate');
       } catch (e) {
         console.error('Error creating database active session on reservation', e);
       }
     }
     setLoading(false);
-    navigate('/success', { state: { mode } });
+    navigate('/success', { state: { mode, qrCode } });
   };
 
+  let parkingInfo = { name: "Landmark 81 - Bãi đỗ A1", floor: "Tầng 1", block: "Block A" };
+  try {
+    const raw = localStorage.getItem('selectedParking');
+    if (raw) parkingInfo = JSON.parse(raw);
+  } catch(e) {}
+
   const orderSummary = {
-    date: new Date().toLocaleDateString('vi-VN'),
-    time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+    date: localStorage.getItem('reservationDate') ? new Date(localStorage.getItem('reservationDate')!).toLocaleDateString('vi-VN') : new Date().toLocaleDateString('vi-VN'),
+    time: localStorage.getItem('reservationStartTime') || new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
     slot: selectedSlot,
-    level: selectedLevel.padStart(2, '0'),
+    parkingName: parkingInfo.name,
     plate: licensePlate,
     price: price
   };
@@ -183,7 +208,10 @@ const PaymentPage = () => {
             <div className="space-y-4 mb-8">
               <div className="flex justify-between items-center py-3 border-b border-outline-variant/10">
                 <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest text-[9px]">Vị trí đỗ</span>
-                <span className="text-sm font-black text-on-surface">Tầng {orderSummary.level} • {orderSummary.slot}</span>
+                <div className="text-right flex flex-col items-end">
+                  <span className="text-sm font-black text-on-surface max-w-[200px] truncate" title={orderSummary.parkingName}>{orderSummary.parkingName}</span>
+                  <span className="text-[10px] font-bold text-on-surface-variant">Slot {orderSummary.slot}</span>
+                </div>
               </div>
               <div className="flex justify-between items-center py-3 border-b border-outline-variant/10">
                 <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest text-[9px]">Thời gian</span>

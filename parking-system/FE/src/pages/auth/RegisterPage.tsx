@@ -5,6 +5,26 @@ import api from '../../services/api';
 import { AlertCircle } from 'lucide-react';
 import { useGoogleLogin } from '@react-oauth/google';
 
+const getPasswordStrength = (pwd: string) => {
+  if (!pwd) return { score: 0, label: '', color: 'bg-slate-200', textColor: 'text-slate-400' };
+  let score = 0;
+  if (pwd.length >= 8) score++;
+  if (/[A-Z]/.test(pwd)) score++;
+  if (/[a-z]/.test(pwd)) score++;
+  if (/[0-9]/.test(pwd)) score++;
+  if (/[^A-Za-z0-9]/.test(pwd)) score++;
+
+  if (score <= 2) {
+    return { score, label: 'Yếu', color: 'bg-red-500', textColor: 'text-red-500' };
+  } else if (score === 3) {
+    return { score, label: 'Trung bình', color: 'bg-yellow-500', textColor: 'text-yellow-500' };
+  } else if (score === 4) {
+    return { score, label: 'Khá mạnh', color: 'bg-blue-500', textColor: 'text-blue-500' };
+  } else {
+    return { score, label: 'Rất mạnh', color: 'bg-green-500', textColor: 'text-green-500' };
+  }
+};
+
 const RegisterPage = () => {
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -16,7 +36,7 @@ const RegisterPage = () => {
   const [otp, setOtp] = useState('');
   const [devOtpCode, setDevOtpCode] = useState('');
   const [error, setError] = useState('');
-  
+
   const navigate = useNavigate();
 
   const loginGoogle = useGoogleLogin({
@@ -27,16 +47,16 @@ const RegisterPage = () => {
         const response = await api.post('/auth/google', {
           idToken: tokenResponse.access_token
         });
-        
+
         const apiResponse = response.data;
         const { user, accessToken } = apiResponse.data;
 
         localStorage.setItem('token', accessToken);
         localStorage.setItem('user', JSON.stringify(user));
-        
+
         window.dispatchEvent(new Event('user-login'));
         setLoading(false);
-        
+
         const isForceUpdate = !user.firstName || !user.lastName || user.firstName === 'Google' || user.lastName === 'User';
         if (isForceUpdate) {
           navigate('/profile');
@@ -59,14 +79,32 @@ const RegisterPage = () => {
     setError('');
 
     if (step === 0) {
-      setStep(1);
+      if (!email || !email.includes('@')) {
+        setError('Vui lòng nhập email hợp lệ.');
+        return;
+      }
+      setLoading(true);
+      try {
+        const response = await api.get(`/auth/register/check-email?email=${encodeURIComponent(email.toLowerCase().trim())}`);
+        if (response.data.success) {
+          setStep(1);
+        } else {
+          setError(response.data.message || 'Email này đã được đăng ký.');
+        }
+      } catch (err: any) {
+        console.error('Check Email Error:', err.response?.data);
+        setError(err.response?.data?.message || 'Email này đã được đăng ký hoặc không hợp lệ.');
+      } finally {
+        setLoading(false);
+      }
     } else if (step === 1) {
       if (password !== confirmPassword) {
         setError('Mật khẩu xác nhận không khớp.');
         return;
       }
-      if (password.length < 6) {
-        setError('Mật khẩu phải chứa ít nhất 6 ký tự.');
+      const strength = getPasswordStrength(password);
+      if (strength.score < 5) {
+        setError('Mật khẩu chưa đủ mạnh. Mật khẩu phải dài ít nhất 8 ký tự, bao gồm cả chữ hoa, chữ thường, chữ số và ít nhất một ký tự đặc biệt.');
         return;
       }
 
@@ -117,23 +155,23 @@ const RegisterPage = () => {
 
         localStorage.setItem('token', accessToken);
         localStorage.setItem('user', JSON.stringify(user));
-        
+
         window.dispatchEvent(new Event('user-login'));
         setLoading(false);
         navigate('/');
       } catch (err: any) {
         setLoading(false);
         console.error('Verify OTP Error Details:', err.response?.data);
-        
+
         const beErrors = err.response?.data?.errors;
         let errorMessage = 'Xác minh OTP và đăng ký thất bại.';
-        
+
         if (beErrors) {
           errorMessage = Object.values(beErrors).flat().join(' | ');
         } else {
           errorMessage = err.response?.data?.message || 'Mã OTP không chính xác hoặc đã hết hạn.';
         }
-        
+
         setError(errorMessage);
       }
     }
@@ -151,8 +189,8 @@ const RegisterPage = () => {
 
         <div className="max-w-2xl opacity-0 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
           <h2 className="text-[72px] font-display font-extrabold leading-[1.05] tracking-tight mb-8 text-on-surface">
-            Bắt đầu hành trình<br/>
-            <span className="text-primary">với PM System.</span>
+            Bắt đầu hành trình<br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-500 to-blue-500">với PM System.</span>
           </h2>
           <p className="text-on-surface-variant text-xl leading-relaxed max-w-lg font-medium">
             Tạo tài khoản để trải nghiệm hệ thống quản lý bãi xe thông minh, đặt chỗ nhanh chóng và nhận ưu đãi đặc biệt.
@@ -239,8 +277,12 @@ const RegisterPage = () => {
                       <input className="premium-input block w-full pl-12 pr-4 py-3 rounded-full border border-outline-variant focus:outline-none transition-all text-sm font-medium" type="email" placeholder="email@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
                     </div>
                   </div>
-                  <button className="group relative overflow-hidden w-full py-3 bg-primary hover:bg-primary-container text-white font-semibold rounded-full transition-all duration-300 shadow-md shadow-primary/10 hover:shadow-lg hover:shadow-primary/20 transform hover:-translate-y-0.5 active:scale-[0.98] text-sm" type="submit">
-                    <span className="relative z-10">Tiếp theo</span>
+                  <button
+                    className={`group relative overflow-hidden w-full py-3 bg-primary hover:bg-primary-container text-white font-semibold rounded-full transition-all duration-300 shadow-md shadow-primary/10 hover:shadow-lg hover:shadow-primary/20 transform hover:-translate-y-0.5 active:scale-[0.98] text-sm ${loading ? 'opacity-80 cursor-wait' : ''}`}
+                    type="submit"
+                    disabled={loading}
+                  >
+                    <span className="relative z-10">{loading ? 'Đang kiểm tra...' : 'Tiếp theo'}</span>
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shine_1.5s_infinite] pointer-events-none"></div>
                   </button>
 
@@ -252,7 +294,7 @@ const RegisterPage = () => {
                   </div>
 
                   {/* Google Sign In Button */}
-                  <button 
+                  <button
                     type="button"
                     onClick={() => loginGoogle()}
                     className="group relative overflow-hidden w-full py-3 bg-white hover:bg-slate-50 text-slate-700 font-semibold rounded-full border border-slate-200/80 shadow-sm transition-all duration-300 flex items-center justify-center gap-2.5 transform hover:-translate-y-0.5 active:scale-[0.98] text-sm"
@@ -280,6 +322,32 @@ const RegisterPage = () => {
                       <input className="premium-input block w-full pl-12 pr-4 py-3 rounded-full border border-outline-variant focus:outline-none transition-all text-sm font-medium" type="password" placeholder="••••••••" required value={password} onChange={(e) => setPassword(e.target.value)} />
                     </div>
                   </div>
+                  {password && (
+                    <div className="space-y-1.5 px-1">
+                      <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-[0.1em]">
+                        <span className="text-on-surface-variant/70">Độ mạnh mật khẩu:</span>
+                        <span className={getPasswordStrength(password).textColor}>
+                          {getPasswordStrength(password).label}
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex gap-0.5">
+                        {[1, 2, 3, 4, 5].map((i) => {
+                          const strength = getPasswordStrength(password);
+                          const isActive = strength.score >= i;
+                          return (
+                            <div
+                              key={i}
+                              className={`h-full flex-1 transition-all duration-300 ${isActive ? strength.color : 'bg-slate-200 dark:bg-slate-700/50'
+                                }`}
+                            />
+                          );
+                        })}
+                      </div>
+                      <p className="text-[10px] text-on-surface-variant/50 leading-relaxed">
+                        Yêu cầu: dài ít nhất 8 ký tự, gồm chữ hoa, chữ thường, chữ số và ký tự đặc biệt.
+                      </p>
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/70 ml-1">Xác nhận mật khẩu</label>
                     <div className="relative group">
@@ -295,8 +363,8 @@ const RegisterPage = () => {
                       Tôi đồng ý với <Link to="/terms" className="text-primary font-bold">Điều khoản sử dụng</Link> và <Link to="/privacy" className="text-primary font-bold">Chính sách bảo mật</Link>.
                     </label>
                   </div>
-                  <button 
-                    className={`group relative overflow-hidden w-full py-3 bg-primary hover:bg-primary-container text-white font-semibold rounded-full transition-all duration-300 shadow-md shadow-primary/10 hover:shadow-lg hover:shadow-primary/20 transform hover:-translate-y-0.5 active:scale-[0.98] text-sm ${loading ? 'opacity-80 cursor-wait' : ''}`} 
+                  <button
+                    className={`group relative overflow-hidden w-full py-3 bg-primary hover:bg-primary-container text-white font-semibold rounded-full transition-all duration-300 shadow-md shadow-primary/10 hover:shadow-lg hover:shadow-primary/20 transform hover:-translate-y-0.5 active:scale-[0.98] text-sm ${loading ? 'opacity-80 cursor-wait' : ''}`}
                     type="submit"
                     disabled={loading}
                   >
@@ -308,32 +376,32 @@ const RegisterPage = () => {
 
               {step === 2 && (
                 <div className="space-y-6 animate-fade-in-up">
-                  {devOtpCode && (
-                    <div className="text-center p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30">
-                      <p className="text-xs text-on-surface-variant font-medium">Mã OTP đăng ký đã được gửi.</p>
-                      <p className="mt-2 text-[10px] font-black text-amber-600 bg-amber-50 py-1 px-2 rounded-lg border border-amber-100 inline-block">
-                        [ Giả lập: Mã OTP đăng ký của bạn là {devOtpCode} ]
+                  <div className="text-center p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30">
+                    <p className="text-xs text-on-surface-variant font-medium">Mã OTP đăng ký đã được gửi.</p>
+                    {devOtpCode && (
+                      <p className="text-[11px] font-black text-indigo-600 mt-2 bg-indigo-50 py-1 px-3 rounded-full inline-block">
+                        Mã OTP của bạn: {devOtpCode}
                       </p>
-                    </div>
-                  )}
+                    )}
+                  </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/70 ml-1">Mã xác thực OTP (6 chữ số)</label>
                     <div className="relative group">
                       <div className="absolute inset-y-0 left-0 pl-4.5 flex items-center pointer-events-none text-outline group-focus-within:text-primary transition-colors">
                         <span className="material-symbols-outlined text-[20px]">verified</span>
                       </div>
-                      <input 
-                        className="premium-input block w-full pl-12 pr-4 py-3 rounded-full border border-outline-variant focus:outline-none transition-all text-center text-lg font-bold tracking-[0.25em]" 
-                        maxLength={6} 
-                        required 
-                        value={otp} 
-                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))} 
-                        placeholder="000000" 
+                      <input
+                        className="premium-input block w-full pl-12 pr-4 py-3 rounded-full border border-outline-variant focus:outline-none transition-all text-center text-lg font-bold tracking-[0.25em]"
+                        maxLength={6}
+                        required
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                        placeholder="000000"
                       />
                     </div>
                   </div>
-                  <button 
-                    className={`group relative overflow-hidden w-full py-3 bg-primary hover:bg-primary-container text-white font-semibold rounded-full transition-all duration-300 shadow-md shadow-primary/10 hover:shadow-lg hover:shadow-primary/20 transform hover:-translate-y-0.5 active:scale-[0.98] text-sm ${loading ? 'opacity-80 cursor-wait' : ''}`} 
+                  <button
+                    className={`group relative overflow-hidden w-full py-3 bg-primary hover:bg-primary-container text-white font-semibold rounded-full transition-all duration-300 shadow-md shadow-primary/10 hover:shadow-lg hover:shadow-primary/20 transform hover:-translate-y-0.5 active:scale-[0.98] text-sm ${loading ? 'opacity-80 cursor-wait' : ''}`}
                     type="submit"
                     disabled={loading}
                   >
