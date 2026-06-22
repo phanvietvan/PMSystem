@@ -13,8 +13,10 @@ public static class RepositoryCollectionExtensions
 {
     public static IServiceCollection AddRepositories(this IServiceCollection services)
     {
+        services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+        services.AddScoped<IParkingSessionRepository, ParkingSessionRepository>();
 
         // ── Add new repositories here ────────────────────────────────────────
         // services.AddScoped<IProductRepository, ProductRepository>();

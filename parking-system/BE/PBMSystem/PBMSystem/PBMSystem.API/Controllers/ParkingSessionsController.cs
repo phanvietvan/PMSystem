@@ -1,10 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using PBMSystem.API.Extensions;
-using Repositories;
 using Repositories.Entities;
 using Repositories.DTOs;
 using Services.Interfaces;
@@ -15,13 +14,11 @@ namespace PBMSystem.API.Controllers;
 [Route("api/[controller]")]
 public class ParkingSessionsController : ControllerBase
 {
-    private readonly AppDbContext _context;
-    private readonly IEmailService _emailService;
+    private readonly IParkingSessionService _sessionService;
 
-    public ParkingSessionsController(AppDbContext context, IEmailService emailService)
+    public ParkingSessionsController(IParkingSessionService sessionService)
     {
-        _context = context;
-        _emailService = emailService;
+        _sessionService = sessionService;
     }
 
     /// <summary>
@@ -32,294 +29,41 @@ public class ParkingSessionsController : ControllerBase
     [HttpPost("checkin")]
     public async Task<IActionResult> CheckIn([FromBody] CheckInRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.LicensePlate))
-            return BadRequest(new { message = "Biển số xe không được trống." });
-
-        // Verify if the parking slot is already locked/reserved in the selected building
-        if (!string.IsNullOrWhiteSpace(request.ParkingLotName) && !string.IsNullOrWhiteSpace(request.ParkingSlot))
-        {
-            var parkingLot = await _context.ParkingLots.FirstOrDefaultAsync(l => l.Name == request.ParkingLotName);
-            if (parkingLot != null && parkingLot.LockedSlots != null && parkingLot.LockedSlots.Contains(request.ParkingSlot))
-            {
-                return BadRequest(new { message = $"Vị trí đỗ {request.ParkingSlot} tại {request.ParkingLotName} hiện đang được bảo trì. Vui lòng chọn vị trí khác!" });
-            }
-
-            var isSlotTaken = await _context.ParkingSessions
-                .AnyAsync(ps => ps.Status == "Active" 
-                             && ps.ParkingLotName == request.ParkingLotName 
-                             && ps.ParkingSlot == request.ParkingSlot);
-            
-            if (isSlotTaken)
-            {
-                return BadRequest(new { message = $"Vị trí đỗ {request.ParkingSlot} tại {request.ParkingLotName} hiện đã bị khóa hoặc đang bận. Vui lòng chọn vị trí khác!" });
-            }
-        }
-
-        Guid? userId = request.UserId;
+        Guid? authenticatedUserId = null;
         try
         {
-            if (!userId.HasValue && User.Identity?.IsAuthenticated == true)
+            if (User.Identity?.IsAuthenticated == true)
             {
-                userId = User.GetUserId();
+                authenticatedUserId = User.GetUserId();
             }
         }
         catch { }
 
-        // Prevent duplicate active sessions for the same vehicle (license plate)
-        var cleanLicensePlate = request.LicensePlate.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper();
-        var allSessions = await _context.ParkingSessions.Where(ps => ps.Status == "Active").ToListAsync();
-        var existingActive = allSessions.FirstOrDefault(ps => 
-            ps.LicensePlate.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper() == cleanLicensePlate &&
-            ps.ParkingLotName == request.ParkingLotName);
+        var result = await _sessionService.CheckInAsync(request, authenticatedUserId);
+        if (!result.Success)
+            return StatusCode(result.StatusCode, new { message = result.ErrorMessage });
 
-        if (existingActive != null)
-        {
-            return BadRequest(new { message = $"Xe với biển số {request.LicensePlate} đang có phiên đỗ xe hoạt động tại {existingActive.ParkingLotName}. Vui lòng thanh toán phiên hiện tại trước khi đặt chỗ mới." });
-        }
-
-        var qrCode = $"QR_{Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper()}";
-
-        var session = new ParkingSession
-        {
-            Id = Guid.NewGuid(),
-            UserId = userId,
-            LicensePlate = request.LicensePlate.Trim().ToUpper(),
-            QrCode = qrCode,
-            EntryPhoto = request.EntryPhoto,
-            EntryTime = DateTime.UtcNow,
-            Status = "Active",
-            CreatedAt = DateTime.UtcNow,
-            ParkingLotName = request.ParkingLotName,
-            VehicleType = request.VehicleType,
-            ReservationDate = request.ReservationDate,
-            ReservationStartTime = request.ReservationStartTime,
-            ParkingSlot = request.ParkingSlot,
-            IsCheckedIn = string.IsNullOrEmpty(request.ReservationDate)
-        };
-
-        _context.ParkingSessions.Add(session);
-
-        if (request.PrepaidAmount.HasValue && request.PrepaidAmount.Value > 0)
-        {
-            var payment = new Repositories.Entities.Payment
-            {
-                SessionId = session.Id,
-                UserId = userId,
-                LicensePlate = session.LicensePlate,
-                Amount = request.PrepaidAmount.Value,
-                TransactionTime = DateTime.UtcNow,
-                PaymentMethod = "Online",
-                Status = "Completed",
-                TransactionId = "TXN-" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper()
-            };
-            await _context.Payments.AddAsync(payment);
-        }
-
-        await _context.SaveChangesAsync();
-
-        User? user = null;
-        if (userId.HasValue)
-        {
-            user = await _context.Users.FindAsync(userId.Value);
-        }
-
-        if (user != null && !string.IsNullOrWhiteSpace(user.Email) && !string.IsNullOrEmpty(request.ReservationDate))
-        {
-            var userName = !string.IsNullOrWhiteSpace(user.FirstName) || !string.IsNullOrWhiteSpace(user.LastName)
-                ? $"{user.FirstName} {user.LastName}".Trim()
-                : (user.Username ?? "Khách hàng");
-
-            string mapsLink = "";
-            var parkingLot = await _context.ParkingLots.FirstOrDefaultAsync(l => l.Name == request.ParkingLotName);
-            if (parkingLot != null && !string.IsNullOrWhiteSpace(parkingLot.Latitude) && !string.IsNullOrWhiteSpace(parkingLot.Longitude))
-            {
-                mapsLink = $"https://www.google.com/maps?q={parkingLot.Latitude},{parkingLot.Longitude}";
-            }
-
-            _ = _emailService.SendBookingConfirmationEmailAsync(
-                user.Email,
-                userName,
-                qrCode,
-                request.ParkingLotName ?? "PM System Central",
-                request.ParkingSlot ?? "Tự động phân bổ",
-                request.LicensePlate.ToUpper(),
-                mapsLink
-            );
-        }
-
-        return Ok(session);
+        return Ok(result.Data);
     }
 
     [HttpPost("{id:guid}/cancel")]
     public async Task<IActionResult> CancelSession(Guid id)
     {
-        var session = await _context.ParkingSessions.FindAsync(id);
-        if (session == null)
-            return NotFound(new { message = "Không tìm thấy phiên đỗ xe." });
+        var result = await _sessionService.CancelSessionAsync(id);
+        if (!result.Success)
+            return StatusCode(result.StatusCode, new { message = result.ErrorMessage });
 
-        if (session.Status != "Active")
-            return BadRequest(new { message = "Chỉ có thể hủy các phiên đang hoạt động." });
-            
-        if (session.IsCheckedIn == true)
-            return BadRequest(new { message = "Không thể hủy vì xe đã vào bãi." });
-
-        session.Status = "Cancelled";
-        session.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
-
-        return Ok(new { message = "Hủy chỗ thành công.", session });
+        return Ok(new { message = "Hủy chỗ thành công.", session = result.Data });
     }
 
     [HttpPost("{id:guid}/change-slot")]
     public async Task<IActionResult> ChangeSlot(Guid id, [FromBody] ChangeSlotRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.NewSlot))
-            return BadRequest(new { message = "Vị trí mới không được để trống." });
+        var result = await _sessionService.ChangeSlotAsync(id, request.NewSlot);
+        if (!result.Success)
+            return StatusCode(result.StatusCode, new { message = result.ErrorMessage });
 
-        var session = await _context.ParkingSessions.FindAsync(id);
-            
-        if (session == null)
-            return NotFound(new { message = "Không tìm thấy phiên đỗ xe." });
-
-        if (session.Status != "Active")
-            return BadRequest(new { message = "Chỉ có thể đổi chỗ cho phiên đang hoạt động." });
-
-        // Check if new slot is locked
-        var parkingLot = await _context.ParkingLots.FirstOrDefaultAsync(l => l.Name == session.ParkingLotName);
-        if (parkingLot != null && parkingLot.LockedSlots != null && parkingLot.LockedSlots.Contains(request.NewSlot))
-        {
-            return BadRequest(new { message = $"Vị trí {request.NewSlot} đang được bảo trì." });
-        }
-
-        // Check if new slot is occupied/reserved
-        var isSlotTaken = await _context.ParkingSessions
-            .AnyAsync(ps => ps.Status == "Active" 
-                         && ps.ParkingLotName == session.ParkingLotName 
-                         && ps.ParkingSlot == request.NewSlot);
-        
-        if (isSlotTaken)
-        {
-            return BadRequest(new { message = $"Vị trí {request.NewSlot} đã có người đặt hoặc đang bận." });
-        }
-
-        var oldSlot = session.ParkingSlot ?? "Không xác định";
-        session.ParkingSlot = request.NewSlot;
-        session.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
-
-        if (session.UserId.HasValue)
-        {
-            var user = await _context.Users.FindAsync(session.UserId.Value);
-            if (user != null && !string.IsNullOrWhiteSpace(user.Email))
-            {
-                await _emailService.SendSlotChangeEmailAsync(
-                    user.Email,
-                    $"{user.FirstName} {user.LastName}".Trim(),
-                    session.ParkingLotName ?? "Bãi đỗ",
-                    oldSlot,
-                    request.NewSlot,
-                    session.LicensePlate
-                );
-            }
-        }
-
-        return Ok(new { message = "Đổi vị trí thành công.", session });
-    }
-
-    private decimal CalculateFee(DateTime entryTime, DateTime exitTime, string? vehicleType)
-    {
-        var elapsed = exitTime - entryTime;
-        var elapsedMinutes = (int)Math.Ceiling(elapsed.TotalMinutes);
-
-        decimal baseRate = 10000;
-        bool isHourly = true;
-
-        try
-        {
-            var path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "pricing.json");
-            if (System.IO.File.Exists(path))
-            {
-                var json = System.IO.File.ReadAllText(path);
-                var doc = System.Text.Json.JsonDocument.Parse(json);
-                var root = doc.RootElement;
-                if (root.ValueKind == System.Text.Json.JsonValueKind.Array)
-                {
-                    string targetType = (vehicleType ?? "car").ToLower();
-                    System.Text.Json.JsonElement matchedElement = default;
-                    bool found = false;
-
-                    foreach (var elem in root.EnumerateArray())
-                    {
-                        var typeProp = elem.GetProperty("type").GetString() ?? "";
-                        var typeLower = typeProp.ToLower();
-                        if (targetType == "bike" && (typeLower.Contains("xe máy") || typeLower.Contains("bike")))
-                        {
-                            matchedElement = elem;
-                            found = true;
-                            break;
-                        }
-                        else if (targetType == "car" && (typeLower.Contains("ô tô") || typeLower.Contains("car") || typeLower.Contains("4-7")))
-                        {
-                            matchedElement = elem;
-                            found = true;
-                            break;
-                        }
-                        else if (targetType == "suv" && (typeLower.Contains("suv") || typeLower.Contains("bán tải")))
-                        {
-                            matchedElement = elem;
-                            found = true;
-                            break;
-                        }
-                    }
-
-                    if (found)
-                    {
-                        var priceStr = matchedElement.GetProperty("price").GetString() ?? "10000";
-                        var subStr = matchedElement.GetProperty("sub").GetString() ?? "Giờ";
-
-                        var cleanPrice = priceStr.Replace(".", "").Replace(",", "").Trim();
-                        if (decimal.TryParse(cleanPrice, out var parsedPrice))
-                        {
-                            baseRate = parsedPrice;
-                        }
-                        isHourly = subStr.ToLower().Contains("giờ") || subStr.ToLower().Contains("hour");
-                    }
-                }
-            }
-            else
-            {
-                string targetType = (vehicleType ?? "car").ToLower();
-                if (targetType == "bike")
-                {
-                    baseRate = 10000;
-                    isHourly = false;
-                }
-                else if (targetType == "car")
-                {
-                    baseRate = 20000;
-                    isHourly = true;
-                }
-                else if (targetType == "suv")
-                {
-                    baseRate = 30000;
-                    isHourly = true;
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine("Error calculating dynamic fee: " + ex.Message);
-        }
-
-        if (isHourly)
-        {
-            var hours = (int)Math.Max(1, Math.Ceiling(elapsedMinutes / 60.0));
-            return baseRate * hours;
-        }
-        else
-        {
-            return baseRate;
-        }
+        return Ok(new { message = "Đổi vị trí thành công.", session = result.Data });
     }
 
     /// <summary>
@@ -330,20 +74,11 @@ public class ParkingSessionsController : ControllerBase
     public async Task<IActionResult> GetMySession()
     {
         var userId = User.GetUserId();
+        var result = await _sessionService.GetMySessionAsync(userId);
+        if (!result.Success)
+            return StatusCode(result.StatusCode, new { message = result.ErrorMessage });
 
-        var session = await _context.ParkingSessions
-            .Where(ps => ps.UserId == userId && ps.Status == "Active")
-            .OrderByDescending(ps => ps.EntryTime)
-            .FirstOrDefaultAsync();
-
-        if (session == null)
-            return Ok(new { hasActiveSession = false, session = (object?)null });
-
-        var now = DateTime.UtcNow;
-        var fee = CalculateFee(session.EntryTime, now, session.VehicleType);
-        var durationMinutes = (int)Math.Ceiling((now - session.EntryTime).TotalMinutes);
-
-        return Ok(new { hasActiveSession = true, session, fee, durationMinutes });
+        return Ok(result.Data);
     }
 
     [Authorize]
@@ -351,127 +86,31 @@ public class ParkingSessionsController : ControllerBase
     public async Task<IActionResult> GetHistory()
     {
         var userId = User.GetUserId();
-        var user = await _context.Users.FindAsync(userId);
+        var result = await _sessionService.GetHistoryAsync(userId);
+        if (!result.Success)
+            return StatusCode(result.StatusCode, new { message = result.ErrorMessage });
 
-        var allSessions = await _context.ParkingSessions
-            .OrderByDescending(ps => ps.EntryTime)
-            .ToListAsync();
-
-        var filteredSessions = allSessions
-            .Where(ps => ps.UserId == userId || (user != null && UserOwnsPlate(user.LicensePlate, ps.LicensePlate)))
-            .ToList();
-
-        return Ok(filteredSessions);
+        return Ok(result.Data);
     }
 
     [HttpGet("verify/{qrCode}")]
     public async Task<IActionResult> Verify(string qrCode)
     {
-        var session = await _context.ParkingSessions
-            .FirstOrDefaultAsync(ps => ps.QrCode == qrCode && ps.Status == "Active");
+        var result = await _sessionService.VerifyAsync(qrCode);
+        if (!result.Success)
+            return StatusCode(result.StatusCode, new { message = result.ErrorMessage });
 
-        if (session == null)
-            return NotFound(new { message = "Không tìm thấy phiên gửi xe hoặc mã QR không hợp lệ/đã thanh toán." });
-
-        User? user = null;
-        if (session.UserId.HasValue)
-        {
-            user = await _context.Users.FirstOrDefaultAsync(u => u.Id == session.UserId.Value);
-        }
-
-        // Fallback: If UserId is missing in session, try to match by License Plate robustly!
-        if (user == null && !string.IsNullOrEmpty(session.LicensePlate))
-        {
-            var allUsers = await _context.Users.ToListAsync();
-            user = allUsers.FirstOrDefault(u => UserOwnsPlate(u.LicensePlate, session.LicensePlate));
-        }
-
-        var exitTime = DateTime.UtcNow;
-        var fee = CalculateFee(session.EntryTime, exitTime, session.VehicleType);
-        var durationMinutes = (int)Math.Ceiling((exitTime - session.EntryTime).TotalMinutes);
-
-        var payments = await _context.Payments
-            .Where(p => p.SessionId == session.Id && p.Status == "Completed")
-            .ToListAsync();
-        var prepaidAmount = payments.Sum(p => p.Amount);
-
-        return Ok(new 
-        { 
-            session, 
-            fee, 
-            durationMinutes,
-            prepaidAmount,
-            user = user != null ? new 
-            {
-                user.Id,
-                user.Email,
-                user.FirstName,
-                user.LastName,
-                user.PhoneNumber,
-                user.Address,
-                user.LicensePlate,
-                user.VehicleType,
-                user.AvatarUrl
-            } : null
-        });
+        return Ok(result.Data);
     }
 
     [HttpPost("checkout")]
     public async Task<IActionResult> CheckOut([FromBody] CheckOutRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.QrCode))
-            return BadRequest(new { message = "Mã QR không được trống." });
+        var result = await _sessionService.CheckOutAsync(request);
+        if (!result.Success)
+            return StatusCode(result.StatusCode, new { message = result.ErrorMessage });
 
-        var session = await _context.ParkingSessions
-            .FirstOrDefaultAsync(ps => ps.QrCode == request.QrCode && ps.Status == "Active");
-
-        if (session == null)
-            return NotFound(new { message = "Phiên gửi xe không hoạt động hoặc không tìm thấy mã QR." });
-
-        string entryPlateNormalized = session.LicensePlate.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper();
-        string exitPlateNormalized = request.ExitLicensePlate.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper();
-
-        session.ExitLicensePlate = request.ExitLicensePlate.Trim().ToUpper();
-        session.ExitPhoto = request.ExitPhoto;
-        session.ExitTime = DateTime.UtcNow;
-        session.Status = "Completed";
-        session.IsPlateMatched = entryPlateNormalized == exitPlateNormalized;
-        session.UpdatedAt = DateTime.UtcNow;
-
-        decimal totalSurcharge = 0;
-        if (request.ExtraFees != null && request.ExtraFees.Any())
-        {
-            session.SurchargesJson = System.Text.Json.JsonSerializer.Serialize(request.ExtraFees);
-            totalSurcharge = request.ExtraFees.Sum(f => f.Amount);
-        }
-
-        var baseFee = CalculateFee(session.EntryTime, session.ExitTime.Value, session.VehicleType);
-        var fee = baseFee + totalSurcharge;
-
-        var payment = new Repositories.Entities.Payment
-        {
-            SessionId = session.Id,
-            UserId = session.UserId,
-            LicensePlate = session.LicensePlate,
-            Amount = fee,
-            TransactionTime = DateTime.UtcNow,
-            PaymentMethod = "Online", // Defaulting to online, could be extended later
-            Status = "Completed",
-            TransactionId = "TXN-" + Guid.NewGuid().ToString().Substring(0, 8).ToUpper()
-        };
-        await _context.Payments.AddAsync(payment);
-
-        await _context.SaveChangesAsync();
-
-        return Ok(new
-        {
-            session,
-            fee,
-            isPlateMatched = session.IsPlateMatched,
-            message = session.IsPlateMatched == true
-                ? "Xác thực thành công. Cho phép xe ra."
-                : "Cảnh báo: Biển số xe ra không trùng khớp với biển số xe vào!"
-        });
+        return Ok(result.Data);
     }
 
     /// <summary>
@@ -480,11 +119,11 @@ public class ParkingSessionsController : ControllerBase
     [HttpGet("active-plates")]
     public async Task<IActionResult> GetActivePlates()
     {
-        var plates = await _context.ParkingSessions
-            .Where(ps => ps.Status == "Active")
-            .Select(ps => new { ps.LicensePlate, ps.ParkingLotName })
-            .ToListAsync();
-        return Ok(plates);
+        var result = await _sessionService.GetActivePlatesAsync();
+        if (!result.Success)
+            return StatusCode(result.StatusCode, new { message = result.ErrorMessage });
+
+        return Ok(result.Data);
     }
 
     /// <summary>
@@ -493,12 +132,11 @@ public class ParkingSessionsController : ControllerBase
     [HttpGet("active-slots")]
     public async Task<IActionResult> GetActiveSlots()
     {
-        var slots = await _context.ParkingSessions
-            .Where(ps => ps.Status == "Active" && !string.IsNullOrEmpty(ps.ParkingSlot))
-            .Select(ps => ps.ParkingSlot)
-            .Distinct()
-            .ToListAsync();
-        return Ok(slots);
+        var result = await _sessionService.GetActiveSlotsAsync();
+        if (!result.Success)
+            return StatusCode(result.StatusCode, new { message = result.ErrorMessage });
+
+        return Ok(result.Data);
     }
 
     /// <summary>
@@ -507,182 +145,60 @@ public class ParkingSessionsController : ControllerBase
     [HttpPost("active-by-plates")]
     public async Task<IActionResult> GetActiveByPlates([FromBody] List<string> plates)
     {
-        if (plates == null || plates.Count == 0)
-            return Ok(Array.Empty<object>());
+        var result = await _sessionService.GetActiveByPlatesAsync(plates);
+        if (!result.Success)
+            return StatusCode(result.StatusCode, new { message = result.ErrorMessage });
 
-        var normalized = plates
-            .Select(p => p.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper())
-            .ToList();
-
-        var activeSessions = await _context.ParkingSessions
-            .Where(ps => ps.Status == "Active")
-            .ToListAsync();
-
-        var matched = activeSessions
-            .Where(ps =>
-            {
-                var norm = ps.LicensePlate.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper();
-                return normalized.Contains(norm);
-            })
-            .ToList();
-
-        return Ok(matched);
+        return Ok(result.Data);
     }
 
     [HttpGet("slots-status")]
     public async Task<IActionResult> GetSlotsStatus([FromQuery] string parkingLotName)
     {
-        if (string.IsNullOrEmpty(parkingLotName))
-            return BadRequest(new { message = "Tên bãi đỗ không được để trống." });
+        var result = await _sessionService.GetSlotsStatusAsync(parkingLotName);
+        if (!result.Success)
+            return StatusCode(result.StatusCode, new { message = result.ErrorMessage });
 
-        // Get all active sessions for this parking lot
-        var activeSessions = await _context.ParkingSessions
-            .Where(ps => ps.Status == "Active" && ps.ParkingLotName == parkingLotName && !string.IsNullOrEmpty(ps.ParkingSlot))
-            .ToListAsync();
-
-        // Map active slot status: Key is Slot ID, Value is "occupied" or "reserved"
-        var slotStatusMap = activeSessions
-            .GroupBy(ps => ps.ParkingSlot!)
-            .ToDictionary(
-                g => g.Key,
-                g => g.First().IsCheckedIn == true ? "occupied" : "reserved"
-            );
-
-        return Ok(slotStatusMap);
+        return Ok(result.Data);
     }
 
     [HttpPost("gate-scan")]
     public async Task<IActionResult> GateScan([FromBody] GateScanRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.QrCode))
-            return BadRequest(new { message = "Mã QR không được trống." });
+        var result = await _sessionService.GateScanAsync(request);
+        if (!result.Success)
+            return StatusCode(result.StatusCode, new { message = result.ErrorMessage });
 
-        var session = await _context.ParkingSessions
-            .FirstOrDefaultAsync(ps => ps.QrCode == request.QrCode && ps.Status == "Active");
-
-        if (session == null)
-            return NotFound(new { message = "Không tìm thấy phiên gửi xe hoặc mã QR không hợp lệ/đã thanh toán." });
-
-        // Physically enter the slot
-        session.IsCheckedIn = true;
-        session.EntryTime = DateTime.UtcNow;
-        session.UpdatedAt = DateTime.UtcNow;
-
-        if (!string.IsNullOrEmpty(request.EntryPhoto))
-        {
-            session.EntryPhoto = request.EntryPhoto;
-        }
-
-        await _context.SaveChangesAsync();
-
-        return Ok(new { message = "Xác thực thành công. Cổng chắn đã mở và vị trí đỗ đã bị khóa.", session });
+        return Ok(new { message = "Xác thực thành công. Cổng chắn đã mở và vị trí đỗ đã bị khóa.", session = result.Data });
     }
 
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var sessions = await _context.ParkingSessions
-            .OrderByDescending(ps => ps.CreatedAt)
-            .ToListAsync();
+        var result = await _sessionService.GetAllAsync();
+        if (!result.Success)
+            return StatusCode(result.StatusCode, new { message = result.ErrorMessage });
 
-        var userIds = sessions.Where(ps => ps.UserId.HasValue).Select(ps => ps.UserId!.Value).Distinct().ToList();
-        var users = await _context.Users.Where(u => userIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id);
-
-        var result = sessions.Select(ps => new {
-            ps.Id,
-            ps.UserId,
-            ps.LicensePlate,
-            ps.EntryTime,
-            ps.ExitTime,
-            ps.Status,
-            ps.QrCode,
-            TotalFee = ps.ExitTime.HasValue ? CalculateFee(ps.EntryTime, ps.ExitTime.Value, ps.VehicleType) : (decimal?)null,
-            ps.IsCheckedIn,
-            ps.EntryPhoto,
-            ps.ExitPhoto,
-            ps.CreatedAt,
-            ps.ParkingLotName,
-            ps.ParkingSlot,
-            ps.VehicleType,
-            User = ps.UserId.HasValue && users.TryGetValue(ps.UserId.Value, out var u) ? new {
-                u.FirstName,
-                u.LastName,
-                u.Email,
-                u.PhoneNumber,
-                u.AvatarUrl
-            } : null
-        });
-
-        return Ok(result);
+        return Ok(result.Data);
     }
 
     [HttpGet("pricing")]
     public async Task<IActionResult> GetPricing()
     {
-        var path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "pricing.json");
-        if (!System.IO.File.Exists(path))
-        {
-            var defaultPricing = new List<object>
-            {
-                new { type = "Xe máy", price = "10.000", sub = "VNĐ / Lượt" },
-                new { type = "Ô tô 4-7 chỗ", price = "20.000", sub = "VNĐ / Giờ" },
-                new { type = "SUV / Bán tải", price = "30.000", sub = "VNĐ / Giờ" }
-            };
-            return Ok(defaultPricing);
-        }
-        var json = await System.IO.File.ReadAllTextAsync(path);
-        return Content(json, "application/json");
+        var result = await _sessionService.GetPricingAsync();
+        if (!result.Success)
+            return StatusCode(result.StatusCode, new { message = result.ErrorMessage });
+
+        return Content(result.Data!, "application/json");
     }
 
     [HttpPost("pricing")]
     public async Task<IActionResult> SavePricing([FromBody] System.Text.Json.JsonElement pricing)
     {
-        var path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "pricing.json");
-        var json = pricing.ToString();
-        await System.IO.File.WriteAllTextAsync(path, json);
+        var result = await _sessionService.SavePricingAsync(pricing);
+        if (!result.Success)
+            return StatusCode(result.StatusCode, new { message = result.ErrorMessage });
+
         return Ok(new { message = "Pricing saved successfully." });
     }
-
-    private static bool UserOwnsPlate(string? userLicensePlateField, string? sessionPlate)
-    {
-        if (string.IsNullOrWhiteSpace(userLicensePlateField) || string.IsNullOrWhiteSpace(sessionPlate))
-            return false;
-
-        var cleanSessionPlate = sessionPlate.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper();
-
-        var rawLp = userLicensePlateField.Trim();
-        if (rawLp.StartsWith("[") && rawLp.EndsWith("]"))
-        {
-            try
-            {
-                using var doc = System.Text.Json.JsonDocument.Parse(rawLp);
-                if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
-                {
-                    foreach (var item in doc.RootElement.EnumerateArray())
-                    {
-                        if (item.TryGetProperty("plate", out var plateProp) || 
-                            item.TryGetProperty("Plate", out plateProp) || 
-                            item.TryGetProperty("PLATE", out plateProp))
-                        {
-                            var val = plateProp.GetString();
-                            if (!string.IsNullOrEmpty(val))
-                            {
-                                var cleanVal = val.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper();
-                                if (cleanVal == cleanSessionPlate) return true;
-                            }
-                        }
-                    }
-                }
-            }
-            catch {}
-        }
-        else
-        {
-            var cleanVal = rawLp.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper();
-            if (cleanVal == cleanSessionPlate) return true;
-        }
-
-        return false;
-    }
 }
-
