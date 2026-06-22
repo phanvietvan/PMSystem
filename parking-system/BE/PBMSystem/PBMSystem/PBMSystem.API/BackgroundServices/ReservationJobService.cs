@@ -2,12 +2,11 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Repositories;
 using Repositories.Entities;
+using Repositories.Interfaces;
 using Services.Interfaces;
 
 namespace PBMSystem.API.BackgroundServices
@@ -48,19 +47,20 @@ namespace PBMSystem.API.BackgroundServices
         private async Task ProcessReservationsAsync(CancellationToken stoppingToken)
         {
             using var scope = _serviceProvider.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var sessionRepo = scope.ServiceProvider.GetRequiredService<IParkingSessionRepository>();
+            var userRepo = scope.ServiceProvider.GetRequiredService<IUserRepository>();
+            var notifRepo = scope.ServiceProvider.GetRequiredService<IRepository<AppNotification>>();
             var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
 
             // Hệ thống lấy giờ địa phương VN (UTC+7)
             var localNow = DateTime.UtcNow.AddHours(7);
 
             // Lấy các phiên đặt chỗ chưa check-in
-            var pendingSessions = await dbContext.ParkingSessions
-                .Where(ps => (ps.Status == "Active" || ps.Status == "Pending")
-                             && ps.IsCheckedIn == false
-                             && ps.ReservationDate != null
-                             && ps.ReservationStartTime != null)
-                .ToListAsync(stoppingToken);
+            var pendingSessions = await sessionRepo.FindAsync(ps => 
+                (ps.Status == "Active" || ps.Status == "Pending")
+                && ps.IsCheckedIn == false
+                && ps.ReservationDate != null
+                && ps.ReservationStartTime != null);
 
             foreach (var session in pendingSessions)
             {
@@ -75,12 +75,12 @@ namespace PBMSystem.API.BackgroundServices
                 if (timeDiff.TotalMinutes > 0 && timeDiff.TotalMinutes <= 15 && session.IsReminderSent != true)
                 {
                     session.IsReminderSent = true;
-                    dbContext.Update(session);
+                    sessionRepo.Update(session);
 
                     User? user = null;
                     if (session.UserId.HasValue)
                     {
-                        user = await dbContext.Users.FindAsync(session.UserId.Value);
+                        user = await userRepo.GetByIdAsync(session.UserId.Value);
                     }
 
                     var userName = user != null && (!string.IsNullOrWhiteSpace(user.FirstName) || !string.IsNullOrWhiteSpace(user.LastName))
@@ -100,7 +100,7 @@ namespace PBMSystem.API.BackgroundServices
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow
                     };
-                    dbContext.AppNotifications.Add(notif);
+                    await notifRepo.AddAsync(notif);
 
                     if (user != null && !string.IsNullOrWhiteSpace(user.Email))
                     {
@@ -113,7 +113,7 @@ namespace PBMSystem.API.BackgroundServices
                         );
                     }
                     
-                    await dbContext.SaveChangesAsync(stoppingToken);
+                    await sessionRepo.SaveChangesAsync();
                     _logger.LogInformation($"Sent reminder to user for reservation {session.Id}");
                 }
 
@@ -122,12 +122,12 @@ namespace PBMSystem.API.BackgroundServices
                 {
                     session.Status = "Cancelled";
                     session.UpdatedAt = DateTime.UtcNow;
-                    dbContext.Update(session);
+                    sessionRepo.Update(session);
 
                     User? user = null;
                     if (session.UserId.HasValue)
                     {
-                        user = await dbContext.Users.FindAsync(session.UserId.Value);
+                        user = await userRepo.GetByIdAsync(session.UserId.Value);
                     }
 
                     var userName = user != null && (!string.IsNullOrWhiteSpace(user.FirstName) || !string.IsNullOrWhiteSpace(user.LastName))
@@ -147,7 +147,7 @@ namespace PBMSystem.API.BackgroundServices
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow
                     };
-                    dbContext.AppNotifications.Add(notif);
+                    await notifRepo.AddAsync(notif);
 
                     if (user != null && !string.IsNullOrWhiteSpace(user.Email))
                     {
@@ -160,7 +160,7 @@ namespace PBMSystem.API.BackgroundServices
                         );
                     }
 
-                    await dbContext.SaveChangesAsync(stoppingToken);
+                    await sessionRepo.SaveChangesAsync();
                     _logger.LogInformation($"Automatically cancelled reservation {session.Id} due to no-show.");
                 }
             }
