@@ -8,10 +8,15 @@ public class RefreshTokenRepository : Repository<RefreshToken>, IRefreshTokenRep
 {
     public RefreshTokenRepository(AppDbContext context) : base(context) { }
 
-    public async Task<RefreshToken?> GetActiveTokenAsync(string token) =>
-        await _dbSet
-            .Include(rt => rt.User)
-            .FirstOrDefaultAsync(rt => rt.Token == token && !rt.IsRevoked);
+    public async Task<RefreshToken?> GetActiveTokenAsync(string token)
+    {
+        var rt = await _dbSet.FirstOrDefaultAsync(t => t.Token == token && !t.IsRevoked);
+        if (rt != null)
+        {
+            rt.User = await _context.Users.FindAsync(rt.UserId);
+        }
+        return rt;
+    }
 
     public async Task<IEnumerable<RefreshToken>> GetActiveTokensByUserAsync(Guid userId) =>
         await _dbSet
