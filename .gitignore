@@ -40,6 +40,5 @@ obj/
 *.user
 *.suo
 *.cache
-parking-system/BE/
 *package-lock.json
 package-lock.json
