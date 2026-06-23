@@ -1,13 +1,17 @@
-using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using PBMSystem.API.BackgroundServices;
 using PBMSystem.API.Extensions;
 using PBMSystem.API.Middleware;
 using Repositories;
 using Repositories.Configuration;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
+using Repositories.Implementations;
+using Repositories.Interfaces;
 using Services;
-using PBMSystem.API.BackgroundServices;
+using Services.Implementations;
+using Services.Interfaces;
+using System.Text;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -32,6 +36,10 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // ── Repository + Services Layers ─────────────────────────────────────────────
 builder.Services.AddRepositories();
 builder.Services.AddPBMServices();
+builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<IPricingConfigRepository, PricingConfigRepository>();
+builder.Services.AddScoped<IPricingConfigService, PricingConfigService>();
 
 // ── Background Jobs ───────────────────────────────────────────────────────────
 builder.Services.AddHostedService<ReservationJobService>();
