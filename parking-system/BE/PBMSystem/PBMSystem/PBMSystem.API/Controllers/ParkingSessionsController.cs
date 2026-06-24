@@ -45,7 +45,7 @@ public class ParkingSessionsController : ControllerBase
             }
 
             var isSlotTaken = await _context.ParkingSessions
-                .AnyAsync(ps => ps.Status == "Active" 
+                .AnyAsync(ps => (ps.Status == "Active" || ps.Status == "PendingPayment") 
                              && ps.ParkingLotName == request.ParkingLotName 
                              && ps.ParkingSlot == request.ParkingSlot);
             
@@ -67,7 +67,7 @@ public class ParkingSessionsController : ControllerBase
 
         // Prevent duplicate active sessions for the same vehicle (license plate)
         var cleanLicensePlate = request.LicensePlate.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper();
-        var allSessions = await _context.ParkingSessions.Where(ps => ps.Status == "Active").ToListAsync();
+        var allSessions = await _context.ParkingSessions.Where(ps => ps.Status == "Active" || ps.Status == "PendingPayment").ToListAsync();
         var existingActive = allSessions.FirstOrDefault(ps => 
             ps.LicensePlate.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper() == cleanLicensePlate &&
             ps.ParkingLotName == request.ParkingLotName);
@@ -78,6 +78,11 @@ public class ParkingSessionsController : ControllerBase
         }
 
         var qrCode = $"QR_{Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper()}";
+        var status = "Active";
+        if (!string.IsNullOrEmpty(request.ReservationDate) && (request.PrepaidAmount == null || request.PrepaidAmount.Value == 0))
+        {
+            status = "PendingPayment";
+        }
 
         var session = new ParkingSession
         {
@@ -87,7 +92,7 @@ public class ParkingSessionsController : ControllerBase
             QrCode = qrCode,
             EntryPhoto = request.EntryPhoto,
             EntryTime = DateTime.UtcNow,
-            Status = "Active",
+            Status = status,
             CreatedAt = DateTime.UtcNow,
             ParkingLotName = request.ParkingLotName,
             VehicleType = request.VehicleType,
@@ -123,7 +128,7 @@ public class ParkingSessionsController : ControllerBase
             user = await _context.Users.FindAsync(userId.Value);
         }
 
-        if (user != null && !string.IsNullOrWhiteSpace(user.Email) && !string.IsNullOrEmpty(request.ReservationDate))
+        if (session.Status == "Active" && user != null && !string.IsNullOrWhiteSpace(user.Email) && !string.IsNullOrEmpty(request.ReservationDate))
         {
             var userName = !string.IsNullOrWhiteSpace(user.FirstName) || !string.IsNullOrWhiteSpace(user.LastName)
                 ? $"{user.FirstName} {user.LastName}".Trim()
@@ -193,7 +198,7 @@ public class ParkingSessionsController : ControllerBase
 
         // Check if new slot is occupied/reserved
         var isSlotTaken = await _context.ParkingSessions
-            .AnyAsync(ps => ps.Status == "Active" 
+            .AnyAsync(ps => (ps.Status == "Active" || ps.Status == "PendingPayment") 
                          && ps.ParkingLotName == session.ParkingLotName 
                          && ps.ParkingSlot == request.NewSlot);
         
@@ -481,7 +486,7 @@ public class ParkingSessionsController : ControllerBase
     public async Task<IActionResult> GetActivePlates()
     {
         var plates = await _context.ParkingSessions
-            .Where(ps => ps.Status == "Active")
+            .Where(ps => ps.Status == "Active" || ps.Status == "PendingPayment")
             .Select(ps => new { ps.LicensePlate, ps.ParkingLotName })
             .ToListAsync();
         return Ok(plates);
@@ -494,7 +499,7 @@ public class ParkingSessionsController : ControllerBase
     public async Task<IActionResult> GetActiveSlots()
     {
         var slots = await _context.ParkingSessions
-            .Where(ps => ps.Status == "Active" && !string.IsNullOrEmpty(ps.ParkingSlot))
+            .Where(ps => (ps.Status == "Active" || ps.Status == "PendingPayment") && !string.IsNullOrEmpty(ps.ParkingSlot))
             .Select(ps => ps.ParkingSlot)
             .Distinct()
             .ToListAsync();
@@ -537,7 +542,7 @@ public class ParkingSessionsController : ControllerBase
 
         // Get all active sessions for this parking lot
         var activeSessions = await _context.ParkingSessions
-            .Where(ps => ps.Status == "Active" && ps.ParkingLotName == parkingLotName && !string.IsNullOrEmpty(ps.ParkingSlot))
+            .Where(ps => (ps.Status == "Active" || ps.Status == "PendingPayment") && ps.ParkingLotName == parkingLotName && !string.IsNullOrEmpty(ps.ParkingSlot))
             .ToListAsync();
 
         // Map active slot status: Key is Slot ID, Value is "occupied" or "reserved"
