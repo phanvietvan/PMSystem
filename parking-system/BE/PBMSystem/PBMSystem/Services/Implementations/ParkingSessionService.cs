@@ -507,7 +507,7 @@ public class ParkingSessionService : IParkingSessionService
             return ServiceResult<Dictionary<string, string>>.BadRequest("Tên bãi đỗ không được để trống.");
 
         var activeSessions = await _sessionRepository.FindAsync(ps => 
-            ps.Status == "Active" && 
+            (ps.Status == "Active" || ps.Status == "PendingPayment") && 
             ps.ParkingLotName == parkingLotName && 
             !string.IsNullOrEmpty(ps.ParkingSlot));
 

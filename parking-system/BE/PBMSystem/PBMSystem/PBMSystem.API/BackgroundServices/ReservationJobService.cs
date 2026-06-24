@@ -58,15 +58,27 @@ namespace PBMSystem.API.BackgroundServices
             // Hệ thống lấy giờ địa phương VN (UTC+7)
             var localNow = DateTime.UtcNow.AddHours(7);
 
-            // Lấy các phiên đặt chỗ chưa check-in
+            // Lấy các phiên đặt chỗ chưa check-in hoặc đang chờ thanh toán
             var pendingSessions = await sessionRepo.FindAsync(ps => 
-                (ps.Status == "Active" || ps.Status == "Pending")
+                (ps.Status == "Active" || ps.Status == "Pending" || ps.Status == "PendingPayment")
                 && ps.IsCheckedIn == false
                 && ps.ReservationDate != null
                 && ps.ReservationStartTime != null);
 
             foreach (var session in pendingSessions)
             {
+                if (session.Status == "PendingPayment")
+                {
+                    if (DateTime.UtcNow - session.CreatedAt > TimeSpan.FromMinutes(15))
+                    {
+                        session.Status = "Cancelled";
+                        session.UpdatedAt = DateTime.UtcNow;
+                        sessionRepo.Update(session);
+                        await sessionRepo.SaveChangesAsync();
+                        _logger.LogInformation($"Automatically cancelled pending payment session {session.Id} due to payment timeout.");
+                    }
+                    continue;
+                }
                 if (!DateTime.TryParse($"{session.ReservationDate} {session.ReservationStartTime}", out var reservationTime))
                 {
                     continue; 

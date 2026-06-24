@@ -209,7 +209,7 @@ public class PaymentsController : ControllerBase
                                 mapsLink = $"https://www.google.com/maps?q={parkingLot.Latitude},{parkingLot.Longitude}";
                             }
 
-                             _ = _emailService.SendBookingConfirmationEmailAsync(
+                            _ = _emailService.SendBookingConfirmationEmailAsync(
                                 user.Email,
                                 userName,
                                 session.QrCode,
@@ -251,7 +251,20 @@ public class PaymentsController : ControllerBase
             });
         }
 
-        // 5. Thanh toán thất bại — trả về mã lỗi chi tiết
+        // 5. Thanh toán thất bại — trả về mã lỗi chi tiết hoặc hủy session
+        if (!string.IsNullOrEmpty(vnpTxnRef))
+        {
+            var qrCode = vnpTxnRef.Replace("PAY-", "");
+            var session = await _context.ParkingSessions
+                .FirstOrDefaultAsync(ps => ps.QrCode.StartsWith(qrCode));
+            if (session != null && session.Status == "PendingPayment")
+            {
+                session.Status = "Cancelled";
+                session.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+            }
+        }
+
         return Ok(new
         {
             success = false,
