@@ -9,6 +9,7 @@ using Repositories;
 using Repositories.Entities;
 using Repositories.Configuration;
 using Services.Implementations;
+using Services.Interfaces;
 
 namespace PBMSystem.API.Controllers;
 
@@ -19,11 +20,13 @@ public class PaymentsController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly VnPaySettings _vnPaySettings;
+    private readonly IEmailService _emailService;
 
-    public PaymentsController(AppDbContext context, IOptions<VnPaySettings> vnPayOptions)
+    public PaymentsController(AppDbContext context, IOptions<VnPaySettings> vnPayOptions, IEmailService emailService)
     {
         _context = context;
         _vnPaySettings = vnPayOptions.Value;
+        _emailService = emailService;
     }
 
     // ── Existing Endpoints ────────────────────────────────────────────────────
@@ -169,6 +172,66 @@ public class PaymentsController : ControllerBase
                     await _context.Payments.AddAsync(payment);
                     await _context.SaveChangesAsync();
                 }
+
+                // Cập nhật ParkingSession tương ứng và gửi email!
+                var qrCode = vnpTxnRef.Replace("PAY-", "");
+                var session = await _context.ParkingSessions
+                    .FirstOrDefaultAsync(ps => ps.QrCode == qrCode);
+
+                if (session != null)
+                {
+                    // Cập nhật session status thành Active nếu nó đang là PendingPayment
+                    if (session.Status == "PendingPayment")
+                    {
+                        session.Status = "Active";
+                        session.UpdatedAt = DateTime.UtcNow;
+                        await _context.SaveChangesAsync();
+
+                        // Gửi email xác nhận đặt chỗ ở đây!
+                        User? user = null;
+                        if (session.UserId.HasValue)
+                        {
+                            user = await _context.Users.FindAsync(session.UserId.Value);
+                        }
+
+                        if (user != null && !string.IsNullOrWhiteSpace(user.Email))
+                        {
+                            var userName = !string.IsNullOrWhiteSpace(user.FirstName) || !string.IsNullOrWhiteSpace(user.LastName)
+                                ? $"{user.FirstName} {user.LastName}".Trim()
+                                : (user.Username ?? "Khách hàng");
+
+                            string mapsLink = "";
+                            var parkingLot = await _context.ParkingLots.FirstOrDefaultAsync(l => l.Name == session.ParkingLotName);
+                            if (parkingLot != null && !string.IsNullOrWhiteSpace(parkingLot.Latitude) && !string.IsNullOrWhiteSpace(parkingLot.Longitude))
+                            {
+                                mapsLink = $"https://www.google.com/maps?q={parkingLot.Latitude},{parkingLot.Longitude}";
+                            }
+
+                            _ = _emailService.SendBookingConfirmationEmailAsync(
+                                user.Email,
+                                userName,
+                                session.QrCode,
+                                session.ParkingLotName ?? "PM System Central",
+                                session.ParkingSlot ?? "Tự động phân bổ",
+                                session.LicensePlate.ToUpper(),
+                                mapsLink
+                            );
+                        }
+                    }
+
+                    // Đồng thời gán SessionId và LicensePlate cho payment record
+                    var savedPayment = await _context.Payments.FirstOrDefaultAsync(p => p.TransactionId == vnpTxnRef);
+                    if (savedPayment != null)
+                    {
+                        savedPayment.SessionId = session.Id;
+                        savedPayment.LicensePlate = session.LicensePlate;
+                        if (session.UserId.HasValue)
+                        {
+                            savedPayment.UserId = session.UserId.Value;
+                        }
+                        await _context.SaveChangesAsync();
+                    }
+                }
             }
 
             return Ok(new
@@ -183,7 +246,20 @@ public class PaymentsController : ControllerBase
             });
         }
 
-        // 5. Thanh toán thất bại — trả về mã lỗi chi tiết
+        // 5. Thanh toán thất bại — trả về mã lỗi chi tiết hoặc hủy session
+        if (!string.IsNullOrEmpty(vnpTxnRef))
+        {
+            var qrCode = vnpTxnRef.Replace("PAY-", "");
+            var session = await _context.ParkingSessions
+                .FirstOrDefaultAsync(ps => ps.QrCode == qrCode);
+            if (session != null && session.Status == "PendingPayment")
+            {
+                session.Status = "Cancelled";
+                session.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+            }
+        }
+
         return Ok(new
         {
             success = false,

@@ -187,7 +187,7 @@ const PaymentPage = () => {
       const vnpayResponse = await api.post('/Payments/vnpay/create-payment-url', {
         amount: price,
         orderInfo: orderInfoStr.substring(0, 255),
-        orderId: qrCode ? `PAY-${qrCode.substring(0, 12)}` : undefined
+        orderId: qrCode ? `PAY-${qrCode}` : undefined
       });
 
       const paymentUrl = vnpayResponse.data?.paymentUrl;
