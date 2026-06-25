@@ -17,6 +17,7 @@ public static class RepositoryCollectionExtensions
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IParkingSessionRepository, ParkingSessionRepository>();
+        services.AddScoped<IBlacklistRepository, BlacklistRepository>();
 
         // ── Add new repositories here ────────────────────────────────────────
         // services.AddScoped<IProductRepository, ProductRepository>();

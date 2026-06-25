@@ -1,8 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Repositories;
-using Repositories.Entities;
+using Repositories.DTOs;
+using Services.Interfaces;
+using System;
+using System.Threading.Tasks;
 
 namespace PBMSystem.API.Controllers;
 
@@ -11,79 +12,37 @@ namespace PBMSystem.API.Controllers;
 [Authorize(Roles = "Admin, Staff")] // Allow staff to view too
 public class BlacklistController : ControllerBase
 {
-    private readonly AppDbContext _context;
+    private readonly IBlacklistService _blacklistService;
 
-    public BlacklistController(AppDbContext context)
+    public BlacklistController(IBlacklistService blacklistService)
     {
-        _context = context;
+        _blacklistService = blacklistService;
     }
 
     [HttpGet]
     [AllowAnonymous]
     public async Task<IActionResult> GetAll()
     {
-        var list = await _context.BlacklistEntries
-            .OrderByDescending(x => x.CreatedAt)
-            .ToListAsync();
-
-        return Ok(list.Select(x => new
-        {
-            x.Id,
-            x.PlateNumber,
-            x.Reason,
-            Date = x.CreatedAt.ToString("yyyy-MM-dd"),
-            x.AddedBy
-        }));
+        var result = await _blacklistService.GetAllAsync();
+        return result.Success ? Ok(result.Data) : BadRequest(result);
     }
 
     [HttpPost]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Add([FromBody] AddBlacklistDto dto)
     {
-        if (string.IsNullOrWhiteSpace(dto.PlateNumber) || string.IsNullOrWhiteSpace(dto.Reason))
-            return BadRequest(new { Message = "Plate number and reason are required." });
-
         var adminName = User.Identity?.Name ?? "Admin";
-
-        var entry = new BlacklistEntry
-        {
-            Id = Guid.NewGuid(),
-            PlateNumber = dto.PlateNumber.Trim().ToUpper(),
-            Reason = dto.Reason,
-            AddedBy = adminName,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
-
-        _context.BlacklistEntries.Add(entry);
-        await _context.SaveChangesAsync();
-
-        return Ok(new
-        {
-            entry.Id,
-            entry.PlateNumber,
-            entry.Reason,
-            Date = entry.CreatedAt.ToString("yyyy-MM-dd"),
-            entry.AddedBy
-        });
+        var result = await _blacklistService.AddAsync(dto, adminName);
+        return result.Success ? Ok(result.Data) : BadRequest(result);
     }
 
-    [HttpDelete("{id}")]
+    [HttpDelete("{id:guid}")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Delete(Guid id)
     {
-        var entry = await _context.BlacklistEntries.FindAsync(id);
-        if (entry == null) return NotFound(new { Message = "Entry not found." });
-
-        _context.BlacklistEntries.Remove(entry);
-        await _context.SaveChangesAsync();
-
-        return Ok(new { Message = "Removed successfully." });
+        var result = await _blacklistService.DeleteAsync(id);
+        return result.Success 
+            ? Ok(new { Message = result.Message }) 
+            : NotFound(new { Message = result.Message });
     }
-}
-
-public class AddBlacklistDto
-{
-    public string PlateNumber { get; set; } = string.Empty;
-    public string Reason { get; set; } = string.Empty;
 }

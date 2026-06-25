@@ -17,6 +17,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IParkingSessionService, ParkingSessionService>();
+        services.AddScoped<IBlacklistService, BlacklistService>();
 
         // ── Add new services here ────────────────────────────────────────────
         // services.AddScoped<IUserProfileService, UserProfileService>();
