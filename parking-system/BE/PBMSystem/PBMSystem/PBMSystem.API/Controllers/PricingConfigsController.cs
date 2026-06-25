@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Repositories;
+using Repositories.DTOs;
 using Repositories.Entities;
+using Services.Interfaces;
 
 namespace PBMSystem.API.Controllers;
 
@@ -10,47 +12,39 @@ namespace PBMSystem.API.Controllers;
 [Produces("application/json")]
 public class PricingConfigsController : ControllerBase
 {
-    private readonly AppDbContext _db;
-    public PricingConfigsController(AppDbContext db) => _db = db;
+    private readonly IPricingConfigService _pricingConfigService;
+
+    public PricingConfigsController(
+        IPricingConfigService pricingConfigService)
+    {
+        _pricingConfigService = pricingConfigService;
+    }
 
     [HttpGet]
+    [ProducesResponseType(
+        typeof(ApiResponse<IEnumerable<PricingConfig>>),
+        StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll()
     {
-        var configs = await _db.PricingConfigs.OrderBy(c => c.CreatedAt).ToListAsync();
-        return Ok(configs);
+        var result =
+            await _pricingConfigService.GetAllAsync();
+
+        return Ok(result);
     }
 
     [HttpPost]
-    public async Task<IActionResult> SaveAll([FromBody] List<PricingConfigDto> items)
+    [ProducesResponseType(
+        typeof(ApiResponse<IEnumerable<PricingConfig>>),
+        StatusCodes.Status200OK)]
+    public async Task<IActionResult> SaveAll(
+        [FromBody] List<PricingConfigDto> items)
     {
-        // Replace all existing configs with the new set
-        var existing = await _db.PricingConfigs.ToListAsync();
-        foreach (var e in existing)
-        {
-            e.IsDeleted = true;
-        }
-        await _db.SaveChangesAsync();
+        var result =
+            await _pricingConfigService.SaveAllAsync(items);
 
-        foreach (var item in items)
-        {
-            var config = new PricingConfig
-            {
-                Type = item.Type,
-                Price = item.Price,
-                Sub = item.Sub
-            };
-            await _db.PricingConfigs.AddAsync(config);
-        }
-        await _db.SaveChangesAsync();
-
-        var updated = await _db.PricingConfigs.OrderBy(c => c.CreatedAt).ToListAsync();
-        return Ok(updated);
+        return result.Success
+            ? Ok(result)
+            : BadRequest(result);
     }
 }
 
-public class PricingConfigDto
-{
-    public string Type { get; set; } = string.Empty;
-    public string Price { get; set; } = "0";
-    public string Sub { get; set; } = "VNĐ / Giờ";
-}
