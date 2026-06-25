@@ -40,7 +40,8 @@ builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IPricingConfigRepository, PricingConfigRepository>();
 builder.Services.AddScoped<IPricingConfigService, PricingConfigService>();
-
+builder.Services.AddScoped<IParkingLotRepository,ParkingLotRepository>();
+builder.Services.AddScoped<IParkingLotService,ParkingLotService>();
 // ── Background Jobs ───────────────────────────────────────────────────────────
 builder.Services.AddHostedService<ReservationJobService>();
 
