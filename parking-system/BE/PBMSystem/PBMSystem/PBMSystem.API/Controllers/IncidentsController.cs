@@ -21,7 +21,9 @@ public class IncidentsController : ControllerBase
     public async Task<IActionResult> GetAll()
     {
         var result = await _incidentService.GetAllAsync();
-        return StatusCode(result.StatusCode, result);
+        if (!result.Success)
+            return StatusCode(result.StatusCode, new { message = result.ErrorMessage });
+        return Ok(result.Data);
     }
 
     /// <summary>Create a new incident report.</summary>
@@ -29,7 +31,9 @@ public class IncidentsController : ControllerBase
     public async Task<IActionResult> Create([FromBody] Incident request)
     {
         var result = await _incidentService.CreateAsync(request);
-        return StatusCode(result.StatusCode, result);
+        if (!result.Success)
+            return StatusCode(result.StatusCode, new { message = result.ErrorMessage });
+        return Ok(result.Data);
     }
 
     /// <summary>Resolve an incident by marking its status as resolved.</summary>
@@ -37,7 +41,9 @@ public class IncidentsController : ControllerBase
     public async Task<IActionResult> Resolve(Guid id)
     {
         var result = await _incidentService.ResolveAsync(id);
-        return StatusCode(result.StatusCode, result);
+        if (!result.Success)
+            return StatusCode(result.StatusCode, new { message = result.ErrorMessage });
+        return Ok(result.Data);
     }
 
     /// <summary>Soft-delete an incident report.</summary>
@@ -45,6 +51,8 @@ public class IncidentsController : ControllerBase
     public async Task<IActionResult> Delete(Guid id)
     {
         var result = await _incidentService.DeleteAsync(id);
-        return StatusCode(result.StatusCode, result);
+        if (!result.Success)
+            return StatusCode(result.StatusCode, new { message = result.ErrorMessage });
+        return Ok(result.Data);
     }
 }
