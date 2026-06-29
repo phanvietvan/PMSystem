@@ -22,13 +22,31 @@ public interface IEmailService
     /// <summary>
     /// Sends a booking confirmation email with the QR code and slot details.
     /// </summary>
-    Task SendBookingConfirmationEmailAsync(string toEmail, string userName, string qrCode, string lotName, string slot, string licensePlate, string mapsLink = "");
+    Task SendBookingConfirmationEmailAsync(string toEmail, string userName, string qrCode, string lotName, string slot, string licensePlate, string mapsLink = "", string? reservationDate = null, string? startTime = null, string? endTime = null);
 
     Task SendReservationReminderEmailAsync(string toEmail, string userName, string lotName, string slot, string licensePlate);
 
     Task SendReservationCancellationEmailAsync(string toEmail, string userName, string lotName, string slot, string licensePlate);
 
     Task SendSlotChangeEmailAsync(string toEmail, string userName, string lotName, string oldSlot, string newSlot, string licensePlate);
+
+    Task SendReservationExtensionEmailAsync(string toEmail, string userName, string lotName, string slot, string licensePlate, string originalEndTime, string newEndTime);
+
+    Task SendCheckoutInvoiceEmailAsync(
+        string toEmail,
+        string userName,
+        string lotName,
+        string slot,
+        string licensePlate,
+        string entryTime,
+        string exitTime,
+        string plannedEndTime,
+        decimal baseFee,
+        decimal surcharges,
+        decimal totalFee,
+        decimal prepaidAmount,
+        decimal amountPaid,
+        string refundMessage = "");
 }
 
 public enum EmailOtpPurpose

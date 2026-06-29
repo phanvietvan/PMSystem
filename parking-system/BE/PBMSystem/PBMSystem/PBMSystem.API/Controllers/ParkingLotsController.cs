@@ -1,7 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Repositories;
 using Repositories.Entities;
+using Repositories.Interfaces;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace PBMSystem.API.Controllers;
 
@@ -10,14 +13,14 @@ namespace PBMSystem.API.Controllers;
 [Produces("application/json")]
 public class ParkingLotsController : ControllerBase
 {
-    private readonly AppDbContext _db;
-    public ParkingLotsController(AppDbContext db) => _db = db;
+    private readonly IRepository<ParkingLot> _lotRepo;
+    public ParkingLotsController(IRepository<ParkingLot> lotRepo) => _lotRepo = lotRepo;
 
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var lots = await _db.ParkingLots.OrderBy(l => l.CreatedAt).ToListAsync();
-        return Ok(lots);
+        var lots = await _lotRepo.GetAllAsync();
+        return Ok(lots.OrderBy(l => l.CreatedAt));
     }
 
     [HttpPost]
@@ -39,15 +42,15 @@ public class ParkingLotsController : ControllerBase
             FloorCapacities = request.FloorCapacities ?? new Dictionary<string, int>()
         };
 
-        await _db.ParkingLots.AddAsync(lot);
-        await _db.SaveChangesAsync();
+        await _lotRepo.AddAsync(lot);
+        await _lotRepo.SaveChangesAsync();
         return CreatedAtAction(nameof(GetAll), new { id = lot.Id }, lot);
     }
 
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] ParkingLot request)
     {
-        var lot = await _db.ParkingLots.FindAsync(id);
+        var lot = await _lotRepo.GetByIdAsync(id);
         if (lot == null) return NotFound();
 
         lot.Name = request.Name?.Trim() ?? lot.Name;
@@ -66,35 +69,35 @@ public class ParkingLotsController : ControllerBase
             lot.FloorCapacities = request.FloorCapacities;
         }
 
-        _db.ParkingLots.Update(lot);
-        await _db.SaveChangesAsync();
+        _lotRepo.Update(lot);
+        await _lotRepo.SaveChangesAsync();
         return Ok(lot);
     }
 
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {
-        var lot = await _db.ParkingLots.FindAsync(id);
+        var lot = await _lotRepo.GetByIdAsync(id);
         if (lot == null) return NotFound();
 
         lot.IsDeleted = true;
-        _db.ParkingLots.Update(lot);
-        await _db.SaveChangesAsync();
+        _lotRepo.Update(lot);
+        await _lotRepo.SaveChangesAsync();
         return Ok(new { message = "Đã xóa chi nhánh." });
     }
 
     [HttpPost("{id:guid}/lock-slot/{slot}")]
     public async Task<IActionResult> LockSlot(Guid id, string slot)
     {
-        var lot = await _db.ParkingLots.FindAsync(id);
+        var lot = await _lotRepo.GetByIdAsync(id);
         if (lot == null) return NotFound();
         
         if (lot.LockedSlots == null) lot.LockedSlots = new List<string>();
         if (!lot.LockedSlots.Contains(slot))
         {
             lot.LockedSlots.Add(slot);
-            _db.ParkingLots.Update(lot);
-            await _db.SaveChangesAsync();
+            _lotRepo.Update(lot);
+            await _lotRepo.SaveChangesAsync();
         }
         return Ok(lot);
     }
@@ -102,14 +105,14 @@ public class ParkingLotsController : ControllerBase
     [HttpPost("{id:guid}/unlock-slot/{slot}")]
     public async Task<IActionResult> UnlockSlot(Guid id, string slot)
     {
-        var lot = await _db.ParkingLots.FindAsync(id);
+        var lot = await _lotRepo.GetByIdAsync(id);
         if (lot == null) return NotFound();
         
         if (lot.LockedSlots != null && lot.LockedSlots.Contains(slot))
         {
             lot.LockedSlots.Remove(slot);
-            _db.ParkingLots.Update(lot);
-            await _db.SaveChangesAsync();
+            _lotRepo.Update(lot);
+            await _lotRepo.SaveChangesAsync();
         }
         return Ok(lot);
     }

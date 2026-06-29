@@ -20,19 +20,22 @@ public class ParkingSessionService : IParkingSessionService
     private readonly IRepository<Payment> _paymentRepository;
     private readonly IUserRepository _userRepository;
     private readonly IEmailService _emailService;
+    private readonly IRepository<AppNotification> _notificationRepository;
 
     public ParkingSessionService(
         IParkingSessionRepository sessionRepository,
         IRepository<ParkingLot> lotRepository,
         IRepository<Payment> paymentRepository,
         IUserRepository userRepository,
-        IEmailService emailService)
+        IEmailService emailService,
+        IRepository<AppNotification> notificationRepository)
     {
         _sessionRepository = sessionRepository;
         _lotRepository = lotRepository;
         _paymentRepository = paymentRepository;
         _userRepository = userRepository;
         _emailService = emailService;
+        _notificationRepository = notificationRepository;
     }
 
     public async Task<ServiceResult<ParkingSession>> CheckInAsync(CheckInRequest request, Guid? authenticatedUserId)
@@ -53,6 +56,27 @@ public class ParkingSessionService : IParkingSessionService
             if (isSlotTaken)
             {
                 return ServiceResult<ParkingSession>.BadRequest($"Vị trí đỗ {request.ParkingSlot} tại {request.ParkingLotName} hiện đã bị khóa hoặc đang bận. Vui lòng chọn vị trí khác!");
+            }
+        }
+
+        if (!string.IsNullOrEmpty(request.ReservationDate))
+        {
+            if (string.IsNullOrEmpty(request.ReservationStartTime) || string.IsNullOrEmpty(request.ReservationEndTime))
+            {
+                return ServiceResult<ParkingSession>.BadRequest("Thời gian bắt đầu và kết thúc đặt chỗ không được để trống.");
+            }
+
+            if (DateTime.TryParse($"{request.ReservationDate} {request.ReservationStartTime}", out var startTimeObj) &&
+                DateTime.TryParse($"{request.ReservationDate} {request.ReservationEndTime}", out var endTimeObj))
+            {
+                if (endTimeObj <= startTimeObj)
+                {
+                    return ServiceResult<ParkingSession>.BadRequest("Giờ kết thúc phải sau giờ bắt đầu.");
+                }
+            }
+            else
+            {
+                return ServiceResult<ParkingSession>.BadRequest("Định dạng ngày hoặc giờ đặt chỗ không hợp lệ.");
             }
         }
 
@@ -90,6 +114,7 @@ public class ParkingSessionService : IParkingSessionService
             VehicleType = request.VehicleType,
             ReservationDate = request.ReservationDate,
             ReservationStartTime = request.ReservationStartTime,
+            ReservationEndTime = request.ReservationEndTime,
             ParkingSlot = request.ParkingSlot,
             IsCheckedIn = string.IsNullOrEmpty(request.ReservationDate)
         };
@@ -140,7 +165,10 @@ public class ParkingSessionService : IParkingSessionService
                 request.ParkingLotName ?? "PM System Central",
                 request.ParkingSlot ?? "Tự động phân bổ",
                 request.LicensePlate.ToUpper(),
-                mapsLink
+                mapsLink,
+                request.ReservationDate,
+                request.ReservationStartTime,
+                request.ReservationEndTime
             );
         }
 
@@ -327,15 +355,21 @@ public class ParkingSessionService : IParkingSessionService
             totalSurcharge = request.ExtraFees.Sum(f => f.Amount);
         }
 
+        var completedPaymentsList = await _paymentRepository.FindAsync(p => p.SessionId == session.Id && p.Status == "Completed");
+        decimal prepaidAmount = completedPaymentsList.Sum(p => p.Amount);
+
         var baseFee = CalculateFee(session.EntryTime, session.ExitTime.Value, session.VehicleType);
         var fee = baseFee + totalSurcharge;
+
+        // Option 1: Prepaid amount is non-refundable. Remaining check-out fee = Max(0, fee - prepaidAmount)
+        decimal checkoutAmount = Math.Max(0, fee - prepaidAmount);
 
         var payment = new Payment
         {
             SessionId = session.Id,
             UserId = session.UserId,
             LicensePlate = session.LicensePlate,
-            Amount = fee,
+            Amount = checkoutAmount,
             TransactionTime = DateTime.UtcNow,
             PaymentMethod = "Online",
             Status = "Completed",
@@ -346,10 +380,62 @@ public class ParkingSessionService : IParkingSessionService
         _sessionRepository.Update(session);
         await _sessionRepository.SaveChangesAsync();
 
+        // Calculate early checkout messages & Send Email
+        string plannedEndTimeStr = "";
+        string refundMessage = "";
+        if (!string.IsNullOrEmpty(session.ReservationEndTime) && !string.IsNullOrEmpty(session.ReservationDate))
+        {
+            plannedEndTimeStr = $"{session.ReservationDate} {session.ReservationEndTime}";
+            if (DateTime.TryParse(plannedEndTimeStr, out var plannedEndDateTime))
+            {
+                var localExitTime = session.ExitTime.Value.AddHours(7);
+                if (plannedEndDateTime - localExitTime > TimeSpan.FromMinutes(15))
+                {
+                    if (prepaidAmount > 0 && fee < prepaidAmount)
+                    {
+                        refundMessage = "Bạn đã trả xe sớm hơn dự kiến. Theo chính sách của hệ thống, số tiền đặt chỗ trước không được hoàn lại.";
+                    }
+                }
+            }
+        }
+
+        User? user = null;
+        if (session.UserId.HasValue)
+        {
+            user = await _userRepository.GetByIdAsync(session.UserId.Value);
+        }
+
+        if (user != null && !string.IsNullOrWhiteSpace(user.Email))
+        {
+            var userName = !string.IsNullOrWhiteSpace(user.FirstName) || !string.IsNullOrWhiteSpace(user.LastName)
+                ? $"{user.FirstName} {user.LastName}".Trim()
+                : (user.Username ?? "Khách hàng");
+
+            var entryTimeStr = session.EntryTime.AddHours(7).ToString("dd-MM-yyyy HH:mm");
+            var exitTimeStr = session.ExitTime.Value.AddHours(7).ToString("dd-MM-yyyy HH:mm");
+
+            _ = _emailService.SendCheckoutInvoiceEmailAsync(
+                user.Email,
+                userName,
+                session.ParkingLotName ?? "PM System Central",
+                session.ParkingSlot ?? "Tự động phân bổ",
+                session.LicensePlate.ToUpper(),
+                entryTimeStr,
+                exitTimeStr,
+                !string.IsNullOrEmpty(session.ReservationEndTime) ? $"{session.ReservationDate} {session.ReservationEndTime}" : "N/A",
+                baseFee,
+                totalSurcharge,
+                fee,
+                prepaidAmount,
+                checkoutAmount,
+                refundMessage
+            );
+        }
+
         return ServiceResult<CheckOutResponse>.Ok(new CheckOutResponse
         {
             Session = session,
-            Fee = fee,
+            Fee = checkoutAmount,
             IsPlateMatched = session.IsPlateMatched ?? false,
             Message = session.IsPlateMatched == true
                 ? "Xác thực thành công. Cho phép xe ra."
@@ -638,5 +724,184 @@ public class ParkingSessionService : IParkingSessionService
         }
 
         return false;
+    }
+
+    public async Task ProcessReservationsAsync()
+    {
+        var localNow = DateTime.UtcNow.AddHours(7);
+
+        var pendingSessions = await _sessionRepository.FindAsync(ps => 
+            (ps.Status == "Active" || ps.Status == "Pending")
+            && ps.IsCheckedIn == false
+            && ps.ReservationDate != null
+            && ps.ReservationStartTime != null);
+
+        foreach (var session in pendingSessions)
+        {
+            if (!DateTime.TryParse($"{session.ReservationDate} {session.ReservationStartTime}", out var reservationTime))
+            {
+                continue; 
+            }
+
+            var timeDiff = reservationTime - localNow;
+
+            if (timeDiff.TotalMinutes > 0 && timeDiff.TotalMinutes <= 15 && session.IsReminderSent != true)
+            {
+                session.IsReminderSent = true;
+                _sessionRepository.Update(session);
+
+                User? user = null;
+                if (session.UserId.HasValue)
+                {
+                    user = await _userRepository.GetByIdAsync(session.UserId.Value);
+                }
+
+                var userName = user != null && (!string.IsNullOrWhiteSpace(user.FirstName) || !string.IsNullOrWhiteSpace(user.LastName))
+                    ? $"{user.FirstName} {user.LastName}".Trim()
+                    : (user?.Username ?? "Khách hàng");
+
+                var roleStr = user != null ? user.Role.ToString().ToLower() : "user";
+
+                var notif = new AppNotification
+                {
+                    Id = Guid.NewGuid(),
+                    Role = roleStr,
+                    Title = "Sắp đến giờ đặt chỗ",
+                    Message = $"Bạn còn khoảng {Math.Ceiling(timeDiff.TotalMinutes)} phút nữa đến giờ hẹn gửi xe tại {session.ParkingLotName} (Vị trí {session.ParkingSlot}). Vui lòng đến đúng giờ.",
+                    Type = "info",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                await _notificationRepository.AddAsync(notif);
+
+                if (user != null && !string.IsNullOrWhiteSpace(user.Email))
+                {
+                    _ = _emailService.SendReservationReminderEmailAsync(
+                        user.Email,
+                        userName,
+                        session.ParkingLotName ?? "Bãi xe",
+                        session.ParkingSlot ?? "Tự động phân bổ",
+                        session.LicensePlate
+                    );
+                }
+                
+                await _sessionRepository.SaveChangesAsync();
+            }
+
+            if (timeDiff.TotalMinutes <= -10)
+            {
+                session.Status = "Cancelled";
+                session.UpdatedAt = DateTime.UtcNow;
+                _sessionRepository.Update(session);
+
+                User? user = null;
+                if (session.UserId.HasValue)
+                {
+                    user = await _userRepository.GetByIdAsync(session.UserId.Value);
+                }
+
+                var userName = user != null && (!string.IsNullOrWhiteSpace(user.FirstName) || !string.IsNullOrWhiteSpace(user.LastName))
+                    ? $"{user.FirstName} {user.LastName}".Trim()
+                    : (user?.Username ?? "Khách hàng");
+
+                var roleStr = user != null ? user.Role.ToString().ToLower() : "user";
+
+                var notif = new AppNotification
+                {
+                    Id = Guid.NewGuid(),
+                    Role = roleStr,
+                    Title = "Hủy chỗ đặt xe tự động",
+                    Message = $"Lượt đặt chỗ của bạn tại {session.ParkingLotName} đã bị hủy do bạn đến trễ quá 10 phút. Nếu có nhu cầu, bạn vui lòng đặt lại chỗ khác nhé.",
+                    Type = "alert",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                await _notificationRepository.AddAsync(notif);
+
+                if (user != null && !string.IsNullOrWhiteSpace(user.Email))
+                {
+                    _ = _emailService.SendReservationCancellationEmailAsync(
+                        user.Email,
+                        userName,
+                        session.ParkingLotName ?? "Bãi xe",
+                        session.ParkingSlot ?? "Tự động phân bổ",
+                        session.LicensePlate
+                    );
+                }
+
+                await _sessionRepository.SaveChangesAsync();
+            }
+        }
+    }
+
+    public async Task ProcessCheckedInExtensionsAsync()
+    {
+        var localNow = DateTime.UtcNow.AddHours(7);
+
+        var activeCheckedInSessions = await _sessionRepository.FindAsync(ps => 
+            ps.Status == "Active"
+            && ps.IsCheckedIn == true
+            && ps.ReservationDate != null
+            && ps.ReservationEndTime != null);
+
+        foreach (var session in activeCheckedInSessions)
+        {
+            var endTimeStr = $"{session.ReservationDate} {session.ReservationEndTime}";
+            if (!DateTime.TryParse(endTimeStr, out var currentEndTime))
+            {
+                continue;
+            }
+
+            if (localNow >= currentEndTime)
+            {
+                var originalEndTimeStr = session.ReservationEndTime ?? string.Empty;
+                var newEndTime = currentEndTime.AddHours(1);
+
+                session.ReservationDate = newEndTime.ToString("yyyy-MM-dd");
+                session.ReservationEndTime = newEndTime.ToString("HH:mm");
+                session.UpdatedAt = DateTime.UtcNow;
+
+                _sessionRepository.Update(session);
+
+                User? user = null;
+                if (session.UserId.HasValue)
+                {
+                    user = await _userRepository.GetByIdAsync(session.UserId.Value);
+                }
+
+                var userName = user != null && (!string.IsNullOrWhiteSpace(user.FirstName) || !string.IsNullOrWhiteSpace(user.LastName))
+                    ? $"{user.FirstName} {user.LastName}".Trim()
+                    : (user?.Username ?? "Khách hàng");
+
+                var roleStr = user != null ? user.Role.ToString().ToLower() : "user";
+
+                var notif = new AppNotification
+                {
+                    Id = Guid.NewGuid(),
+                    Role = roleStr,
+                    Title = "Thời gian đỗ xe được gia hạn",
+                    Message = $"Phiên đỗ xe của bạn tại {session.ParkingLotName} (Vị trí {session.ParkingSlot}) đã được tự động gia hạn thêm 1 tiếng đến {session.ReservationEndTime} do quá giờ đăng ký.",
+                    Type = "info",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                await _notificationRepository.AddAsync(notif);
+
+                if (user != null && !string.IsNullOrWhiteSpace(user.Email))
+                {
+                    _ = _emailService.SendReservationExtensionEmailAsync(
+                        user.Email,
+                        userName,
+                        session.ParkingLotName ?? "Bãi xe",
+                        session.ParkingSlot ?? "Tự động phân bổ",
+                        session.LicensePlate,
+                        originalEndTimeStr,
+                        session.ReservationEndTime
+                    );
+                }
+
+                await _sessionRepository.SaveChangesAsync();
+            }
+        }
     }
 }
