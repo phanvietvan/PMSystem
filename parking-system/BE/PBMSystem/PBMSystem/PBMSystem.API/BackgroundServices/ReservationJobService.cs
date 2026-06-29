@@ -31,6 +31,7 @@ namespace PBMSystem.API.BackgroundServices
                 try
                 {
                     await ProcessReservationsAsync(stoppingToken);
+                    await ProcessCheckedInExtensionsAsync(stoppingToken);
                 }
                 catch (Exception ex)
                 {
@@ -162,6 +163,88 @@ namespace PBMSystem.API.BackgroundServices
 
                     await sessionRepo.SaveChangesAsync();
                     _logger.LogInformation($"Automatically cancelled reservation {session.Id} due to no-show.");
+                }
+            }
+        }
+
+        private async Task ProcessCheckedInExtensionsAsync(CancellationToken stoppingToken)
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
+
+            // Hệ thống lấy giờ địa phương VN (UTC+7)
+            var localNow = DateTime.UtcNow.AddHours(7);
+
+            // Lấy các phiên đỗ xe đã check-in đang hoạt động cần kiểm tra giờ kết thúc
+            var activeCheckedInSessions = await dbContext.ParkingSessions
+                .Where(ps => ps.Status == "Active"
+                             && ps.IsCheckedIn == true
+                             && ps.ReservationDate != null
+                             && ps.ReservationEndTime != null)
+                .ToListAsync(stoppingToken);
+
+            foreach (var session in activeCheckedInSessions)
+            {
+                var endTimeStr = $"{session.ReservationDate} {session.ReservationEndTime}";
+                if (!DateTime.TryParse(endTimeStr, out var currentEndTime))
+                {
+                    continue;
+                }
+
+                // Nếu đã quá giờ kết thúc đỗ xe (localNow >= currentEndTime)
+                if (localNow >= currentEndTime)
+                {
+                    var originalEndTimeStr = session.ReservationEndTime;
+                    var newEndTime = currentEndTime.AddHours(1);
+
+                    // Cập nhật giờ kết thúc mới và ngày kết thúc mới (phòng trường hợp qua ngày mới)
+                    session.ReservationDate = newEndTime.ToString("yyyy-MM-dd");
+                    session.ReservationEndTime = newEndTime.ToString("HH:mm");
+                    session.UpdatedAt = DateTime.UtcNow;
+
+                    dbContext.Update(session);
+
+                    User? user = null;
+                    if (session.UserId.HasValue)
+                    {
+                        user = await dbContext.Users.FindAsync(session.UserId.Value);
+                    }
+
+                    var userName = user != null && (!string.IsNullOrWhiteSpace(user.FirstName) || !string.IsNullOrWhiteSpace(user.LastName))
+                        ? $"{user.FirstName} {user.LastName}".Trim()
+                        : (user?.Username ?? "Khách hàng");
+
+                    var roleStr = user != null ? user.Role.ToString().ToLower() : "user";
+
+                    // Gửi thông báo trong app
+                    var notif = new AppNotification
+                    {
+                        Id = Guid.NewGuid(),
+                        Role = roleStr,
+                        Title = "Thời gian đỗ xe được gia hạn",
+                        Message = $"Phiên đỗ xe của bạn tại {session.ParkingLotName} (Vị trí {session.ParkingSlot}) đã được tự động gia hạn thêm 1 tiếng đến {session.ReservationEndTime} do quá giờ đăng ký.",
+                        Type = "info",
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    dbContext.AppNotifications.Add(notif);
+
+                    if (user != null && !string.IsNullOrWhiteSpace(user.Email))
+                    {
+                        _ = emailService.SendReservationExtensionEmailAsync(
+                            user.Email,
+                            userName,
+                            session.ParkingLotName ?? "Bãi xe",
+                            session.ParkingSlot ?? "Tự động phân bổ",
+                            session.LicensePlate,
+                            originalEndTimeStr,
+                            session.ReservationEndTime
+                        );
+                    }
+
+                    await dbContext.SaveChangesAsync(stoppingToken);
+                    _logger.LogInformation($"Automatically extended session {session.Id} by 1 hour (New end time: {session.ReservationEndTime}).");
                 }
             }
         }

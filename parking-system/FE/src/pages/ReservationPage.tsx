@@ -7,13 +7,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
 import { addActiveQr } from '../utils/auth';
 import { useSettings } from '../hooks/useSettings.tsx';
+import { CustomTimePicker } from '../components/common/CustomTimePicker';
 
 const ReservationPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const fromStatus = location.state?.fromStatus || false;
   const [, setUser] = useState<any>(null);
-  const { t } = useSettings();
+  const { t, language } = useSettings();
+  const [errorToast, setErrorToast] = useState<string | null>(null);
 
   const defaultLots = [
     { id: 1, name: "Landmark 81 - Bãi đỗ A1", latitude: "10.7949", longitude: "106.7218", floor: "Tầng 1", block: "Block A" },
@@ -55,6 +57,19 @@ const ReservationPage = () => {
   const today = new Date().toISOString().split('T')[0];
   const currentTime = new Date().toTimeString().slice(0, 5);
 
+  const getEndTimeDefault = (startTimeStr: string) => {
+    try {
+      const [h, m] = startTimeStr.split(':');
+      let hour = parseInt(h, 10) + 2; // Default 2 hours later
+      if (hour >= 24) hour = hour - 24;
+      return `${hour.toString().padStart(2, '0')}:${m}`;
+    } catch (e) {
+      return '18:00';
+    }
+  };
+
+  const defaultEndTime = getEndTimeDefault(currentTime);
+
   const [formData, setFormData] = useState(() => {
     const storedParking = localStorage.getItem('selectedParking');
     let initialParkingLotId = 1;
@@ -72,11 +87,20 @@ const ReservationPage = () => {
     return {
       date: today,
       startTime: currentTime,
+      endTime: defaultEndTime,
       licensePlate: '',
       vehicleType: 'car',
       parkingLotId: initialParkingLotId
     };
   });
+
+  const handleStartTimeChange = (newTime: string) => {
+    setFormData(prev => ({
+      ...prev,
+      startTime: newTime,
+      endTime: getEndTimeDefault(newTime)
+    }));
+  };
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isVehicleDropdownOpen, setIsVehicleDropdownOpen] = useState(false);
@@ -174,9 +198,23 @@ const ReservationPage = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const timeToMinutes = (timeStr: string) => {
+      if (!timeStr) return 0;
+      const [h, m] = timeStr.split(':').map(Number);
+      return (h || 0) * 60 + (m || 0);
+    };
+
+    if (timeToMinutes(formData.endTime) <= timeToMinutes(formData.startTime)) {
+      setErrorToast(language === 'vi' ? 'Giờ kết thúc phải sau giờ bắt đầu!' : 'End time must be after start time!');
+      setTimeout(() => setErrorToast(null), 3000);
+      return;
+    }
+
     localStorage.setItem('selectedParking', JSON.stringify(selectedParking));
     localStorage.setItem('reservationDate', formData.date);
     localStorage.setItem('reservationStartTime', formData.startTime);
+    localStorage.setItem('reservationEndTime', formData.endTime);
     localStorage.setItem('reservationVehicleType', formData.vehicleType);
     localStorage.setItem('reservationLicensePlate', formData.licensePlate);
     
@@ -192,6 +230,13 @@ const ReservationPage = () => {
   return (
     <div className="h-screen overflow-hidden bg-mesh-gradient text-on-surface font-sans selection:bg-primary/10 relative flex flex-col">
       <Navbar />
+
+      {errorToast && (
+        <div className="fixed top-24 right-4 z-[9999] bg-rose-500 text-white px-5 py-3 rounded-2xl shadow-xl flex items-center gap-2 border border-rose-600/30">
+          <span className="material-symbols-outlined text-[18px]">error</span>
+          <span className="text-xs font-bold font-sans">{errorToast}</span>
+        </div>
+      )}
 
       {/* Floating Glowing Orbs */}
       <div className="absolute top-[-5%] left-[-10%] w-[600px] h-[600px] bg-primary/10 blur-[180px] rounded-full pointer-events-none animate-pulse" style={{ animationDuration: '8s' }}></div>
@@ -247,20 +292,26 @@ const ReservationPage = () => {
                   </div>
                 </div>
 
-                {/* Time Picker */}
+                {/* Start Time */}
                 <div className="space-y-1.5">
                   <label className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-slate-400/90 ml-1 flex items-center gap-1.5">
                     <Clock size={12} className="text-blue-500" /> {t('chooseStartTime')}
                   </label>
-                  <div className="relative group">
-                    <input
-                      className="premium-input block w-full pl-4 pr-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/60 transition-all text-xs font-semibold cursor-pointer shadow-sm bg-white"
-                      type="time"
-                      value={formData.startTime}
-                      onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                      required
-                    />
-                  </div>
+                  <CustomTimePicker
+                    value={formData.startTime}
+                    onChange={handleStartTimeChange}
+                  />
+                </div>
+
+                {/* End Time */}
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-slate-400/90 ml-1 flex items-center gap-1.5">
+                    <Clock size={12} className="text-blue-500" /> {t('chooseEndTime') || 'Giờ kết thúc'}
+                  </label>
+                  <CustomTimePicker
+                    value={formData.endTime}
+                    onChange={(newTime) => setFormData(prev => ({ ...prev, endTime: newTime }))}
+                  />
                 </div>
 
                 {/* License Plate selection if they have multiple */}

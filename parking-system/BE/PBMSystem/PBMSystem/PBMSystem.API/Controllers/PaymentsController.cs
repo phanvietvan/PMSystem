@@ -169,6 +169,68 @@ public class PaymentsController : ControllerBase
                     await _context.Payments.AddAsync(payment);
                     await _context.SaveChangesAsync();
                 }
+                // Cập nhật ParkingSession tương ứng và gửi email!
+                var qrCode = vnpTxnRef.Replace("PAY-", "");
+                var session = await _context.ParkingSessions
+                    .FirstOrDefaultAsync(ps => ps.QrCode == qrCode);
+
+                if (session != null)
+                {
+                    // Cập nhật session status thành Active nếu nó đang là PendingPayment
+                    if (session.Status == "PendingPayment")
+                    {
+                        session.Status = "Active";
+                        session.UpdatedAt = DateTime.UtcNow;
+                        await _context.SaveChangesAsync();
+
+                        // Gửi email xác nhận đặt chỗ ở đây!
+                        User? user = null;
+                        if (session.UserId.HasValue)
+                        {
+                            user = await _context.Users.FindAsync(session.UserId.Value);
+                        }
+
+                        if (user != null && !string.IsNullOrWhiteSpace(user.Email))
+                        {
+                            var userName = !string.IsNullOrWhiteSpace(user.FirstName) || !string.IsNullOrWhiteSpace(user.LastName)
+                                ? $"{user.FirstName} {user.LastName}".Trim()
+                                : (user.Username ?? "Khách hàng");
+
+                            string mapsLink = "";
+                            var parkingLot = await _context.ParkingLots.FirstOrDefaultAsync(l => l.Name == session.ParkingLotName);
+                            if (parkingLot != null && !string.IsNullOrWhiteSpace(parkingLot.Latitude) && !string.IsNullOrWhiteSpace(parkingLot.Longitude))
+                            {
+                                mapsLink = $"https://www.google.com/maps?q={parkingLot.Latitude},{parkingLot.Longitude}";
+                            }
+
+                             _ = _emailService.SendBookingConfirmationEmailAsync(
+                                user.Email,
+                                userName,
+                                session.QrCode,
+                                session.ParkingLotName ?? "PM System Central",
+                                session.ParkingSlot ?? "Tự động phân bổ",
+                                session.LicensePlate.ToUpper(),
+                                mapsLink,
+                                session.ReservationDate,
+                                session.ReservationStartTime,
+                                session.ReservationEndTime
+                            );
+                        }
+                    }
+
+                    // Đồng thời gán SessionId và LicensePlate cho payment record
+                    var savedPayment = await _context.Payments.FirstOrDefaultAsync(p => p.TransactionId == vnpTxnRef);
+                    if (savedPayment != null)
+                    {
+                        savedPayment.SessionId = session.Id;
+                        savedPayment.LicensePlate = session.LicensePlate;
+                        if (session.UserId.HasValue)
+                        {
+                            savedPayment.UserId = session.UserId.Value;
+                        }
+                        await _context.SaveChangesAsync();
+                    }
+                }
             }
 
             return Ok(new

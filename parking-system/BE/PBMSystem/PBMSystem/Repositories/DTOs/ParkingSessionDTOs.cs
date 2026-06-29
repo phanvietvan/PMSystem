@@ -8,6 +8,7 @@ public class CheckInRequest
     public string? VehicleType { get; set; }
     public string? ReservationDate { get; set; }
     public string? ReservationStartTime { get; set; }
+    public string? ReservationEndTime { get; set; }
     public string? ParkingSlot { get; set; }
     public System.Guid? UserId { get; set; }
     public decimal? PrepaidAmount { get; set; }

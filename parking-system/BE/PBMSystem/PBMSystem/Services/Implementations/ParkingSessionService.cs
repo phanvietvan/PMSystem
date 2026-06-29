@@ -56,6 +56,27 @@ public class ParkingSessionService : IParkingSessionService
             }
         }
 
+        if (!string.IsNullOrEmpty(request.ReservationDate))
+        {
+            if (string.IsNullOrEmpty(request.ReservationStartTime) || string.IsNullOrEmpty(request.ReservationEndTime))
+            {
+                return ServiceResult<ParkingSession>.BadRequest("Thời gian bắt đầu và kết thúc đặt chỗ không được để trống.");
+            }
+
+            if (DateTime.TryParse($"{request.ReservationDate} {request.ReservationStartTime}", out var startTimeObj) &&
+                DateTime.TryParse($"{request.ReservationDate} {request.ReservationEndTime}", out var endTimeObj))
+            {
+                if (endTimeObj <= startTimeObj)
+                {
+                    return ServiceResult<ParkingSession>.BadRequest("Giờ kết thúc phải sau giờ bắt đầu.");
+                }
+            }
+            else
+            {
+                return ServiceResult<ParkingSession>.BadRequest("Định dạng ngày hoặc giờ đặt chỗ không hợp lệ.");
+            }
+        }
+
         Guid? userId = request.UserId;
         if (!userId.HasValue && authenticatedUserId.HasValue)
         {
@@ -90,6 +111,7 @@ public class ParkingSessionService : IParkingSessionService
             VehicleType = request.VehicleType,
             ReservationDate = request.ReservationDate,
             ReservationStartTime = request.ReservationStartTime,
+            ReservationEndTime = request.ReservationEndTime,
             ParkingSlot = request.ParkingSlot,
             IsCheckedIn = string.IsNullOrEmpty(request.ReservationDate)
         };
@@ -140,7 +162,10 @@ public class ParkingSessionService : IParkingSessionService
                 request.ParkingLotName ?? "PM System Central",
                 request.ParkingSlot ?? "Tự động phân bổ",
                 request.LicensePlate.ToUpper(),
-                mapsLink
+                mapsLink,
+                request.ReservationDate,
+                request.ReservationStartTime,
+                request.ReservationEndTime
             );
         }
 
@@ -327,15 +352,21 @@ public class ParkingSessionService : IParkingSessionService
             totalSurcharge = request.ExtraFees.Sum(f => f.Amount);
         }
 
+        var completedPaymentsList = await _paymentRepository.FindAsync(p => p.SessionId == session.Id && p.Status == "Completed");
+        decimal prepaidAmount = completedPaymentsList.Sum(p => p.Amount);
+
         var baseFee = CalculateFee(session.EntryTime, session.ExitTime.Value, session.VehicleType);
         var fee = baseFee + totalSurcharge;
+
+        // Option 1: Prepaid amount is non-refundable. Remaining check-out fee = Max(0, fee - prepaidAmount)
+        decimal checkoutAmount = Math.Max(0, fee - prepaidAmount);
 
         var payment = new Payment
         {
             SessionId = session.Id,
             UserId = session.UserId,
             LicensePlate = session.LicensePlate,
-            Amount = fee,
+            Amount = checkoutAmount,
             TransactionTime = DateTime.UtcNow,
             PaymentMethod = "Online",
             Status = "Completed",
@@ -346,10 +377,62 @@ public class ParkingSessionService : IParkingSessionService
         _sessionRepository.Update(session);
         await _sessionRepository.SaveChangesAsync();
 
+        // Calculate early checkout messages & Send Email
+        string plannedEndTimeStr = "";
+        string refundMessage = "";
+        if (!string.IsNullOrEmpty(session.ReservationEndTime) && !string.IsNullOrEmpty(session.ReservationDate))
+        {
+            plannedEndTimeStr = $"{session.ReservationDate} {session.ReservationEndTime}";
+            if (DateTime.TryParse(plannedEndTimeStr, out var plannedEndDateTime))
+            {
+                var localExitTime = session.ExitTime.Value.AddHours(7);
+                if (plannedEndDateTime - localExitTime > TimeSpan.FromMinutes(15))
+                {
+                    if (prepaidAmount > 0 && fee < prepaidAmount)
+                    {
+                        refundMessage = "Bạn đã trả xe sớm hơn dự kiến. Theo chính sách của hệ thống, số tiền đặt chỗ trước không được hoàn lại.";
+                    }
+                }
+            }
+        }
+
+        User? user = null;
+        if (session.UserId.HasValue)
+        {
+            user = await _userRepository.GetByIdAsync(session.UserId.Value);
+        }
+
+        if (user != null && !string.IsNullOrWhiteSpace(user.Email))
+        {
+            var userName = !string.IsNullOrWhiteSpace(user.FirstName) || !string.IsNullOrWhiteSpace(user.LastName)
+                ? $"{user.FirstName} {user.LastName}".Trim()
+                : (user.Username ?? "Khách hàng");
+
+            var entryTimeStr = session.EntryTime.AddHours(7).ToString("dd-MM-yyyy HH:mm");
+            var exitTimeStr = session.ExitTime.Value.AddHours(7).ToString("dd-MM-yyyy HH:mm");
+
+            _ = _emailService.SendCheckoutInvoiceEmailAsync(
+                user.Email,
+                userName,
+                session.ParkingLotName ?? "PM System Central",
+                session.ParkingSlot ?? "Tự động phân bổ",
+                session.LicensePlate.ToUpper(),
+                entryTimeStr,
+                exitTimeStr,
+                !string.IsNullOrEmpty(session.ReservationEndTime) ? $"{session.ReservationDate} {session.ReservationEndTime}" : "N/A",
+                baseFee,
+                totalSurcharge,
+                fee,
+                prepaidAmount,
+                checkoutAmount,
+                refundMessage
+            );
+        }
+
         return ServiceResult<CheckOutResponse>.Ok(new CheckOutResponse
         {
             Session = session,
-            Fee = fee,
+            Fee = checkoutAmount,
             IsPlateMatched = session.IsPlateMatched ?? false,
             Message = session.IsPlateMatched == true
                 ? "Xác thực thành công. Cho phép xe ra."
