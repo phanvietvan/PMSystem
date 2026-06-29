@@ -46,11 +46,11 @@ public class PaymentsController : ControllerBase
             return BadRequest(new { message = result.Message });
         }
 
-        dynamic? data = result.Data;
+        var data = result.Data;
         return Ok(new
         {
-            paymentUrl = data?.paymentUrl,
-            txnRef = data?.txnRef,
+            paymentUrl = data?.PaymentUrl,
+            txnRef = data?.TxnRef,
             message = result.Message
         });
     }

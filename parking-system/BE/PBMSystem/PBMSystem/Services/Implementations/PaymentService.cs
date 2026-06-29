@@ -44,7 +44,7 @@ namespace Services.Implementations
             return ApiResponse<Payment>.Ok(payment);
         }
 
-        public async Task<ApiResponse<object>> CreateVnPayPaymentUrlAsync(
+        public async Task<ApiResponse<VnPayPaymentUrlResponse>> CreateVnPayPaymentUrlAsync(
             VnPayCreatePaymentRequest request,
             string? clientIp)
         {
@@ -52,7 +52,7 @@ namespace Services.Implementations
 
             if (request.Amount <= 0)
             {
-                return ApiResponse<object>.Fail(
+                return ApiResponse<VnPayPaymentUrlResponse>.Fail(
                     "Số tiền thanh toán không hợp lệ.");
             }
 
@@ -108,11 +108,11 @@ namespace Services.Implementations
                 _vnPaySettings.HashSecret,
                 requestData);
 
-            return ApiResponse<object>.Ok(
-                new
+            return ApiResponse<VnPayPaymentUrlResponse>.Ok(
+                new VnPayPaymentUrlResponse
                 {
-                    paymentUrl,
-                    txnRef
+                    PaymentUrl = paymentUrl,
+                    TxnRef = txnRef
                 },
                 "URL thanh toán VNPay đã được tạo thành công.");
         }

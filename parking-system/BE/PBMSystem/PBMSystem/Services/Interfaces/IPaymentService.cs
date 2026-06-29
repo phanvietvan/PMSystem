@@ -1,4 +1,4 @@
-﻿using Repositories.DTOs;
+using Repositories.DTOs;
 using Repositories.Entities;
 using System;
 using System.Collections.Generic;
@@ -14,7 +14,7 @@ namespace Services.Interfaces
 
         Task<ApiResponse<Payment>> GetPaymentByIdAsync(Guid id);
 
-        Task<ApiResponse<object>> CreateVnPayPaymentUrlAsync(
+        Task<ApiResponse<VnPayPaymentUrlResponse>> CreateVnPayPaymentUrlAsync(
             VnPayCreatePaymentRequest request,
             string? clientIp);
 
