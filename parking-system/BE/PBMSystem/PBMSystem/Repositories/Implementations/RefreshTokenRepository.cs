@@ -13,7 +13,11 @@ public class RefreshTokenRepository : Repository<RefreshToken>, IRefreshTokenRep
         var rt = await _dbSet.FirstOrDefaultAsync(t => t.Token == token && !t.IsRevoked);
         if (rt != null)
         {
-            rt.User = await _context.Users.FindAsync(rt.UserId);
+            var user = await _context.Users.FindAsync(rt.UserId);
+            if (user != null)
+            {
+                rt.User = user;
+            }
         }
         return rt;
     }
