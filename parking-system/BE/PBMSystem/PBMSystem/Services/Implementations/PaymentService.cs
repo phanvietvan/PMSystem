@@ -15,13 +15,25 @@ namespace Services.Implementations
     public class PaymentService : IPaymentService
     {
         private readonly IPaymentRepository _paymentRepository;
+        private readonly IParkingSessionRepository _sessionRepository;
+        private readonly IUserRepository _userRepository;
+        private readonly IRepository<ParkingLot> _lotRepository;
+        private readonly IEmailService _emailService;
         private readonly VnPaySettings _vnPaySettings;
 
         public PaymentService(
             IPaymentRepository paymentRepository,
+            IParkingSessionRepository sessionRepository,
+            IUserRepository userRepository,
+            IRepository<ParkingLot> lotRepository,
+            IEmailService emailService,
             IOptions<VnPaySettings> vnPayOptions)
         {
             _paymentRepository = paymentRepository;
+            _sessionRepository = sessionRepository;
+            _userRepository = userRepository;
+            _lotRepository = lotRepository;
+            _emailService = emailService;
             _vnPaySettings = vnPayOptions.Value;
         }
 
@@ -44,7 +56,7 @@ namespace Services.Implementations
             return ApiResponse<Payment>.Ok(payment);
         }
 
-        public async Task<ApiResponse<object>> CreateVnPayPaymentUrlAsync(
+        public async Task<ApiResponse<VnPayPaymentUrlResponse>> CreateVnPayPaymentUrlAsync(
             VnPayCreatePaymentRequest request,
             string? clientIp)
         {
@@ -52,7 +64,7 @@ namespace Services.Implementations
 
             if (request.Amount <= 0)
             {
-                return ApiResponse<object>.Fail(
+                return ApiResponse<VnPayPaymentUrlResponse>.Fail(
                     "Số tiền thanh toán không hợp lệ.");
             }
 
@@ -108,11 +120,11 @@ namespace Services.Implementations
                 _vnPaySettings.HashSecret,
                 requestData);
 
-            return ApiResponse<object>.Ok(
-                new
+            return ApiResponse<VnPayPaymentUrlResponse>.Ok(
+                new VnPayPaymentUrlResponse
                 {
-                    paymentUrl,
-                    txnRef
+                    PaymentUrl = paymentUrl,
+                    TxnRef = txnRef
                 },
                 "URL thanh toán VNPay đã được tạo thành công.");
         }
@@ -206,6 +218,70 @@ namespace Services.Implementations
 
                         await _paymentRepository
                             .SaveChangesAsync();
+                    }
+
+                    // Cập nhật ParkingSession tương ứng và gửi email!
+                    var qrCode = vnpTxnRef.Replace("PAY-", "");
+                    var session = await _sessionRepository.FirstOrDefaultAsync(ps => ps.QrCode == qrCode);
+
+                    if (session != null)
+                    {
+                        // Cập nhật session status thành Active nếu nó đang là PendingPayment
+                        if (session.Status == "PendingPayment")
+                        {
+                            session.Status = "Active";
+                            session.UpdatedAt = DateTime.UtcNow;
+                            _sessionRepository.Update(session);
+                            await _sessionRepository.SaveChangesAsync();
+
+                            // Gửi email xác nhận đặt chỗ ở đây!
+                            User? user = null;
+                            if (session.UserId.HasValue)
+                            {
+                                user = await _userRepository.GetByIdAsync(session.UserId.Value);
+                            }
+
+                            if (user != null && !string.IsNullOrWhiteSpace(user.Email))
+                            {
+                                var userName = !string.IsNullOrWhiteSpace(user.FirstName) || !string.IsNullOrWhiteSpace(user.LastName)
+                                    ? $"{user.FirstName} {user.LastName}".Trim()
+                                    : (user.Username ?? "Khách hàng");
+
+                                string mapsLink = "";
+                                var parkingLot = await _lotRepository.FirstOrDefaultAsync(l => l.Name == session.ParkingLotName);
+                                if (parkingLot != null && !string.IsNullOrWhiteSpace(parkingLot.Latitude) && !string.IsNullOrWhiteSpace(parkingLot.Longitude))
+                                {
+                                    mapsLink = $"https://www.google.com/maps?q={parkingLot.Latitude},{parkingLot.Longitude}";
+                                }
+
+                                _ = _emailService.SendBookingConfirmationEmailAsync(
+                                    user.Email,
+                                    userName,
+                                    session.QrCode,
+                                    session.ParkingLotName ?? "PM System Central",
+                                    session.ParkingSlot ?? "Tự động phân bổ",
+                                    session.LicensePlate.ToUpper(),
+                                    mapsLink,
+                                    session.ReservationDate,
+                                    session.ReservationStartTime,
+                                    session.ReservationEndTime
+                                );
+                            }
+                        }
+
+                        // Đồng thời gán SessionId và LicensePlate cho payment record
+                        var savedPayment = await _paymentRepository.GetByTransactionIdAsync(vnpTxnRef);
+                        if (savedPayment != null)
+                        {
+                            savedPayment.SessionId = session.Id;
+                            savedPayment.LicensePlate = session.LicensePlate;
+                            if (session.UserId.HasValue)
+                            {
+                                savedPayment.UserId = session.UserId.Value;
+                            }
+                            await _paymentRepository.UpdateAsync(savedPayment);
+                            await _paymentRepository.SaveChangesAsync();
+                        }
                     }
                 }
 

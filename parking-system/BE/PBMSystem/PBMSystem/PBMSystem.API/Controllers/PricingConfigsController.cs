@@ -22,19 +22,22 @@ public class PricingConfigsController : ControllerBase
 
     [HttpGet]
     [ProducesResponseType(
-        typeof(ApiResponse<IEnumerable<PricingConfig>>),
+        typeof(IEnumerable<PricingConfig>),
         StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll()
     {
         var result =
             await _pricingConfigService.GetAllAsync();
 
-        return Ok(result);
+        if (!result.Success)
+            return BadRequest(new { message = result.Message });
+
+        return Ok(result.Data);
     }
 
     [HttpPost]
     [ProducesResponseType(
-        typeof(ApiResponse<IEnumerable<PricingConfig>>),
+        typeof(IEnumerable<PricingConfig>),
         StatusCodes.Status200OK)]
     public async Task<IActionResult> SaveAll(
         [FromBody] List<PricingConfigDto> items)
@@ -43,8 +46,8 @@ public class PricingConfigsController : ControllerBase
             await _pricingConfigService.SaveAllAsync(items);
 
         return result.Success
-            ? Ok(result)
-            : BadRequest(result);
+            ? Ok(result.Data)
+            : BadRequest(new { message = result.Message });
     }
 }
 

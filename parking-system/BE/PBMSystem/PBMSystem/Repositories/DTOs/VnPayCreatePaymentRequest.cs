@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -13,5 +13,11 @@ namespace Repositories.DTOs
         public string? OrderInfo { get; set; }
 
         public string? OrderId { get; set; }
+    }
+
+    public class VnPayPaymentUrlResponse
+    {
+        public string PaymentUrl { get; set; } = string.Empty;
+        public string TxnRef { get; set; } = string.Empty;
     }
 }

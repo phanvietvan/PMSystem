@@ -139,6 +139,7 @@ const PaymentPage = () => {
         }
         const reservationDate = localStorage.getItem('reservationDate') || '';
         const reservationStartTime = localStorage.getItem('reservationStartTime') || '';
+        const reservationEndTime = localStorage.getItem('reservationEndTime') || '';
         const reservationVehicleType = localStorage.getItem('reservationVehicleType') || 'car';
         const reservationLicensePlate = parseLicensePlate(localStorage.getItem('reservationLicensePlate') || licensePlate);
         const selectedSlot = localStorage.getItem('selectedSlot') || 'A3';
@@ -156,6 +157,7 @@ const PaymentPage = () => {
           vehicleType: reservationVehicleType,
           reservationDate,
           reservationStartTime,
+          reservationEndTime,
           parkingSlot: selectedSlot,
           userId: loggedInUserId,
           prepaidAmount: 0 // Chưa thanh toán, sẽ xác nhận sau khi VNPay trả về
@@ -170,6 +172,7 @@ const PaymentPage = () => {
 
         localStorage.removeItem('reservationDate');
         localStorage.removeItem('reservationStartTime');
+        localStorage.removeItem('reservationEndTime');
         localStorage.removeItem('reservationVehicleType');
         localStorage.removeItem('reservationLicensePlate');
       }
@@ -240,6 +243,7 @@ const PaymentPage = () => {
         }
         const reservationDate = localStorage.getItem('reservationDate') || '';
         const reservationStartTime = localStorage.getItem('reservationStartTime') || '';
+        const reservationEndTime = localStorage.getItem('reservationEndTime') || '';
         const reservationVehicleType = localStorage.getItem('reservationVehicleType') || 'car';
         const reservationLicensePlate = parseLicensePlate(localStorage.getItem('reservationLicensePlate') || licensePlate);
         const selectedSlot = localStorage.getItem('selectedSlot') || 'A3';
@@ -257,6 +261,7 @@ const PaymentPage = () => {
           vehicleType: reservationVehicleType,
           reservationDate,
           reservationStartTime,
+          reservationEndTime,
           parkingSlot: selectedSlot,
           userId: loggedInUserId,
           prepaidAmount: price
@@ -267,6 +272,7 @@ const PaymentPage = () => {
         }
         localStorage.removeItem('reservationDate');
         localStorage.removeItem('reservationStartTime');
+        localStorage.removeItem('reservationEndTime');
         localStorage.removeItem('reservationVehicleType');
         localStorage.removeItem('reservationLicensePlate');
       } catch (e: any) {
@@ -306,7 +312,7 @@ const PaymentPage = () => {
       : (localStorage.getItem('reservationDate') ? new Date(localStorage.getItem('reservationDate')!).toLocaleDateString(language === 'en' ? 'en-US' : 'vi-VN') : new Date().toLocaleDateString(language === 'en' ? 'en-US' : 'vi-VN')),
     time: mode === 'checkout' && checkoutSession
       ? new Date(checkoutSession.entryTime || checkoutSession.EntryTime).toLocaleTimeString(language === 'en' ? 'en-US' : 'vi-VN', { hour: '2-digit', minute: '2-digit' })
-      : (localStorage.getItem('reservationStartTime') || new Date().toLocaleTimeString(language === 'en' ? 'en-US' : 'vi-VN', { hour: '2-digit', minute: '2-digit' })),
+      : `${localStorage.getItem('reservationStartTime') || ''} - ${localStorage.getItem('reservationEndTime') || ''}`,
     slot: mode === 'checkout' && checkoutSession
       ? (checkoutSession.parkingSlot || checkoutSession.ParkingSlot)
       : (localStorage.getItem('selectedSlot') || 'A3'),
