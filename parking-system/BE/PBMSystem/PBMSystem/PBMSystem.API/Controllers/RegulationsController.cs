@@ -1,7 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Repositories;
-using Repositories.Entities;
+using Services.Interfaces;
 
 namespace PBMSystem.API.Controllers;
 
@@ -10,47 +8,28 @@ namespace PBMSystem.API.Controllers;
 [Produces("application/json")]
 public class RegulationsController : ControllerBase
 {
-    private readonly AppDbContext _db;
-    public RegulationsController(AppDbContext db) => _db = db;
+    private readonly IRegulationService _regulationService;
+
+    public RegulationsController(IRegulationService regulationService)
+    {
+        _regulationService = regulationService;
+    }
 
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var regs = await _db.Regulations
-            .Where(r => r.IsActive)
-            .OrderBy(r => r.OrderIndex)
-            .ToListAsync();
-        return Ok(regs);
+        var result = await _regulationService.GetAllAsync();
+        return Ok(result);
     }
 
     [HttpPost]
     public async Task<IActionResult> SaveAll([FromBody] List<string> items)
     {
-        // Soft-delete all existing regulations
-        var existing = await _db.Regulations.ToListAsync();
-        foreach (var e in existing)
-        {
-            e.IsDeleted = true;
-        }
-        await _db.SaveChangesAsync();
+        var result = await _regulationService.SaveAllAsync(items);
 
-        // Insert new regulations
-        for (int i = 0; i < items.Count; i++)
-        {
-            var reg = new Regulation
-            {
-                Content = items[i],
-                OrderIndex = i,
-                IsActive = true
-            };
-            await _db.Regulations.AddAsync(reg);
-        }
-        await _db.SaveChangesAsync();
+        if (!result.Success)
+            return BadRequest(result);
 
-        var updated = await _db.Regulations
-            .Where(r => r.IsActive)
-            .OrderBy(r => r.OrderIndex)
-            .ToListAsync();
-        return Ok(updated);
+        return Ok(result.Data);
     }
 }

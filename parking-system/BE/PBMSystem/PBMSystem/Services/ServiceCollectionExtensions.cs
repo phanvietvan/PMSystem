@@ -4,11 +4,6 @@ using Services.Interfaces;
 
 namespace Services;
 
-/// <summary>
-/// Registers all Services layer dependencies into the DI container.
-/// Call services.AddPBMServices() in Program.cs.
-/// Add new service registrations here as features grow.
-/// </summary>
 public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddPBMServices(this IServiceCollection services)
@@ -19,8 +14,17 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IParkingSessionService, ParkingSessionService>();
         services.AddScoped<IBlacklistService, BlacklistService>();
 
-        // ── Add new services here ────────────────────────────────────────────
-        // services.AddScoped<IUserProfileService, UserProfileService>();
+        // Incident Service
+        services.AddScoped<IIncidentService, IncidentService>();
+
+        // Notification Service
+        services.AddScoped<INotificationService, NotificationService>();
+
+        // Regulation Service
+        services.AddScoped<IRegulationService, RegulationService>();
+
+        // Report Service
+        services.AddScoped<IReportService, ReportService>();
 
         return services;
     }

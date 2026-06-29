@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Options;
 using Repositories.Configuration;
 using Repositories.DTOs;
 using Repositories.Entities;
@@ -48,6 +48,8 @@ namespace Services.Implementations
             VnPayCreatePaymentRequest request,
             string? clientIp)
         {
+            await Task.CompletedTask;
+
             if (request.Amount <= 0)
             {
                 return ApiResponse<object>.Fail(
