@@ -70,6 +70,26 @@ public class ParkingSessionService : IParkingSessionService
                 {
                     return ServiceResult<ParkingSession>.BadRequest("Giờ kết thúc phải sau giờ bắt đầu.");
                 }
+
+                // Check overlap with existing reservations for the same slot on the same day
+                var existingSessions = await _sessionRepository.FindAsync(ps =>
+                    (ps.Status == "Active" || ps.Status == "PendingPayment") &&
+                    ps.ParkingLotName == request.ParkingLotName &&
+                    ps.ParkingSlot == request.ParkingSlot &&
+                    ps.ReservationDate == request.ReservationDate);
+
+                foreach (var ps in existingSessions)
+                {
+                    if (DateTime.TryParse($"{ps.ReservationDate} {ps.ReservationStartTime}", out var existStart) &&
+                        DateTime.TryParse($"{ps.ReservationDate} {ps.ReservationEndTime}", out var existEnd))
+                    {
+                        if (startTimeObj < existEnd && endTimeObj > existStart)
+                        {
+                            return ServiceResult<ParkingSession>.BadRequest(
+                                $"Vị trí đỗ {request.ParkingSlot} tại {request.ParkingLotName} đã được đặt trong khung giờ từ {ps.ReservationStartTime} đến {ps.ReservationEndTime} cùng ngày. Vui lòng chọn khung giờ hoặc vị trí khác!");
+                        }
+                    }
+                }
             }
             else
             {
