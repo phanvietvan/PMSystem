@@ -600,18 +600,10 @@ const ActiveSessionPage = () => {
                       <p className="text-[10px] text-on-surface-variant font-medium mt-1">{language === 'en' ? 'Present this code at the exit gate scanner for verification & auto-payment' : 'Trình mã này trước máy quét tại cổng ra để đối chiếu & thanh toán'}</p>
                     </div>
 
-                     <div 
-                      onClick={() => navigate('/payment', { state: { mode: 'checkout', checkoutQr: session.qr } })}
-                      className="relative w-48 h-48 bg-white border border-outline-variant/30 rounded-2xl mx-auto flex flex-col items-center justify-center p-4 cursor-pointer group hover:border-primary hover:shadow-lg transition-all"
+                      <div 
+                      className="relative w-48 h-48 bg-white border border-outline-variant/30 rounded-2xl mx-auto flex flex-col items-center justify-center p-4"
                     >
                       <SessionQr qr={session.qr} language={language} />
-                      
-                      <div className="absolute inset-0 bg-primary/5 flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl">
-                        <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center shadow-md">
-                          <Zap className="w-5 h-5 fill-white" />
-                        </div>
-                        <span className="text-[9px] font-black text-primary uppercase tracking-widest">{language === 'en' ? 'Simulate Exit Scan' : 'Giả lập quét lối ra'}</span>
-                      </div>
                     </div>
 
                     <p className="text-[10px] font-mono text-outline font-semibold tracking-wider">
