@@ -201,4 +201,14 @@ public class ParkingSessionsController : ControllerBase
 
         return Ok(new { message = "Pricing saved successfully." });
     }
+
+    [HttpPost("{id:guid}/extend")]
+    public async Task<IActionResult> Extend(Guid id, [FromBody] ExtendSessionRequest request)
+    {
+        var result = await _sessionService.ExtendSessionAsync(id, request.NewEndTime);
+        if (!result.Success)
+            return StatusCode(result.StatusCode, new { message = result.ErrorMessage });
+
+        return Ok(new { message = "Gia hạn thời gian đỗ xe thành công.", session = result.Data });
+    }
 }

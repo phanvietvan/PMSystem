@@ -39,6 +39,11 @@ public class ChangeSlotRequest
     public string NewSlot { get; set; } = string.Empty;
 }
 
+public class ExtendSessionRequest
+{
+    public string NewEndTime { get; set; } = string.Empty;
+}
+
 public class ServiceResult<T>
 {
     public bool Success { get; set; }
