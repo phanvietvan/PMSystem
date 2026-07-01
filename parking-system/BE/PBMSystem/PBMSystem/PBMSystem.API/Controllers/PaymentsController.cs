@@ -178,7 +178,7 @@ public class PaymentsController : ControllerBase
                 // Cập nhật ParkingSession tương ứng và gửi email!
                 var qrCode = vnpTxnRef.Replace("PAY-", "");
                 var session = await _context.ParkingSessions
-                    .FirstOrDefaultAsync(ps => ps.QrCode == qrCode);
+                    .FirstOrDefaultAsync(ps => ps.QrCode.StartsWith(qrCode));
 
                 if (session != null)
                 {
