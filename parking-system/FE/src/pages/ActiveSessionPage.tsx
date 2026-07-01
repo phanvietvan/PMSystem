@@ -50,7 +50,6 @@ const getLevelFromSlot = (slot: string | null | undefined): string => {
 };
 
 interface SessionData {
-  id?: string;
   qr: string;
   licensePlate: string;
   slot: string;
@@ -65,7 +64,6 @@ interface SessionData {
   isPlateMatched?: boolean;
   parkingLotName?: string;
   vehicleType?: string;
-  reservationEndTime?: string;
 }
 
 const ActiveSessionPage = () => {
@@ -73,56 +71,6 @@ const ActiveSessionPage = () => {
   const [sessions, setSessions] = useState<SessionData[]>([]);
   const [loading, setLoading] = useState(true);
   const { t, language } = useSettings();
-
-  const [activeExtendId, setActiveExtendId] = useState<string | null>(null);
-  const [newEndTime, setNewEndTime] = useState<string>('');
-  const [extending, setExtending] = useState<boolean>(false);
-  const [extendError, setExtendError] = useState<string | null>(null);
-
-  const calculateDefaultNextHour = (timeStr: string): string => {
-    try {
-      const [h, m] = timeStr.split(':');
-      let hour = parseInt(h, 10) + 1;
-      if (hour >= 24) hour = 0;
-      return `${hour.toString().padStart(2, '0')}:${m}`;
-    } catch (e) {
-      return '18:00';
-    }
-  };
-
-  const handleExtendSession = async (sessionId: string, qrCode: string) => {
-    if (!sessionId) {
-      setExtendError(language === 'en' ? 'Session ID not found.' : 'Không tìm thấy ID phiên.');
-      return;
-    }
-    if (!newEndTime) {
-      setExtendError(language === 'en' ? 'Please choose end time.' : 'Vui lòng chọn giờ kết thúc.');
-      return;
-    }
-
-    setExtending(true);
-    setExtendError(null);
-
-    try {
-      const response = await api.post(`/ParkingSessions/${sessionId}/extend`, {
-        newEndTime: newEndTime
-      });
-      if (response.data) {
-        alert(language === 'en' ? 'Extending parking time successful!' : 'Gia hạn thời gian đỗ xe thành công!');
-        setActiveExtendId(null);
-        window.location.reload();
-      }
-    } catch (err: any) {
-      console.error(err);
-      const defaultErr = language === 'en'
-        ? 'Could not extend session. Please check if slot is reserved or select different time.'
-        : 'Không thể gia hạn. Vui lòng kiểm tra xem slot đã được đặt trước hoặc chọn giờ khác.';
-      const errMsg = err.response?.data?.message || defaultErr;
-      setExtendError(errMsg);
-    } finally {
-      setExtending(false);
-    }
-  };
 
   useEffect(() => {
     let isMounted = true;
@@ -163,7 +111,6 @@ const ActiveSessionPage = () => {
               }
 
               results.push({
-                id: s.id || s.Id,
                 qr: sQrCode,
                 licensePlate: parseLicensePlate(sLicensePlate),
                 slot: sParkingSlot || 'A3',
@@ -177,8 +124,7 @@ const ActiveSessionPage = () => {
                 exitLicensePlate: s.exitLicensePlate || s.ExitLicensePlate,
                 isPlateMatched: s.isPlateMatched ?? s.IsPlateMatched,
                 parkingLotName: sParkingLotName,
-                vehicleType: s.vehicleType || s.VehicleType || 'car',
-                reservationEndTime: s.reservationEndTime || s.ReservationEndTime || ''
+                vehicleType: s.vehicleType || s.VehicleType || 'car'
               });
             }
           }
@@ -203,7 +149,6 @@ const ActiveSessionPage = () => {
                   const sParkingLotName = s.parkingLotName || s.ParkingLotName;
 
                   results.push({
-                    id: s.id || s.Id,
                     qr,
                     licensePlate: parseLicensePlate(sLicensePlate),
                     slot: sParkingSlot || 'A3',
@@ -214,8 +159,7 @@ const ActiveSessionPage = () => {
                     isCompleted: false,
                     isCancelled: false,
                     parkingLotName: sParkingLotName,
-                    vehicleType: s.vehicleType || s.VehicleType || 'car',
-                    reservationEndTime: s.reservationEndTime || s.ReservationEndTime || ''
+                    vehicleType: s.vehicleType || s.VehicleType || 'car'
                   });
                 } else {
                   removeActiveQr(qr);
@@ -248,7 +192,6 @@ const ActiveSessionPage = () => {
                 const sParkingLotName = s.parkingLotName || s.ParkingLotName;
 
                 results.push({
-                  id: s.id || s.Id,
                   qr,
                   licensePlate: parseLicensePlate(sLicensePlate),
                   slot: sParkingSlot || 'A3',
@@ -259,8 +202,7 @@ const ActiveSessionPage = () => {
                   isCompleted: false,
                   isCancelled: false,
                   parkingLotName: sParkingLotName,
-                  vehicleType: s.vehicleType || s.VehicleType || 'car',
-                  reservationEndTime: s.reservationEndTime || s.ReservationEndTime || ''
+                  vehicleType: s.vehicleType || s.VehicleType || 'car'
                 });
               } else {
                 removeActiveQr(qr);
@@ -668,69 +610,6 @@ const ActiveSessionPage = () => {
                       {language === 'en' ? 'SESSION ID' : 'MÃ SỐ PHIÊN'}: {session.qr}
                     </p>
                   </div>
-
-                  {session.reservationEndTime && !session.isCompleted && !session.isCancelled && (
-                    <div className="bg-surface-container-low border border-outline-variant/20 rounded-[2rem] p-6 text-left space-y-4">
-                      <div>
-                        <h4 className="text-xs font-black uppercase tracking-widest text-on-surface">{language === 'en' ? 'Reservation Schedule' : 'Lịch trình đặt chỗ'}</h4>
-                        <p className="text-sm font-semibold text-primary mt-1">
-                          {language === 'en' ? 'End Time: ' : 'Giờ kết thúc đăng ký: '}<span className="font-extrabold text-on-surface">{session.reservationEndTime}</span>
-                        </p>
-                      </div>
-
-                      {activeExtendId === session.qr ? (
-                        <div className="space-y-4 pt-2 border-t border-outline-variant/10">
-                          <div className="space-y-1.5">
-                            <label className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-slate-400/90 ml-1">
-                              {language === 'en' ? 'Choose New End Time' : 'Chọn giờ kết thúc mới'}
-                            </label>
-                            <input
-                              type="time"
-                              value={newEndTime}
-                              onChange={(e) => setNewEndTime(e.target.value)}
-                              className="premium-input block w-full pl-4 pr-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary/60 transition-all text-xs font-semibold bg-white"
-                            />
-                          </div>
-
-                          {extendError && (
-                            <p className="text-[10px] font-bold text-rose-500 ml-1 animate-pulse">
-                              {extendError}
-                            </p>
-                          )}
-
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleExtendSession(session.id || '', session.qr)}
-                              disabled={extending}
-                              className="flex-1 py-2 rounded-full bg-primary text-white text-xs font-bold hover:bg-primary-hover shadow-md transition-all disabled:opacity-50"
-                            >
-                              {extending ? (language === 'en' ? 'Processing...' : 'Đang xử lý...') : (language === 'en' ? 'Confirm' : 'Xác nhận')}
-                            </button>
-                            <button
-                              onClick={() => {
-                                setActiveExtendId(null);
-                                setExtendError(null);
-                              }}
-                              className="flex-1 py-2 rounded-full border border-outline-variant text-on-surface text-xs font-bold hover:bg-surface-container-high transition-all"
-                            >
-                              {language === 'en' ? 'Cancel' : 'Hủy'}
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            setActiveExtendId(session.qr);
-                            setNewEndTime(calculateDefaultNextHour(session.reservationEndTime || ''));
-                          }}
-                          className="w-full py-2.5 rounded-full border border-primary/30 text-primary text-xs font-extrabold hover:bg-primary/5 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-                        >
-                          <Zap size={14} className="fill-primary text-primary" />
-                          {language === 'en' ? 'Extend Parking Time' : 'Gia hạn thời gian đỗ'}
-                        </button>
-                      )}
-                    </div>
-                  )}
 
                   <div className="flex items-center gap-4">
                      <div className="w-12 h-12 rounded-2xl bg-surface-container flex items-center justify-center">
