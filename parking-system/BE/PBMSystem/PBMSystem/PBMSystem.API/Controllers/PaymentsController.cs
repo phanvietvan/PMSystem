@@ -9,6 +9,7 @@ using Repositories;
 using Repositories.Entities;
 using Repositories.Configuration;
 using Services.Implementations;
+using Services.Interfaces;
 
 namespace PBMSystem.API.Controllers;
 
@@ -19,11 +20,16 @@ public class PaymentsController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly VnPaySettings _vnPaySettings;
+    private readonly IEmailService _emailService;
 
-    public PaymentsController(AppDbContext context, IOptions<VnPaySettings> vnPayOptions)
+    public PaymentsController(
+        AppDbContext context,
+        IOptions<VnPaySettings> vnPayOptions,
+        IEmailService emailService)
     {
         _context = context;
         _vnPaySettings = vnPayOptions.Value;
+        _emailService = emailService;
     }
 
     // ── Existing Endpoints ────────────────────────────────────────────────────

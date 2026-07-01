@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
+using Repositories;
 using Repositories.Entities;
 using Repositories.Interfaces;
 using Services.Interfaces;

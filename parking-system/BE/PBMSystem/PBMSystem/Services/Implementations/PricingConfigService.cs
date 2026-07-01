@@ -1,5 +1,6 @@
-﻿using Repositories.DTOs;
+using Repositories.DTOs;
 using Repositories.Entities;
+using Repositories.Interfaces;
 using Services.Interfaces;
 using System;
 using System.Collections.Generic;
@@ -30,27 +31,18 @@ namespace Services.Implementations
         public async Task<ApiResponse<IEnumerable<PricingConfig>>> SaveAllAsync(
             List<PricingConfigDto> items)
         {
-            var existing =
-                await _repository.GetAllIncludingDeletedAsync();
-
-            foreach (var config in existing)
-            {
-                config.IsDeleted = true;
-            }
+            await _repository.SoftDeleteAllAsync();
 
             await _repository.SaveChangesAsync();
 
-            foreach (var item in items)
+            var configsToInsert = items.Select(item => new PricingConfig
             {
-                var config = new PricingConfig
-                {
-                    Type = item.Type,
-                    Price = item.Price,
-                    Sub = item.Sub
-                };
+                Type = item.Type,
+                Price = item.Price,
+                Sub = item.Sub
+            }).ToList();
 
-                await _repository.AddAsync(config);
-            }
+            await _repository.AddRangeAsync(configsToInsert);
 
             await _repository.SaveChangesAsync();
 
