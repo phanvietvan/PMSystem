@@ -73,6 +73,26 @@ public class ParkingSessionService : IParkingSessionService
                 {
                     return ServiceResult<ParkingSession>.BadRequest("Giờ kết thúc phải sau giờ bắt đầu.");
                 }
+
+                // Check overlap with existing reservations for the same slot on the same day
+                var existingSessions = await _sessionRepository.FindAsync(ps =>
+                    (ps.Status == "Active" || ps.Status == "PendingPayment") &&
+                    ps.ParkingLotName == request.ParkingLotName &&
+                    ps.ParkingSlot == request.ParkingSlot &&
+                    ps.ReservationDate == request.ReservationDate);
+
+                foreach (var ps in existingSessions)
+                {
+                    if (DateTime.TryParse($"{ps.ReservationDate} {ps.ReservationStartTime}", out var existStart) &&
+                        DateTime.TryParse($"{ps.ReservationDate} {ps.ReservationEndTime}", out var existEnd))
+                    {
+                        if (startTimeObj < existEnd && endTimeObj > existStart)
+                        {
+                            return ServiceResult<ParkingSession>.BadRequest(
+                                $"Vị trí đỗ {request.ParkingSlot} tại {request.ParkingLotName} đã được đặt trong khung giờ từ {ps.ReservationStartTime} đến {ps.ReservationEndTime} cùng ngày. Vui lòng chọn khung giờ hoặc vị trí khác!");
+                        }
+                    }
+                }
             }
             else
             {
@@ -108,7 +128,9 @@ public class ParkingSessionService : IParkingSessionService
             QrCode = qrCode,
             EntryPhoto = request.EntryPhoto,
             EntryTime = DateTime.UtcNow,
-            Status = "Active",
+            Status = (!string.IsNullOrEmpty(request.ReservationDate) && (request.PrepaidAmount ?? 0) == 0)
+                ? "PendingPayment"
+                : "Active",
             CreatedAt = DateTime.UtcNow,
             ParkingLotName = request.ParkingLotName,
             VehicleType = request.VehicleType,
@@ -145,7 +167,7 @@ public class ParkingSessionService : IParkingSessionService
             user = await _userRepository.GetByIdAsync(userId.Value);
         }
 
-        if (user != null && !string.IsNullOrWhiteSpace(user.Email) && !string.IsNullOrEmpty(request.ReservationDate))
+        if (user != null && !string.IsNullOrWhiteSpace(user.Email) && !string.IsNullOrEmpty(request.ReservationDate) && session.Status != "PendingPayment")
         {
             var userName = !string.IsNullOrWhiteSpace(user.FirstName) || !string.IsNullOrWhiteSpace(user.LastName)
                 ? $"{user.FirstName} {user.LastName}".Trim()

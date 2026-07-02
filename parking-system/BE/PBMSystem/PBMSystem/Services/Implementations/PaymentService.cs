@@ -222,7 +222,7 @@ namespace Services.Implementations
 
                     // Cập nhật ParkingSession tương ứng và gửi email!
                     var qrCode = vnpTxnRef.Replace("PAY-", "");
-                    var session = await _sessionRepository.FirstOrDefaultAsync(ps => ps.QrCode == qrCode);
+                    var session = await _sessionRepository.FirstOrDefaultAsync(ps => ps.QrCode.StartsWith(qrCode));
 
                     if (session != null)
                     {
