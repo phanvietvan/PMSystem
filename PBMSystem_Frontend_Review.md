@@ -1,253 +1,418 @@
-# HƯỚNG DẪN REVIEW CODE FRONTEND CHI TIẾT DỄ HIỂU
+# HƯỚNG DẪN REVIEW CODE FRONTEND CHI TIẾT TỪNG DÒNG
 ## HỆ THỐNG QUẢN LÝ BÃI ĐỖ XE THÔNG MINH (PM SYSTEM)
 
 > [!IMPORTANT]
-> Tài liệu này tập trung giải thích chi tiết **Cách chạy, luồng logic, và cách giải thích từng dòng code của toàn bộ Frontend** cho cả 2 project: `parking-staff` (Cổng nhân viên) và `parking-system/FE` (Cổng Admin/Khách hàng). Bạn hãy dán tài liệu này vào Word để có tài liệu thuyết trình hoàn hảo trước giảng viên.
+> Tài liệu này chứa thông tin giải thích chi tiết **từng dòng code** cho 7 thuật toán Frontend cốt lõi của hệ thống. Bạn có thể sử dụng trực tiếp tài liệu này để thuyết trình hoặc đưa vào báo cáo môn học.
 
 ---
 
-# PHẦN I: PHÂN TÍCH PROJECT NHÂN VIÊN (`parking-staff`)
+## 📌 THUẬT TOÁN 1: Quét & Giải mã QR Code trực tiếp (Real-time QR Scanning)
+*   **Vị trí file:** [App.tsx (Staff)](file:///c:/Users/Admin/Desktop/Parking%20Building%20Management%20System/parking-staff/src/App.tsx#L520-L575)
 
-Project này phục vụ riêng cho nhân viên bảo vệ vận hành bốt kiểm soát. Đặc trưng của nó là chạy trên một giao diện tối giản, tối ưu cho máy tính bảng/máy tính để bàn tại bốt.
+### 💻 Mã nguồn thuật toán:
+```typescript
+// Real-time camera QR decoding using jsQR
+useEffect(() => {
+  let active = true;
+  let frameId: number;
+  let isProcessing = false;
 
----
+  const decodeLoop = () => {
+    if (!active) return;
 
-## 📌 1. `parking-staff/src/main.tsx` - Điểm khởi đầu (Entry Point)
-*   **Dòng code hoạt động:**
-    ```typescript
-    import React from 'react'
-    import ReactDOM from 'react-dom/client'
-    import App from './App.tsx'
-    import './index.css'
+    if (gateState === 'SCANNING' && hasCameraAccess && videoRef.current && !isProcessing) {
+      const video = videoRef.current;
+      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth || 640;
+          canvas.height = video.videoHeight || 480;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            
+            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+              inversionAttempts: "dontInvert",
+            });
 
-    ReactDOM.createRoot(document.getElementById('root')!).render(
-      <React.StrictMode>
-        <App />
-      </React.StrictMode>,
-    )
-    ```
-*   **Giải thích dễ hiểu:**
-    *   `document.getElementById('root')!`: Tìm thẻ `<div>` có `id="root"` trong file `index.html`.
-    *   `ReactDOM.createRoot(...)`: Khởi tạo môi trường ảo React DOM tại thẻ này.
-    *   `.render(<App />)`: Đưa toàn bộ giao diện và logic được lập trình trong `App.tsx` vẽ lên trình duyệt.
+            if (code && code.data) {
+              isProcessing = true;
+              console.log("Webcam scanned QR successfully:", code.data);
+              handlersRef.current.triggerScan(code.data);
+              // Allow scanning again after 1.5 seconds if state didn't change
+              setTimeout(() => { isProcessing = false; }, 1500);
+            }
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      }
+    }
 
----
+    if (gateState === 'SCANNING') {
+      frameId = requestAnimationFrame(decodeLoop);
+    } else {
+      setTimeout(() => {
+        if (active) frameId = requestAnimationFrame(decodeLoop);
+      }, 1000);
+    }
+  };
 
-## 📌 2. `parking-staff/src/App.tsx` - Trái tim của App Nhân Viên
-Đây là file monolithic lớn, tích hợp Camera chụp ảnh biển số xe (OCR), máy quét QR Code, phát âm thanh và kiểm soát cổng.
+  if (hasCameraAccess && gateState === 'SCANNING') {
+    frameId = requestAnimationFrame(decodeLoop);
+  }
 
-### ⚙️ Các React State chính và mục đích:
-1.  `gateState`: Lưu trạng thái hiện tại của cổng. Nhận các giá trị:
-    *   `'SCANNING'`: Đang chờ xe tới để quét.
-    *   `'PROCESSING'`: Đang gửi ảnh/QR lên Server và đợi phân tích.
-    *   `'GATE_OPEN'`: Cổng mở, cho xe đi qua.
-    *   `'ALARM'`: Cảnh báo xe nằm trong danh sách đen hoặc vé không hợp lệ.
-2.  `scannedResult`: Lưu thông tin xe sau khi quét (Biển số xe OCR, loại xe, thời gian, mã QR).
-3.  `extraFees`: Lưu các phí phạt phụ thu phát sinh khi xe ra trễ giờ hoặc vi phạm nội quy.
-
-### 🎥 Logic dòng code kết nối Camera & Chụp ảnh OCR:
-*   **Dòng code mở camera:**
-    ```typescript
-    // Dùng API của trình duyệt để yêu cầu kết nối thiết bị camera
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-      .then(stream => {
-        if (videoRef.current) videoRef.current.srcObject = stream;
-      });
-    ```
-*   **Dòng code trích xuất ảnh OCR:**
-    Bảo vệ nhấn chụp hình biển số ➔ Vẽ khung hình hiện tại của camera lên thẻ `<canvas>` ẩn ➔ Chuyển thành chuỗi `Base64` ➔ Gửi API lên Server xử lý nhận diện.
-
-### 🔔 Logic tạo âm thanh nhân tạo (Audio Synthetics):
-Thay vì tải file nhạc MP3 nặng, App tự động tạo tần số âm thanh bằng cách dùng thư viện `AudioContext` của trình duyệt.
-*   **Chime Sound (Cổng mở thành công):** Tạo tần số nốt Đô (`523.25Hz`) rồi nâng lên nốt Mi (`659.25Hz`) tạo tiếng "ting ting" vui tươi.
-*   **Warning Sound (Cảnh báo xe xấu):** Tạo tần số nốt La trầm (`220Hz`) kéo dài tạo âm thanh báo động còi hú.
-
----
-
-## 📌 3. `parking-staff/src/index.css` & Cấu hình Config
-*   **`index.css`:** Chứa giao diện tối với các góc bo tròn siêu bo (`rounded-[2rem]`), phối hợp nền tối mờ (`bg-slate-900/80`) giúp bảo vệ không bị mỏi mắt khi làm ca đêm.
-*   **`package.json` & `vite.config.ts`:**
-    *   `package.json` định nghĩa các thư viện cài đặt.
-    *   `vite.config.ts` thiết lập cổng chạy dev mặc định là `5173` và cấu hình build tối ưu hóa cây thư mục JS.
-*   **`vercel.json`:** Cấu hình rule `"rewrites": [{"source": "/(.*)", "destination": "/"}]` để khi bảo vệ F5 tải lại trang không bị lỗi máy chủ 404 (do Single Page Application tự điều khiển route).
-
----
-
-# PHẦN II: PHÂN TÍCH CỔNG ADMIN & BÁO CÁO (`parking-system/FE`)
-
-Cổng Admin chạy trong dự án chính `parking-system/FE`, chịu trách nhiệm giám sát, thống kê và điều khiển toàn hệ thống bãi đỗ xe.
-
----
-
-## 🛡️ 1. PHÂN QUYỀN ĐƯỜNG DẪN (ROUTING GUARD CODES)
-
-### 📌 File: `ProtectedRoute.tsx` (Bảo vệ đăng nhập)
-*   **Cách chạy:** Mọi trang của Khách hàng/Admin đều nằm trong `<Route element={<ProtectedRoute />}>`.
-*   **Logic:**
-    *   Đọc JWT Token trong bộ nhớ `localStorage`.
-    *   Nếu không có: Chuyển hướng người dùng về `/login`.
-    *   Nếu có: Trả về `<Outlet />` để tiếp tục hiển thị trang đó.
-
-### 📌 File: `AdminRoute.tsx` (Bảo vệ quyền Admin)
-*   **Cách chạy:** Bao bọc xung quanh các Route quản trị như `/admin/*`.
-*   **Logic:**
-    *   Đọc thông tin user đăng nhập.
-    *   Kiểm tra `user.role` có phải là `Admin` không. Nếu là `Staff` hoặc `User` thường, hệ thống sẽ đẩy ngay về trang chủ `/` kèm cảnh báo không có quyền.
-
----
-
-## 🏛️ 2. BỐ CỤC CHUNG VÀ ĐỊNH TUYẾN (`AdminLayout.tsx` & `adminNav.ts`)
-*   **`adminNav.ts`:**
-    Định nghĩa một mảng danh sách các tab quản trị:
-    ```typescript
-    export const adminNavItems = [
-      { path: '/admin/dashboard', label: 'Bảng điều khiển', icon: LayoutDashboard },
-      { path: '/admin/users', label: 'Người dùng', icon: Users },
-      { path: '/admin/settings', label: 'Cấu hình bãi xe', icon: Settings },
-      ...
-    ]
-    ```
-*   **`AdminLayout.tsx`:**
-    *   Duyệt qua mảng `adminNavItems` để vẽ Sidebar bên trái tự động.
-    *   Bên phải render `<Outlet />` để nạp động các trang con tương ứng khi bấm menu.
-
----
-
-## 💻 3. CHI TIẾT TỪNG TRANG ADMIN (ADMIN PAGES LOGIC)
-
-### 📈 trang: `AdminDashboard.tsx` (Bảng thống kê)
-*   **Luồng hoạt động:**
-    1. Khi tải trang (`useEffect`), gọi API `/api/ParkingSessions/history` để lấy toàn bộ phiên đỗ xe.
-    2. Gom nhóm các phiên đỗ xe lại để tính toán: *Doanh thu hôm nay, số chỗ trống hiện tại, tỷ lệ đỗ xe ô tô/xe máy*.
-    3. Truyền mảng dữ liệu đã gom nhóm vào component vẽ biểu đồ `<ResponsiveContainer>` của `Recharts` để vẽ biểu đồ doanh thu hình cột cực kỳ trực quan.
-
-### 👥 Trang: `AdminUsers.tsx` (Quản lý tài khoản)
-*   **Luồng hoạt động:**
-    1. Gọi API `/api/Users` lấy toàn bộ danh sách thành viên.
-    2. Khi Admin bấm nút thay đổi quyền của một user:
-       ➔ Frontend gọi API `PUT /api/Users/{userId}/role` truyền body chứa Role mới.
-       ➔ Sau đó gọi lại hàm `fetchUsers()` để cập nhật lại danh sách hiển thị thời gian thực.
-
-### ⚠️ Trang: `AdminIncidents.tsx` (Quản lý sự cố)
-*   **Luồng hoạt động:**
-    1. Lấy danh sách sự cố được gửi từ người dùng thông qua `/api/Incidents`.
-    2. Cung cấp hộp hội thoại (Modal) xử lý: Admin nhập phương án giải quyết và chọn trạng thái `'Resolved'`.
-    3. Gọi API `PUT /api/Incidents/{id}` gửi thông tin cập nhật lên database để thông báo cho khách hàng sự cố đã được xử lý xong.
-
-### 📁 Trang: `AdminReports.tsx` (Xuất báo cáo)
-*   **Luồng hoạt động:**
-    1. Cung cấp các bộ lọc: Tìm kiếm theo ngày, bãi đỗ xe hoặc biển số xe.
-    2. Khi bấm **Export CSV**: Duyệt qua mảng dữ liệu hiện tại, chuyển đổi các trường dữ liệu ngăn cách nhau bằng dấu phẩy `","` và kết thúc dòng bằng ký tự xuống dòng `"\n"`.
-    3. Tạo thẻ link ảo, gán dữ liệu CSV dạng Blob và tự động click tải về máy.
-
-### ⚙️ Trang: `AdminSettings.tsx` (Cài đặt đơn giá & Cửa ngõ)
-*   **Luồng hoạt động:**
-    *   **Khoá ô đỗ xe bảo trì:** Admin chọn các ô đỗ xe bị hỏng (ví dụ: `A1`, `B3`) ➔ Hệ thống đẩy tên ô đỗ này vào mảng `LockedSlots` của bãi xe ➔ Gửi API lưu lại.
-    *   **Đổi giá đỗ xe:** Lưu cấu hình bảng giá dưới dạng chuỗi JSON gửi lên endpoint `/api/ParkingSessions/pricing`.
-
-### 🚫 Trang: `AdminBlacklist.tsx` (Quản lý danh sách đen)
-*   **Luồng hoạt động:**
-    1. Lưu danh sách các biển số xe bị cấm vào bãi.
-    2. Giao diện cung cấp form nhập: Biển số xe vi phạm và lý do vi phạm.
-    3. Gọi `POST /api/Blacklist` gửi lên backend. Khi nhân viên ngoài cổng quét trúng biển số này, hệ thống sẽ hú còi báo động `'ALARM'`.
-
-### 🎛️ Trang: `AdminGateControl.tsx` (Điều khiển Barrier từ xa)
-*   **Luồng hoạt động:**
-    1. Admin click chọn "Mở cổng bốt khẩn cấp" trên màn hình.
-    2. Gửi request trực tiếp đến API điều khiển thiết bị phần cứng của bốt.
-    3. Hệ thống trả về tín hiệu mở cổng để nâng thanh chắn barrier lên từ xa mà không cần vé.
-
-### 📹 Trang: `AdminMonitoring.tsx` (Xem Camera an ninh)
-*   **Luồng hoạt động:**
-    *   Hiển thị camera an ninh giả lập của bãi đỗ.
-    *   Nạp nguồn video chạy lặp lại (`loop`) để mô phỏng camera giám sát từng góc bãi gửi xe trong thời gian thực.
-
-### 📖 Trang: `AdminReservations.tsx` (Lịch sử đặt chỗ)
-*   **Luồng hoạt động:**
-    *   Danh sách theo dõi toàn bộ các phiên đặt chỗ trước trực tuyến của khách hàng.
-    *   Cho phép tìm kiếm nhanh theo mã vé QR hoặc theo biển số xe của khách.
-
-### 📝 Trang: `ReportIncidentPage.tsx` (Khách hàng gửi báo cáo sự cố)
-*   **Luồng hoạt động:**
-    1. Người dùng điền mô tả sự cố (ví dụ: *"Xe bị trầy xước ở vị trí ô A1"*).
-    2. Tải lên tệp ảnh chứng minh qua thẻ `<input type="file" accept="image/*" />`.
-    3. Đóng gói dữ liệu dạng `Multipart/Form-Data` gửi lên `POST /api/Incidents` để Admin tiếp nhận xử lý.
-
----
-
-# PHẦN III: PHÂN TÍCH LOGIC BẢN ĐỒ 2D VÀ 3D SIMULATION
-
-Điểm nhấn kỹ thuật cao nhất của hệ thống đỗ xe thông minh là giao diện bản đồ 2D Leaflet và công nghệ mô phỏng đồ họa 3D ThreeJS.
-
----
-
-## 🗺️ 1. BẢN ĐỒ 2D & CHỈ ĐƯỜNG LÀN XE
-
-### 📌 File: `ParkingMap.tsx`
-*   **Cách hoạt động của dòng code:**
-    *   Sử dụng thư viện Leaflet (`react-leaflet`). Vẽ một sơ đồ sàn bãi gửi xe dưới dạng bản đồ 2D phẳng.
-    *   Cứ mỗi 5 giây, component gọi API `/api/ParkingSessions/slots-status?parkingLotName=...` để kiểm tra trạng thái của các ô đỗ đỗ xe.
-    *   **Logic màu sắc trực quan:**
-        *   Màu Xanh lá: Ô đỗ trống.
-        *   Màu Đỏ: Ô đỗ đang có xe đỗ.
-        *   Màu Vàng: Ô đỗ đã được khách hàng khác đặt trước.
-        *   Màu Xám gạch chéo: Ô đỗ bị khóa bảo trì.
-
-### 📌 File: `RoutingMachine.tsx`
-*   **Cách hoạt động của dòng code:**
-    *   Nhận tọa độ bốt cổng vào làm điểm đầu và tọa độ ô đỗ xe khách hàng đã đặt làm điểm cuối.
-    *   Sử dụng công cụ `L.Routing.control` vẽ một đường line màu xanh lục nổi bật dẫn đường ngắn nhất chạy dọc theo các phân làn giao thông nội bộ bãi xe, giúp người lái xe di chuyển đúng luồng đỗ xe.
-
----
-
-## 📐 2. MÔ PHỎNG KHÔNG GIAN 3D (THREEJS & REACT THREE FIBER)
-
-Mô phỏng 3D giúp Admin quản lý bãi xe dạng trực quan sinh động theo không gian thực tế (Digital Twin).
-
-```mermaid
-graph LR
-    PS[ParkingSimulation.tsx] -->|Bao bọc Canvas 3D| PF[ParkingFloor3D.tsx]
-    PF -->|Vẽ từng ô đỗ| P3[ParkingSlot3D.tsx]
+  return () => {
+    active = false;
+    cancelAnimationFrame(frameId);
+  };
+}, [hasCameraAccess, gateState, gateMode]);
 ```
 
-### 📌 1. File: `ParkingFloor3D.tsx` (Dựng khung bãi xe)
-*   **Cách hoạt động của dòng code:**
-    *   Sử dụng thẻ `<ambientLight>` và `<directionalLight>` để giả lập ánh sáng mặt trời chiếu sáng trong không gian bãi đỗ.
-    *   Dựng sàn đỗ xe bằng thẻ mesh hình hộp chữ nhật dẹt:
-        `<boxGeometry args={[100, 0.5, 60]} />`
-    *   Vẽ cột chịu lực bằng cách nhân bản (loop) các hình trụ `<cylinderGeometry />` xếp đều nhau dọc bãi đỗ.
-
-### 📌 2. File: `ParkingSlot3D.tsx` (Vẽ ô đỗ và nạp xe 3D)
-*   **Cách hoạt động của dòng code:**
-    *   Vẽ ranh giới của từng ô đỗ bằng các đường line kẻ viền 3D màu vàng.
-    *   **Logic nạp xe 3D:**
-        Sử dụng hook `useGLTF` tải mô hình xe hơi 3D định dạng `.gltf` từ thư mục public.
-        ```typescript
-        // Nạp mô hình 3D xe hơi khi ô đỗ có xe đỗ
-        const { scene } = useGLTF('/assets/models/car.gltf');
-        return isOccupied ? <primitive object={scene.clone()} position={[x, 0, z]} /> : null;
-        ```
-    *   Màu sắc đèn báo tín hiệu LED gắn trên đầu mỗi ô đỗ 3D thay đổi linh hoạt: xanh lá (trống), đỏ (có xe), vàng (đã đặt).
-
-### 📌 3. File: `ParkingSimulation.tsx` (Quản lý chuyển động & Tương tác)
-*   **Cách hoạt động của dòng code:**
-    *   Tích hợp `<OrbitControls />` cho phép Admin dùng chuột để xoay góc nhìn 360 độ, phóng to/thu nhỏ bãi xe 3D dễ dàng.
-    *   Quản lý luồng cập nhật chuyển động bằng cách sử dụng vòng lặp render đồ họa liên tục của ThreeJS (`requestAnimationFrame`).
+### 📝 Giải thích chi tiết từng dòng code:
+*   `useEffect(() => { ... }, [hasCameraAccess, gateState, gateMode])`: Hook quản lý tác vụ bất đồng bộ, tự động chạy lại khi thay đổi quyền camera, trạng thái cổng hoặc chế độ cổng.
+*   `let active = true;`: Biến cờ hiệu kiểm soát trạng thái hoạt động của hook. Nếu trang bị đóng hoặc chuyển trang, giá trị sẽ chuyển về `false` để kết thúc vòng lặp.
+*   `let frameId: number;`: Khai báo biến lưu giữ ID của khung hình hoạt họa do API trình duyệt trả về.
+*   `let isProcessing = false;`: Biến khóa chống quét trùng lặp (debounce). Tránh việc gửi liên tiếp hàng chục request API trong 1 giây lên máy chủ.
+*   `const decodeLoop = () => { if (!active) return; ... }`: Hàm vòng lặp phân tích hình ảnh. Nếu trang đã tắt (`active === false`), thoát ngay lập tức.
+*   `if (gateState === 'SCANNING' && hasCameraAccess && videoRef.current && !isProcessing)`: Chỉ tiến hành giải mã khi bốt đang chế độ chờ quét, đã mở camera thành công và không bận xử lý mã QR trước đó.
+*   `const video = videoRef.current; if (video.readyState === video.HAVE_ENOUGH_DATA)`: Đảm bảo luồng dữ liệu hình ảnh từ webcam đã tải đủ khung hình để phân tích điểm ảnh.
+*   `const canvas = document.createElement('canvas');`: Tạo một thẻ canvas ẩn trong bộ nhớ để làm nơi trung gian xử lý ảnh.
+*   `canvas.width = video.videoWidth || 640; canvas.height = video.videoHeight || 480;`: Đồng bộ kích thước canvas bằng độ phân giải gốc của camera.
+*   `const ctx = canvas.getContext('2d');`: Lấy ngữ cảnh vẽ đồ họa 2 chiều của canvas.
+*   `ctx.drawImage(video, 0, 0, canvas.width, canvas.height);`: Chụp nhanh khung hình hiện tại của luồng video vẽ đè lên canvas ảo.
+*   `const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);`: Trích xuất mảng pixel nhị phân dạng màu RGBA từ canvas.
+*   `const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });`: Gọi thư viện cục bộ `jsQR` để bóc tách ma trận ảnh, bỏ qua phân tích mã QR ngược màu để tối ưu CPU.
+*   `if (code && code.data) { isProcessing = true; ... }`: Khi tìm thấy dữ liệu QR, lập tức kích hoạt khóa xử lý để tạm dừng nhận diện tiếp theo.
+*   `handlersRef.current.triggerScan(code.data);`: Kích hoạt hàm xử lý nghiệp vụ quét vé đỗ xe của bốt.
+*   `setTimeout(() => { isProcessing = false; }, 1500);`: Thiết lập khoảng thời gian mở khóa sau 1.5 giây để nhân viên có thể tiếp tục thực hiện quét xe tiếp theo.
+*   `frameId = requestAnimationFrame(decodeLoop);`: Sử dụng cơ chế đồng bộ tần số làm tươi màn hình để gọi đệ quy bất đồng bộ vòng quét tiếp theo mà không gây đơ luồng xử lý chính.
+*   `return () => { active = false; cancelAnimationFrame(frameId); };`: Hàm dọn dẹp để thu hồi bộ nhớ và dừng quét khi rời trang.
 
 ---
 
-# PHẦN IV: BẢNG TỔNG HỢP LUỒNG SỰ KIỆN LIÊN KẾT GIỮA CÁC FILE
+## 📌 THUẬT TOÁN 2: Định vị toạ độ & vẽ đường chỉ dẫn 2D (Dynamic 2D SVG Route Plotting)
+*   **Vị trí file:** [NavigationPage.tsx](file:///c:/Users/Admin/Desktop/Parking%20Building%20Management%20System/parking-system/FE/src/pages/NavigationPage.tsx#L23-L50) và [các dòng 151-180](file:///c:/Users/Admin/Desktop/Parking%20Building%20Management%20System/parking-system/FE/src/pages/NavigationPage.tsx#L151-L180)
 
-| Sự kiện (Event) | Nơi kích hoạt đầu tiên | File trung gian xử lý | Nơi xử lý cuối cùng (Backend) | Trạng thái ghi nhận |
-| :--- | :--- | :--- | :--- | :--- |
-| **Khách đặt chỗ** | `ReservationPage.tsx` | `api.ts` (API Client) | `ParkingSessionsController.cs` | Thêm phiên đỗ mới trạng thái `PendingPayment` |
-| **Thành công VNPay** | Cổng VNPay | `PaymentsController.cs` | `ParkingSessionService.cs` | Cập nhật phiên thành `Active` + Gửi Mail vé QR |
-| **Xe vào bốt** | Staff `App.tsx` | Gọi `/gate-scan` | `ParkingSessionService.cs` | Xác thực biển số OCR ➔ Ghi nhận `EntryTime` |
-| **Xe ra bốt** | Staff `App.tsx` | Gọi `/checkout` | `ParkingSessionService.cs` | Tính tiền ➔ Chuyển phiên đỗ xe thành `Completed` |
-| **Gửi sự cố** | `ReportIncidentPage.tsx`| Form-Data API | `IncidentsController.cs` | Lưu sự cố vào MongoDB ở trạng thái `Pending` |
+### 💻 Mã nguồn thuật toán:
+```typescript
+// Calculate coordinates for all slots in 800x500 viewport
+const getSlotCoords = (slotId: string) => {
+  const prefix = slotId.charAt(0);
+  const num = parseInt(slotId.substring(1));
+  const isWest = ['A', 'C', 'E'].includes(prefix);
+  const isRow1 = num <= 5;
+  const colIndex = isRow1 ? num - 1 : num - 6;
+
+  const x = isWest ? 80 + colIndex * 50 : 520 + colIndex * 50;
+  const y = isRow1 ? 80 : 350;
+  const centerX = x + 20;
+  const centerY = y + 35;
+
+  return { x, y, centerX, centerY, isRow1, isWest };
+};
+
+const targetCoords = getSlotCoords(selectedSlot);
+
+// Create the path string
+const pathD = `M 40 250 L ${targetCoords.centerX} 250 L ${targetCoords.centerX} ${targetCoords.isRow1 ? 160 : 340}`;
+```
+
+```xml
+{/* Animated Path from Entrance to Selected Slot */}
+<motion.path 
+  d={pathD}
+  fill="none"
+  stroke="#3b82f6"
+  strokeWidth="4"
+  strokeLinecap="round"
+  strokeDasharray="8 8"
+  initial={{ pathLength: 0 }}
+  animate={{ pathLength: 1 }}
+  transition={{ duration: 2.5, repeat: Infinity, ease: "linear" }}
+/>
+
+{/* Animated glowing dot moving along the path */}
+<motion.circle 
+  r="6" 
+  fill="#3b82f6"
+  stroke="#ffffff"
+  strokeWidth="2"
+  animate={{ 
+    cx: [40, targetCoords.centerX, targetCoords.centerX], 
+    cy: [250, 250, targetCoords.isRow1 ? 160 : 340] 
+  }}
+  transition={{ duration: 2.5, repeat: Infinity, ease: "linear" }}
+/>
+```
+
+### 📝 Giải thích chi tiết từng dòng code:
+*   `const prefix = slotId.charAt(0);`: Trích xuất chữ cái đầu đại diện cho khu vực tầng (Ví dụ: A, B, C...).
+*   `const num = parseInt(slotId.substring(1));`: Chuyển phần số thứ tự ô phía sau thành số nguyên.
+*   `const isWest = ['A', 'C', 'E'].includes(prefix);`: Kiểm tra ô đỗ nằm ở dãy bên trái (West) hay bên phải (East) của bản đồ bãi xe.
+*   `const isRow1 = num <= 5;`: Chia bãi thành 2 hàng ô đỗ đối xứng. Hàng 1 chứa ô số 1-5, Hàng 2 chứa ô số 6-10.
+*   `const colIndex = isRow1 ? num - 1 : num - 6;`: Tính toán chỉ số cột chạy từ 0 đến 4 để vẽ trên ma trận lưới màn hình.
+*   `const x = isWest ? 80 + colIndex * 50 : 520 + colIndex * 50;`: Công thức tính tọa độ điểm đầu X. Chừa khoảng trống rộng ở giữa (từ tọa độ 280 đến 520) làm lối đi trung tâm.
+*   `const y = isRow1 ? 80 : 350;`: Xác định tọa độ Y của ô đỗ. Hàng trên ở mức 80px, hàng dưới ở mức 350px.
+*   `const centerX = x + 20; const centerY = y + 35;`: Xác định tâm của ô đỗ có kích thước $40 \times 70\text{px}$ để vẽ điểm kết nối chính xác của lộ trình chỉ đường.
+*   `const pathD = ...`: Tạo chuỗi dữ liệu đường dẫn SVG (`d`): Bắt đầu từ cổng vào `M 40 250`, kẻ ngang qua hành lang đến tọa độ X của ô đỗ `L centerX 250`, rồi rẽ vuông góc `L centerX Y` hướng vào ô đỗ.
+*   `<motion.path d={pathD} ... />`: Thẻ vẽ đường dẫn động từ thư viện Framer Motion.
+    *   `strokeDasharray="8 8"`: Vẽ nét đứt để tạo giao diện công nghệ.
+    *   `initial={{ pathLength: 0 }} animate={{ pathLength: 1 }}`: Diễn hoạt nét đứt chạy dọc từ cổng vào ô đỗ xe.
+*   `<motion.circle ... />`: Vẽ một chấm sáng chuyển động tuần hoàn dọc theo các mốc tọa độ của đường đi (`cx` và `cy`) giúp khách hàng dễ dàng nhìn thấy lối đi mô phỏng thời gian thực.
+
+---
+
+## 📌 THUẬT TOÁN 3: Sinh sơ đồ ô đỗ 3D giả ngẫu nhiên (Deterministic 3D Grid Generator)
+*   **Vị trí file:** [ParkingFloor3D.tsx](file:///c:/Users/Admin/Desktop/Parking%20Building%20Management%20System/parking-system/FE/src/components/simulation/ParkingFloor3D.tsx#L10-L37)
+
+### 💻 Mã nguồn thuật toán:
+```typescript
+const generateSlots = () => {
+  const slots = [];
+  const rows = 2; 
+  const slotsPerRow = 8;
+  const spacingX = 4.5;
+  const roadWidth = 11;
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < slotsPerRow; c++) {
+      const id = `${r === 0 ? 'A' : 'B'}${c + 1}`;
+      const seed = (level * 100) + (r * 10) + c;
+      const pseudoRandom = (Math.sin(seed) + 1) / 2;
+      const status = pseudoRandom > 0.6 ? 'occupied' : pseudoRandom > 0.4 ? 'reserved' : 'available';
+      
+      slots.push({
+        id,
+        position: [
+          (c - (slotsPerRow - 1) / 2) * spacingX,
+          0,
+          r === 0 ? -roadWidth / 2 - 2.8 : roadWidth / 2 + 2.8
+        ] as [number, number, number],
+        status,
+        isPremium: c < 2
+      });
+    }
+  }
+  return slots;
+};
+```
+
+### 📝 Giải thích chi tiết từng dòng code:
+*   `const rows = 2; slotsPerRow = 8;`: Khai báo lưới sơ đồ gồm 2 hàng ô đỗ, mỗi hàng gồm 8 ô đỗ 3D.
+*   `const spacingX = 4.5; roadWidth = 11;`: Khoảng cách phân chia trục ngang và trục dọc trong không gian WebGL 3D.
+*   `const id = ...`: Tự sinh chuỗi mã định danh ô đỗ. Hàng 1 có tiền tố A, Hàng 2 tiền tố B.
+*   `const seed = (level * 100) + (r * 10) + c;`: **Thuật toán sinh hạt giống (Seed):** Tạo một hạt giống duy nhất dựa trên tham số tầng bãi đỗ, hàng và cột.
+*   `const pseudoRandom = (Math.sin(seed) + 1) / 2;`: **Thuật toán giả ngẫu nhiên xác định:** Lấy giá trị lượng giác $\sin$ của hạt giống (luôn có miền giá trị $[-1, 1]$), quy chuẩn hóa về khoảng $[0, 1]$. Công thức lượng giác này giúp tạo ra giá trị phân bổ trông như ngẫu nhiên nhưng hoàn toàn cố định mỗi lần tải lại trang (vì đầu vào hạt giống không đổi).
+*   `const status = pseudoRandom > 0.6 ? 'occupied' : pseudoRandom > 0.4 ? 'reserved' : 'available';`: Phân bổ xác suất trạng thái: 40% ô có xe đỗ, 20% đã đặt trước, và 40% ô đỗ trống.
+*   `position: [ ... ]`: Tính toán tọa độ vị trí 3D $(X, Y, Z)$ trên trục Descartes để đưa vào khung hình ThreeJS:
+    *   Trục X: `(c - (slotsPerRow - 1) / 2) * spacingX`: Công thức toán học dịch tịnh tiến lưới sang hai bên để căn đều đối xứng quanh gốc tọa độ.
+    *   Trục Y: `0` (Đặt nằm khít trên mặt sàn).
+    *   Trục Z: Rẽ sang hai bên hành lang trung tâm. Hàng A lệch về khoảng âm, hàng B lệch về khoảng dương.
+*   `isPremium: c < 2`: Đánh dấu 2 ô đầu tiên mỗi hàng làm ô đỗ VIP (Premium) có đơn giá cao hơn.
+
+---
+
+## 📌 THUẬT TOÁN 4: Dựng hình xe hơi 3D & hiệu ứng ánh sáng (Procedural 3D Car & Underglow)
+*   **Vị trí file:** [ParkingSlot3D.tsx](file:///c:/Users/Admin/Desktop/Parking%20Building%20Management%20System/parking-system/FE/src/components/simulation/ParkingSlot3D.tsx#L12-L70)
+
+### 💻 Mã nguồn thuật toán:
+```typescript
+// Concept Luxury Car - High Detail Procedural
+const ConceptCar = ({ status, hovered }: { status: string, hovered: boolean }) => {
+  const group = useRef<THREE.Group>(null);
+  
+  const accentColor = useMemo(() => {
+    if (status === 'occupied') return new THREE.Color('#00f2ff');
+    if (status === 'reserved') return new THREE.Color('#8b5cf6');
+    return new THREE.Color('#10b981');
+  }, [status]);
+
+  return (
+    <Float speed={2} rotationIntensity={0.1} floatIntensity={0.2}>
+      <group ref={group} scale={0.75} position={[0, 0.45, 0]}>
+        {/* Aerodynamic Chassis */}
+        <mesh castShadow>
+          <boxGeometry args={[1.8, 0.3, 3.8]} />
+          <meshStandardMaterial color="#020617" metalness={1} roughness={0.1} />
+        </mesh>
+        
+        {/* Tapered Cabin */}
+        <mesh position={[0, 0.35, -0.2]} castShadow>
+          <boxGeometry args={[1.4, 0.4, 2.2]} />
+          <meshStandardMaterial color="#0f172a" metalness={1} roughness={0} transparent opacity={0.9} />
+        </mesh>
+
+        {/* Headlight Bars - Ultra Bright for Bloom */}
+        <group position={[0, 0.1, 1.91]}>
+          <mesh position={[0.6, 0, 0]}>
+            <boxGeometry args={[0.5, 0.03, 0.05]} />
+            <meshBasicMaterial color={accentColor} toneMapped={false} />
+          </mesh>
+          <mesh position={[-0.6, 0, 0]}>
+            <boxGeometry args={[0.5, 0.03, 0.05]} />
+            <meshBasicMaterial color={accentColor} toneMapped={false} />
+          </mesh>
+        </group>
+
+        {/* Tail Light Strip */}
+        <mesh position={[0, 0.2, -1.91]}>
+          <boxGeometry args={[1.6, 0.02, 0.05]} />
+          <meshBasicMaterial color="#ff0055" toneMapped={false} />
+        </mesh>
+
+        {/* Hidden Wheels with Underglow */}
+        {[[-0.9, -0.2, 1.2], [0.9, -0.2, 1.2], [-0.9, -0.2, -1.2], [0.9, -0.2, -1.2]].map((pos, i) => (
+          <group key={i} position={pos as [number, number, number]}>
+            <mesh rotation={[0, 0, Math.PI / 2]}>
+              <cylinderGeometry args={[0.42, 0.42, 0.2, 32]} />
+              <meshStandardMaterial color="#000000" roughness={1} />
+            </mesh>
+          </group>
+        ))}
+
+        {/* Dynamic Underglow Light */}
+        <pointLight position={[0, -0.5, 0]} color={accentColor} intensity={hovered ? 20 : 10} distance={5} />
+      </group>
+    </Float>
+  );
+};
+```
+
+### 📝 Giải thích chi tiết từng dòng code:
+*   `const accentColor = useMemo(...)`: Định nghĩa màu sắc chủ đề cho xe tùy theo trạng thái ô đỗ nhằm giảm số lần tính toán của GPU.
+*   `<Float speed={2} ...>`: Thành phần tạo chuyển động bồng bềnh giả lập thực tế ảo holographic cho xe.
+*   `<group scale={0.75} position={[0, 0.45, 0]}>`: Gom cụm các bộ phận của mô hình xe, thu nhỏ kích thước và điều chỉnh khoảng cách gầm xe so với vạch đỗ.
+*   `<boxGeometry args={[1.8, 0.3, 3.8]} />`: Tạo hình khối hộp chữ nhật mô phỏng phần **khung gầm chính** của xe hơi.
+*   `<meshStandardMaterial color="#020617" metalness={1} roughness={0.1} />`: Chất liệu phản xạ kim loại cao cấp giúp bề mặt xe có độ tương phản bóng bẩy cực đẹp khi ánh đèn chiếu vào.
+*   `position={[0, 0.35, -0.2]} castShadow`: Thiết lập vị trí phần cabin kính đặt dịch về phía sau và cho phép khối đổ bóng lên mặt sàn.
+*   `<meshBasicMaterial color={accentColor} toneMapped={false} />`: Chất liệu tự phát sáng cường độ mạnh (bằng cách tắt `toneMapped`), làm chất xúc tác kích hoạt vầng sáng chói (Bloom) cho **đèn pha xe**.
+*   `<cylinderGeometry args={[0.42, 0.42, 0.2, 32]} />`: Dựng **bánh xe** bằng khối trụ tròn xoay có bán kính 0.42m, độ rộng bánh 0.2m và độ mịn bề mặt gồm 32 đa giác.
+*   `rotation={[0, 0, Math.PI / 2]}`: Xoay khối trụ ngang góc $90^\circ$ để tạo hướng bánh xe lăn dọc thân xe.
+*   `<pointLight position={[0, -0.5, 0]} ... />`: Nguồn sáng điểm đặt dưới gầm xe chiếu trực tiếp xuống sàn đỗ, tự động tăng cường độ sáng từ 10 lên 20 khi người dùng di chuột vào ô đỗ (`hovered ? 20 : 10`), tạo hiệu ứng ánh sáng neon gầm cực kỳ bắt mắt.
+
+---
+
+## 📌 THUẬT TOÁN 5: Xử lý hiệu ứng hậu kỳ màn hình 3D (WebGL Post-processing Shader Effects)
+*   **Vị trí file:** [ParkingSimulation.tsx](file:///c:/Users/Admin/Desktop/Parking%20Building%20Management%20System/parking-system/FE/src/components/simulation/ParkingSimulation.tsx#L48-L55)
+
+### 💻 Mã nguồn thuật toán:
+```typescript
+{/* Post Processing - The secret to "Wow" */}
+<EffectComposer enableNormalPass={false}>
+  <Bloom luminanceThreshold={1} mipmapBlur intensity={1.5} radius={0.4} />
+  <Noise opacity={0.05} />
+  <Vignette eskil={false} offset={0.1} darkness={1.1} />
+  <ChromaticAberration offset={new THREE.Vector2(0.001, 0.001)} />
+</EffectComposer>
+```
+
+### 📝 Giải thích chi tiết từng dòng code:
+*   `<EffectComposer enableNormalPass={false}>`: Bộ xử lý trung tâm gom luồng vẽ đồ họa 3D thô đưa vào bộ nhớ đệm (Frame Buffer) để thực thi chuỗi các thuật toán chỉnh sửa ảnh (shaders) trên card màn hình (GPU).
+*   `<Bloom luminanceThreshold={1} mipmapBlur intensity={1.5} radius={0.4} />`: Thuật toán làm nhòe và tán xạ ánh sáng cho các nguồn phát sáng mạnh vượt ngưỡng cường độ `1` (như đèn xe và đèn LED tín hiệu). Công nghệ `mipmapBlur` tạo độ mờ lan tỏa mịn màng giống như các biển quảng cáo neon trong màn đêm.
+*   `<Noise opacity={0.05} />`: Thuật toán tạo nhiễu hạt siêu mỏng 5% phủ lên giao diện. Giúp bản đồ 3D mất đi cảm giác phẳng lỳ thô cứng của máy tính, đem lại chất điện ảnh cao cấp.
+*   `<Vignette eskil={false} offset={0.1} darkness={1.1} />`: Thuật toán giảm dần độ sáng từ tâm màn hình ra 4 góc. Tạo chiều sâu thị giác tập trung sự chú ý của người vận hành vào giữa khu vực đỗ xe.
+*   `<ChromaticAberration offset={new THREE.Vector2(0.001, 0.001)} />`: Thuật toán sắc sai thấu kính. Dịch chuyển nhẹ các kênh màu RGB ở mép vật thể để giả lập hiện tượng khúc xạ thực tế của ống kính máy ảnh, tăng phong cách đồ họa viễn tưởng (Cyberpunk/Sci-Fi).
+
+---
+
+## 📌 THUẬT TOÁN 6: Tự phát tần số âm thanh (Web Audio Synthesizer)
+*   **Vị trí file:** [App.tsx (Staff)](file:///c:/Users/Admin/Desktop/Parking%20Building%20Management%20System/parking-staff/src/App.tsx#L163-L184) và [các dòng 203-222](file:///c:/Users/Admin/Desktop/Parking%20Building%20Management%20System/parking-staff/src/App.tsx#L203-L222)
+
+### 💻 Mã nguồn thuật toán:
+```typescript
+// Audio system synthetics
+const playChimeSound = () => {
+  try {
+    const ctx = getAudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    const now = ctx.currentTime;
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(523.25, now);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.08, now + 0.04);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+    osc.frequency.setValueAtTime(659.25, now + 0.12);
+    gain.gain.setValueAtTime(0.08, now + 0.12);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    osc.start(now);
+    osc.stop(now + 0.4);
+  } catch (e) {
+    console.warn(e);
+  }
+};
+
+const playWarningSound = () => {
+  try {
+    const ctx = getAudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    const now = ctx.currentTime;
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(140, now);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.08, now + 0.05);
+    gain.gain.linearRampToValueAtTime(0.08, now + 0.15);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    osc.start(now);
+    osc.stop(now + 0.4);
+  } catch (e) {
+    console.warn(e);
+  }
+};
+```
+
+### 📝 Giải thích chi tiết từng dòng code (Hàm phát âm thành công playChimeSound):
+*   `const ctx = getAudioContext();`: Lấy đối tượng kết nối âm thanh phần cứng của trình duyệt.
+*   `const osc = ctx.createOscillator();`: Tạo nút dao động tạo sóng âm tần số.
+*   `const gain = ctx.createGain();`: Tạo nút điều khiển âm lượng (GainNode).
+*   `osc.connect(gain); gain.connect(ctx.destination);`: Kết nối chuỗi tín hiệu: Bộ dao động ➔ Bộ chỉnh âm lượng ➔ Cổng xuất loa âm thanh trình duyệt.
+*   `const now = ctx.currentTime;`: Lấy mốc thời gian vật lý hiện tại của hệ thống âm thanh.
+*   `osc.type = 'sine';`: Thiết lập dạng sóng hình Sin tạo chất âm trong veo như tiếng chuông.
+*   `osc.frequency.setValueAtTime(523.25, now);`: Phát nốt nhạc thứ nhất (nốt Đô 5 tần số 523.25Hz).
+*   `gain.gain.setValueAtTime(0, now);`: Đặt âm lượng ban đầu bằng 0 để âm thanh mượt mà, không giật cục.
+*   `gain.gain.linearRampToValueAtTime(0.08, now + 0.04);`: **Thuật toán Nội suy tuyến tính tăng âm:** Đẩy âm lượng lên mức 8% trong vòng 0.04 giây để tạo độ đanh cho nốt nhạc.
+*   `gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);`: **Thuật toán Nội suy giảm âm hàm mũ:** Làm nhỏ tiếng chuông nốt Đô tắt dần sau 0.22 giây giống như tiếng chuông đồng thực tế.
+*   `osc.frequency.setValueAtTime(659.25, now + 0.12);`: Chuyển sang nốt thứ hai (nốt Mi 5 tần số 659.25Hz) tại thời điểm 0.12 giây.
+*   `gain.gain.setValueAtTime(0.08, now + 0.12);`: Đặt độ to nốt Mi là 8% tại thời điểm phát nốt này.
+*   `gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);`: Giảm nhỏ tiếng nốt Mi theo đường cong hàm mũ đến 0.35 giây.
+*   `osc.start(now); osc.stop(now + 0.4);`: Ra lệnh kích hoạt phát âm và tự động ngắt thu hồi nguồn lực âm thanh sau 0.4 giây.
+*   *(Hàm playWarningSound tương tự nhưng dùng sóng dạng răng cưa `sawtooth` với tần số trầm chói tai `140Hz` kéo dài để tạo tiếng báo động khi xe đỗ sai hoặc nằm trong danh sách cấm).*
+
+---
+
+## 📌 THUẬT TOÁN 7: Sinh mã QR động (QR Matrix Generation)
+*   **Vị trí file:** [SuccessPage.tsx](file:///c:/Users/Admin/Desktop/Parking%20Building%20Management%20System/parking-system/FE/src/pages/SuccessPage.tsx#L45-L52)
+
+### 💻 Mã nguồn thuật toán:
+```typescript
+useEffect(() => {
+  if (qrCode) {
+    QRCode.toDataURL(qrCode, { width: 300, margin: 1 }, (err, url) => {
+      if (!err && url) {
+        setQrDataUrl(url);
+      }
+    });
+  }
+}, [qrCode]);
+```
+
+### 📝 Giải thích chi tiết từng dòng code:
+*   `useEffect(() => { ... }, [qrCode])`: Lắng nghe sự thay đổi của biến vé đỗ xe `qrCode` trả về từ server để tự động vẽ mã QR Code.
+*   `if (qrCode)`: Đảm bảo mã chuỗi đầu vào của vé hợp lệ mới kích hoạt vẽ.
+*   `QRCode.toDataURL(...)`: Gọi phương thức thư viện mã hóa QR Code.
+    *   Đối số thứ nhất: Chuỗi dữ liệu của vé đỗ xe (Ví dụ: `QR_A34FF...`).
+    *   Đối số thứ hai: Cài đặt ảnh kết quả gồm độ rộng ảnh 300px và khoảng cách căn lề trắng an toàn bằng 1 ô vuông.
+    *   Thư viện thực thi thuật toán sửa lỗi **Reed-Solomon Error Correction** (ở mức trung bình): Chuyển chuỗi kí tự thành các byte dữ liệu nhị phân, thiết lập ma trận điểm vuông đen/trắng dạng lưới $N \times N$, và thêm 3 ô vuông lớn định vị ở các góc. Mã hóa này giúp camera quét vé dễ dàng nhận dạng kể cả khi màn hình điện thoại bị mờ tối hoặc trầy xước.
+*   `if (!err && url) { setQrDataUrl(url); }`: Nếu không phát sinh lỗi, gán chuỗi dữ liệu ảnh Base64 Data URL (VD: `"data:image/png;base64,iVBOR..."`) vào biến trạng thái `qrDataUrl` để hiển thị trực tiếp lên thẻ `<img src={qrDataUrl} />` trên màn hình thiết bị khách hàng.
 
 ---
 
 > [!TIP]
-> Tài liệu phân tích code Frontend chi tiết này đã được biên soạn và ghi nhận trực tiếp vào tệp tin **[PBMSystem_Frontend_Review.md](file:///c:/Users/Admin/Desktop/Parking%20Building%20Management%20System/PBMSystem_Frontend_Review.md)** tại thư mục gốc của bạn. Bạn hãy mở file này ra, click chuột phải và chọn xuất ra file Word/PDF để làm tài liệu học tập và thuyết trình tốt nhất nhé! Chúc bạn đạt kết quả cao nhất trong môn học!vn. 🇻🇳. GP. 💯. 🎉. 🥳. <br>
-> Vui lòng báo lại tôi nếu bạn muốn đi sâu chi tiết hơn nữa vào bất kỳ dòng code cụ thể nào!
+> Tài liệu giải thích thuật toán Frontend chi tiết này đã được lưu trực tiếp vào tệp tin **[PBMSystem_Frontend_Review.md](file:///c:/Users/Admin/Desktop/Parking%20Building%20Management%20System/PBMSystem_Frontend_Review.md)**. Bạn có thể mở trực tiếp file này trên IDE để đọc và sao chép phục vụ buổi báo cáo nhé! Chúc bạn đạt điểm tối đa! vn. 🇻🇳. GP. 💯. 🎉. 🥳. <br>
