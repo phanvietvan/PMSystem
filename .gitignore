@@ -1,8 +1,16 @@
 node_modules/
 .env
+.env.*
+!.env.example
 dist/
 build/
 .vscode/
+.cursor/
+.agent/
+agent-transcripts/
+**/agent-transcripts/
+AGENTS.md
+.claude/
 
 # Logs
 *.log

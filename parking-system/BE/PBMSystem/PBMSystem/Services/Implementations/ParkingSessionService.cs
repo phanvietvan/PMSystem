@@ -436,7 +436,7 @@ public class ParkingSessionService : IParkingSessionService
             var entryTimeStr = session.EntryTime.AddHours(7).ToString("dd-MM-yyyy HH:mm");
             var exitTimeStr = session.ExitTime.Value.AddHours(7).ToString("dd-MM-yyyy HH:mm");
 
-            _ = _emailService.SendCheckoutInvoiceEmailAsync(
+            await _emailService.SendCheckoutInvoiceEmailAsync(
                 user.Email,
                 userName,
                 session.ParkingLotName ?? "PM System Central",
@@ -510,7 +510,7 @@ public class ParkingSessionService : IParkingSessionService
             return ServiceResult<Dictionary<string, string>>.BadRequest("Tên bãi đỗ không được để trống.");
 
         var activeSessions = await _sessionRepository.FindAsync(ps => 
-            ps.Status == "Active" && 
+            (ps.Status == "Active" || ps.Status == "PendingPayment") && 
             ps.ParkingLotName == parkingLotName && 
             !string.IsNullOrEmpty(ps.ParkingSlot));
 
@@ -571,6 +571,9 @@ public class ParkingSessionService : IParkingSessionService
             ParkingLotName = ps.ParkingLotName,
             ParkingSlot = ps.ParkingSlot,
             VehicleType = ps.VehicleType,
+            ReservationDate = ps.ReservationDate,
+            ReservationStartTime = ps.ReservationStartTime,
+            ReservationEndTime = ps.ReservationEndTime,
             User = ps.UserId.HasValue && users.TryGetValue(ps.UserId.Value, out var u) ? new GetAllUserDTO
             {
                 FirstName = u.FirstName,
@@ -753,13 +756,25 @@ public class ParkingSessionService : IParkingSessionService
         var localNow = DateTime.UtcNow.AddHours(7);
 
         var pendingSessions = await _sessionRepository.FindAsync(ps => 
-            (ps.Status == "Active" || ps.Status == "Pending")
+            (ps.Status == "Active" || ps.Status == "Pending" || ps.Status == "PendingPayment")
             && ps.IsCheckedIn == false
             && ps.ReservationDate != null
             && ps.ReservationStartTime != null);
 
         foreach (var session in pendingSessions)
         {
+            if (session.Status == "PendingPayment")
+            {
+                if (DateTime.UtcNow - session.CreatedAt > TimeSpan.FromMinutes(15))
+                {
+                    session.Status = "Cancelled";
+                    session.UpdatedAt = DateTime.UtcNow;
+                    _sessionRepository.Update(session);
+                    await _sessionRepository.SaveChangesAsync();
+                }
+                continue;
+            }
+
             if (!DateTime.TryParse($"{session.ReservationDate} {session.ReservationStartTime}", out var reservationTime))
             {
                 continue; 
@@ -925,5 +940,54 @@ public class ParkingSessionService : IParkingSessionService
                 await _sessionRepository.SaveChangesAsync();
             }
         }
+    }
+
+    public async Task<ServiceResult<ParkingSession>> ExtendSessionAsync(Guid sessionId, string newEndTime)
+    {
+        var session = await _sessionRepository.GetByIdAsync(sessionId);
+        if (session == null)
+            return ServiceResult<ParkingSession>.NotFound("Không tìm thấy phiên đỗ xe.");
+
+        if (session.Status != "Active" && session.Status != "PendingPayment")
+            return ServiceResult<ParkingSession>.BadRequest("Phiên đỗ xe hiện tại không hoạt động hoặc không thể gia hạn.");
+
+        if (string.IsNullOrEmpty(session.ReservationDate))
+            return ServiceResult<ParkingSession>.BadRequest("Phiên đỗ xe này không phải là lượt đặt chỗ trước nên không thể gia hạn theo khung giờ.");
+
+        if (!DateTime.TryParse($"{session.ReservationDate} {newEndTime}", out var newEndTimeObj))
+            return ServiceResult<ParkingSession>.BadRequest("Định dạng giờ gia hạn không hợp lệ.");
+
+        if (!DateTime.TryParse($"{session.ReservationDate} {session.ReservationEndTime}", out var currentEndTimeObj))
+            return ServiceResult<ParkingSession>.BadRequest("Múi giờ của phiên hiện tại không hợp lệ.");
+
+        if (newEndTimeObj <= currentEndTimeObj)
+            return ServiceResult<ParkingSession>.BadRequest("Giờ gia hạn mới phải sau giờ kết thúc hiện tại.");
+
+        // Check if there is any overlapping reservation for the same slot on the same day after currentEndTime
+        var existingSessions = await _sessionRepository.FindAsync(ps =>
+            ps.Id != sessionId &&
+            (ps.Status == "Active" || ps.Status == "PendingPayment") &&
+            ps.ParkingLotName == session.ParkingLotName &&
+            ps.ParkingSlot == session.ParkingSlot &&
+            ps.ReservationDate == session.ReservationDate);
+
+        foreach (var ps in existingSessions)
+        {
+            if (DateTime.TryParse($"{ps.ReservationDate} {ps.ReservationStartTime}", out var existStart) &&
+                DateTime.TryParse($"{ps.ReservationDate} {ps.ReservationEndTime}", out var existEnd))
+            {
+                if (newEndTimeObj > existStart && currentEndTimeObj <= existStart)
+                {
+                    return ServiceResult<ParkingSession>.BadRequest(
+                        $"Không thể gia hạn. Vị trí đỗ {session.ParkingSlot} tại {session.ParkingLotName} đã được đặt trước từ {ps.ReservationStartTime} đến {ps.ReservationEndTime} cùng ngày.");
+                }
+            }
+        }
+
+        session.ReservationEndTime = newEndTime;
+        session.UpdatedAt = DateTime.UtcNow;
+        await _sessionRepository.SaveChangesAsync();
+
+        return ServiceResult<ParkingSession>.Ok(session);
     }
 }

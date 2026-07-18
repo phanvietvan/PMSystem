@@ -71,6 +71,7 @@ const ActiveSessionPage = () => {
   const [sessions, setSessions] = useState<SessionData[]>([]);
   const [loading, setLoading] = useState(true);
   const { t, language } = useSettings();
+  const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
 
   useEffect(() => {
     let isMounted = true;
@@ -355,40 +356,203 @@ const ActiveSessionPage = () => {
     );
   }
 
+  const activeSessions = sessions.filter(s => !s.isCompleted && !s.isCancelled);
+  const historySessions = sessions.filter(s => s.isCompleted || s.isCancelled);
+
   return (
     <div className="min-h-screen bg-mesh-gradient selection:bg-primary/10 relative">
       <Navbar />
 
       <main className="max-w-2xl mx-auto px-6 pt-32 pb-20 relative z-10">
 
+        {/* Premium Capsule Tabs Switcher */}
+        <div className="flex p-1.5 bg-white border border-slate-100/80 rounded-3xl shadow-[0_10px_30px_rgba(0,0,0,0.02)] max-w-md mx-auto mb-10 relative z-20">
+          <button
+            type="button"
+            onClick={() => setActiveTab('current')}
+            className={`flex-1 py-3 px-6 rounded-2xl text-[10px] uppercase tracking-wider font-black transition-all duration-300 flex items-center justify-center gap-2 ${
+              activeTab === 'current'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20 scale-[1.02]'
+                : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50/50'
+            }`}
+          >
+            <Zap className="w-3.5 h-3.5" />
+            {language === 'en' ? 'Active Sessions' : 'Phiên đỗ hiện tại'}
+            {activeSessions.length > 0 && (
+              <span className={`text-[8px] px-2 py-0.5 rounded-full font-black ${
+                activeTab === 'current' ? 'bg-white text-blue-600' : 'bg-blue-50 text-blue-600'
+              }`}>
+                {activeSessions.length}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('history')}
+            className={`flex-1 py-3 px-6 rounded-2xl text-[10px] uppercase tracking-wider font-black transition-all duration-300 flex items-center justify-center gap-2 ${
+              activeTab === 'history'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20 scale-[1.02]'
+                : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50/50'
+            }`}
+          >
+            <History className="w-3.5 h-3.5" />
+            {language === 'en' ? 'Parking History' : 'Lịch sử phiên đỗ'}
+            {historySessions.length > 0 && (
+              <span className={`text-[8px] px-2 py-0.5 rounded-full font-black ${
+                activeTab === 'history' ? 'bg-white text-blue-600' : 'bg-slate-100 text-slate-600'
+              }`}>
+                {historySessions.length}
+              </span>
+            )}
+          </button>
+        </div>
 
         <div className="space-y-6">
-          {sessions.length === 0 ? (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="bg-white border border-slate-100 rounded-[3rem] p-12 text-center space-y-6 shadow-xl shadow-blue-500/5"
-            >
-              <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto border border-blue-100/50 shadow-inner">
-                <History className="w-10 h-10" />
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-xl font-bold text-slate-800">{language === 'en' ? 'No parking history' : 'Chưa có lịch sử gửi xe'}</h3>
-                <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed font-medium">
-                  {language === 'en' ? 'Your account currently has no recorded parking history or active parking sessions in the system.' : 'Tài khoản của bạn hiện tại chưa ghi nhận bất kỳ lịch sử đỗ xe hoặc phiên gửi xe đang hoạt động nào trong hệ thống.'}
-                </p>
-              </div>
-              <button
-                onClick={() => navigate('/reserve')}
-                className="px-8 py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs uppercase tracking-widest rounded-full transition-all shadow-md shadow-blue-200 hover:shadow-lg hover:shadow-blue-300 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer inline-flex items-center gap-2"
+          {activeTab === 'current' ? (
+            activeSessions.length === 0 ? (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-white border border-slate-100 rounded-[3rem] p-12 text-center space-y-6 shadow-xl shadow-blue-500/5"
               >
-                {language === 'en' ? 'Book parking spot now' : 'Đặt chỗ gửi xe ngay'}
-              </button>
-            </motion.div>
+                <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto border border-blue-100/50 shadow-inner animate-pulse">
+                  <Zap className="w-10 h-10 text-blue-500 fill-blue-500/10" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-bold text-slate-800">{language === 'en' ? 'No active sessions' : 'Không có phiên đỗ hiện tại'}</h3>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed font-medium">
+                    {language === 'en' ? 'You do not have any active parking session in the system at the moment.' : 'Bạn hiện tại không có phiên đỗ xe nào đang hoạt động trong hệ thống.'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => navigate('/reserve')}
+                  className="px-8 py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs uppercase tracking-widest rounded-full transition-all shadow-md shadow-blue-200 hover:shadow-lg hover:shadow-blue-300 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer inline-flex items-center gap-2"
+                >
+                  {language === 'en' ? 'Book parking spot now' : 'Đặt chỗ gửi xe ngay'}
+                </button>
+              </motion.div>
+            ) : (
+              activeSessions.map((session, idx) => (
+                <motion.div
+                  key={session.qr}
+                  initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.1 }}
+                  className="bg-surface-container-lowest border border-outline-variant/30 rounded-[3rem] p-10 shadow-xl shadow-primary/5 relative overflow-hidden"
+                >
+                  <div className="absolute top-0 right-0 p-8">
+                     {session.isCheckedIn ? (
+                       <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100 animate-fade-in">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                          <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">{language === 'en' ? 'Parking' : 'Đang đỗ xe'}</span>
+                       </div>
+                     ) : (
+                       <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100 animate-fade-in">
+                          <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-ping"></span>
+                          <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{language === 'en' ? 'Reserved - Pending Entry' : 'Đã đặt - Chờ vào bốt'}</span>
+                       </div>
+                     )}
+                  </div>
+
+                  <div className="space-y-10">
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3 text-primary">
+                        <Zap className="w-5 h-5 fill-primary" />
+                        <span className="text-xs font-black uppercase tracking-widest">
+                          {language === 'en' ? (activeSessions.length > 1 ? `Session #${idx + 1}` : 'Active Session') : (`Phiên đỗ ${activeSessions.length > 1 ? `#${idx + 1}` : 'đang hoạt động'}`)}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-outline uppercase tracking-widest mb-1">
+                          {session.isCheckedIn ? (language === 'en' ? 'Duration' : 'Thời gian đã đỗ') : (language === 'en' ? 'Time Remaining' : 'Thời gian đếm ngược')}
+                        </p>
+                        <h1 className="text-6xl font-display font-black text-on-surface tracking-tighter tabular-nums">
+                          {formatTime(session.seconds)}
+                        </h1>
+                        {!session.isCheckedIn && (
+                          <p className="text-[10px] font-bold text-blue-600 mt-2 animate-pulse">
+                            {language === 'en' ? '⏳ Parking duration will only start counting once you scan the QR code at the entry gate!' : '⏳ Thời gian đỗ xe sẽ chỉ bắt đầu tính khi bạn quét mã QR đi qua bốt cổng vào!'}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 border-y border-outline-variant/10 py-8 text-left">
+                       <div>
+                         <p className="text-[10px] font-black text-outline uppercase tracking-widest mb-1">{language === 'en' ? 'Slot' : 'Vị trí đỗ'}</p>
+                         <p className="text-base font-black text-on-surface">{language === 'en' ? 'Slot ' : 'Ô '}{session.slot}</p>
+                       </div>
+                       <div>
+                         <p className="text-[10px] font-black text-outline uppercase tracking-widest mb-1">{language === 'en' ? 'License Plate' : 'Biển số xe'}</p>
+                         <p className="text-base font-black text-on-surface tracking-tight">{session.licensePlate}</p>
+                       </div>
+                       <div>
+                         <p className="text-[10px] font-black text-outline uppercase tracking-widest mb-1">{language === 'en' ? 'Parking Spot' : 'Bãi đỗ'}</p>
+                         <p className="text-base font-black text-on-surface">{language === 'en' ? 'Zone ' : 'Khu vực '}{session.level}</p>
+                       </div>
+                       <div className="col-span-2 sm:col-span-2">
+                         <p className="text-[10px] font-black text-outline uppercase tracking-widest mb-1">{language === 'en' ? 'Building' : 'Tòa nhà'}</p>
+                         <p className="text-base font-black text-primary truncate" title={session.parkingLotName || 'Landmark 81 - Bãi đỗ A1'}>
+                           {session.parkingLotName || 'Landmark 81 - Bãi đỗ A1'}
+                         </p>
+                       </div>
+                       <div className="col-span-2 sm:col-span-1">
+                         <p className="text-[10px] font-black text-outline uppercase tracking-widest mb-1">{language === 'en' ? 'Entry Time' : 'Thời gian vào'}</p>
+                         <p className="text-xs font-bold text-on-surface">
+                           {session.entryTime ? formatDateTime(session.entryTime) : (language === 'en' ? 'Awaiting entry...' : 'Đang chờ vào bốt...')}
+                         </p>
+                       </div>
+                    </div>
+
+                    {/* Exit Verification QR Code Card */}
+                    <div className="bg-surface-container-low border border-outline-variant/20 rounded-[2rem] p-6 text-center space-y-6">
+                      <div>
+                        <h4 className="text-xs font-black uppercase tracking-widest text-on-surface">{language === 'en' ? 'Your Parking QR Code' : 'Mã QR đỗ xe của bạn'}</h4>
+                        <p className="text-[10px] text-on-surface-variant font-medium mt-1">{language === 'en' ? 'Present this code at the exit gate scanner for verification & auto-payment' : 'Trình mã này trước máy quét tại cổng ra để đối chiếu & thanh toán'}</p>
+                      </div>
+
+                      <div 
+                        className="relative w-48 h-48 bg-white border border-outline-variant/30 rounded-2xl mx-auto flex flex-col items-center justify-center p-4"
+                      >
+                        <SessionQr qr={session.qr} language={language} />
+                      </div>
+
+                      <p className="text-[10px] font-mono text-outline font-semibold tracking-wider">
+                        {language === 'en' ? 'SESSION ID' : 'MÃ SỐ PHIÊN'}: {session.qr}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                       <div className="w-12 h-12 rounded-2xl bg-surface-container flex items-center justify-center">
+                         <ShieldCheck className="text-emerald-500 w-6 h-6" />
+                       </div>
+                       <div>
+                         <p className="text-xs font-bold text-on-surface">{language === 'en' ? 'AI Security Activated' : 'An ninh AI đã kích hoạt'}</p>
+                         <p className="text-[10px] text-on-surface-variant font-medium">{language === 'en' ? 'Your vehicle is monitored by SecureNode v1.4' : 'Xe của bạn đang được giám sát bởi SecureNode v1.4'}</p>
+                       </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ))
+            )
           ) : (
-            sessions.map((session, idx) => {
-            if (session.isCompleted || session.isCancelled) {
-              return (
+            historySessions.length === 0 ? (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-white border border-slate-100 rounded-[3rem] p-12 text-center space-y-6 shadow-xl shadow-blue-500/5"
+              >
+                <div className="w-20 h-20 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center mx-auto border border-slate-200/50 shadow-inner">
+                  <History className="w-10 h-10" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-bold text-slate-800">{language === 'en' ? 'No parking history' : 'Chưa có lịch sử gửi xe'}</h3>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed font-medium">
+                    {language === 'en' ? 'Your account currently has no recorded parking history in the system.' : 'Tài khoản của bạn hiện tại chưa ghi nhận bất kỳ lịch sử đỗ xe nào trong hệ thống.'}
+                  </p>
+                </div>
+              </motion.div>
+            ) : (
+              historySessions.map((session, idx) => (
                 <motion.div
                   key={session.qr}
                   initial={{ opacity: 0, scale: 0.95 }}
@@ -519,111 +683,9 @@ const ActiveSessionPage = () => {
                     )}
                   </div>
                 </motion.div>
-              );
-            }
-
-            return (
-              <motion.div
-                key={session.qr}
-                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.1 }}
-                className="bg-surface-container-lowest border border-outline-variant/30 rounded-[3rem] p-10 shadow-xl shadow-primary/5 relative overflow-hidden"
-              >
-                <div className="absolute top-0 right-0 p-8">
-                   {session.isCheckedIn ? (
-                     <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100 animate-fade-in">
-                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">{language === 'en' ? 'Parking' : 'Đang đỗ xe'}</span>
-                     </div>
-                   ) : (
-                     <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100 animate-fade-in">
-                        <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-ping"></span>
-                        <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{language === 'en' ? 'Reserved - Pending Entry' : 'Đã đặt - Chờ vào bốt'}</span>
-                     </div>
-                   )}
-                </div>
-
-                <div className="space-y-10">
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3 text-primary">
-                      <Zap className="w-5 h-5 fill-primary" />
-                      <span className="text-xs font-black uppercase tracking-widest">
-                        {language === 'en' ? (sessions.length > 1 ? `Session #${idx + 1}` : 'Active Session') : (`Phiên đỗ ${sessions.length > 1 ? `#${idx + 1}` : 'đang hoạt động'}`)}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black text-outline uppercase tracking-widest mb-1">
-                        {session.isCheckedIn ? (language === 'en' ? 'Duration' : 'Thời gian đã đỗ') : (language === 'en' ? 'Time Remaining' : 'Thời gian đếm ngược')}
-                      </p>
-                      <h1 className="text-6xl font-display font-black text-on-surface tracking-tighter tabular-nums">
-                        {formatTime(session.seconds)}
-                      </h1>
-                      {!session.isCheckedIn && (
-                        <p className="text-[10px] font-bold text-blue-600 mt-2 animate-pulse">
-                          {language === 'en' ? '⏳ Parking duration will only start counting once you scan the QR code at the entry gate!' : '⏳ Thời gian đỗ xe sẽ chỉ bắt đầu tính khi bạn quét mã QR đi qua bốt cổng vào!'}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 border-y border-outline-variant/10 py-8 text-left">
-                     <div>
-                       <p className="text-[10px] font-black text-outline uppercase tracking-widest mb-1">{language === 'en' ? 'Slot' : 'Vị trí đỗ'}</p>
-                       <p className="text-base font-black text-on-surface">{language === 'en' ? 'Slot ' : 'Ô '}{session.slot}</p>
-                     </div>
-                     <div>
-                       <p className="text-[10px] font-black text-outline uppercase tracking-widest mb-1">{language === 'en' ? 'License Plate' : 'Biển số xe'}</p>
-                       <p className="text-base font-black text-on-surface tracking-tight">{session.licensePlate}</p>
-                     </div>
-                     <div>
-                       <p className="text-[10px] font-black text-outline uppercase tracking-widest mb-1">{language === 'en' ? 'Parking Spot' : 'Bãi đỗ'}</p>
-                       <p className="text-base font-black text-on-surface">{language === 'en' ? 'Zone ' : 'Khu vực '}{session.level}</p>
-                     </div>
-                     <div className="col-span-2 sm:col-span-2">
-                       <p className="text-[10px] font-black text-outline uppercase tracking-widest mb-1">{language === 'en' ? 'Building' : 'Tòa nhà'}</p>
-                       <p className="text-base font-black text-primary truncate" title={session.parkingLotName || 'Landmark 81 - Bãi đỗ A1'}>
-                         {session.parkingLotName || 'Landmark 81 - Bãi đỗ A1'}
-                       </p>
-                     </div>
-                     <div className="col-span-2 sm:col-span-1">
-                       <p className="text-[10px] font-black text-outline uppercase tracking-widest mb-1">{language === 'en' ? 'Entry Time' : 'Thời gian vào'}</p>
-                       <p className="text-xs font-bold text-on-surface">
-                         {session.entryTime ? formatDateTime(session.entryTime) : (language === 'en' ? 'Awaiting entry...' : 'Đang chờ vào bốt...')}
-                       </p>
-                     </div>
-                  </div>
-
-                  {/* Exit Verification QR Code Card */}
-                  <div className="bg-surface-container-low border border-outline-variant/20 rounded-[2rem] p-6 text-center space-y-6">
-                    <div>
-                      <h4 className="text-xs font-black uppercase tracking-widest text-on-surface">{language === 'en' ? 'Your Parking QR Code' : 'Mã QR đỗ xe của bạn'}</h4>
-                      <p className="text-[10px] text-on-surface-variant font-medium mt-1">{language === 'en' ? 'Present this code at the exit gate scanner for verification & auto-payment' : 'Trình mã này trước máy quét tại cổng ra để đối chiếu & thanh toán'}</p>
-                    </div>
-
-                      <div 
-                      className="relative w-48 h-48 bg-white border border-outline-variant/30 rounded-2xl mx-auto flex flex-col items-center justify-center p-4"
-                    >
-                      <SessionQr qr={session.qr} language={language} />
-                    </div>
-
-                    <p className="text-[10px] font-mono text-outline font-semibold tracking-wider">
-                      {language === 'en' ? 'SESSION ID' : 'MÃ SỐ PHIÊN'}: {session.qr}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-4">
-                     <div className="w-12 h-12 rounded-2xl bg-surface-container flex items-center justify-center">
-                       <ShieldCheck className="text-emerald-500 w-6 h-6" />
-                     </div>
-                     <div>
-                       <p className="text-xs font-bold text-on-surface">{language === 'en' ? 'AI Security Activated' : 'An ninh AI đã kích hoạt'}</p>
-                       <p className="text-[10px] text-on-surface-variant font-medium">{language === 'en' ? 'Your vehicle is monitored by SecureNode v1.4' : 'Xe của bạn đang được giám sát bởi SecureNode v1.4'}</p>
-                     </div>
-                  </div>
-                </div>
-              </motion.div>
-            );
-          }))}
+              ))
+            )
+          )}
 
           <div className="bg-surface-container-low p-6 rounded-3xl border border-outline-variant/10 flex items-start gap-4">
              <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-primary shadow-sm flex-shrink-0">

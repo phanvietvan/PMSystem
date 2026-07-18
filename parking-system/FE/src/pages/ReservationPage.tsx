@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 import ParkingMap from '../components/navigation/ParkingMap';
@@ -105,7 +105,77 @@ const ReservationPage = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isVehicleDropdownOpen, setIsVehicleDropdownOpen] = useState(false);
 
-  const selectedParking = parkingLots.find((p: any) => p.id === formData.parkingLotId) || parkingLots[0];
+  const [userCoords, setUserCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+
+  // Haversine formula to calculate distance in km
+  const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371; // Radius of the earth in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2)
+      ; 
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+    const d = R * c; // Distance in km
+    return d;
+  };
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserCoords({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          });
+        },
+        (error) => {
+          console.log("Error getting user geolocation:", error);
+        }
+      );
+    }
+  }, []);
+
+  const sortedParkingLots = useMemo(() => {
+    const lotsWithDistance = parkingLots.map(lot => {
+      if (userCoords && lot.latitude && lot.longitude) {
+        const dist = getDistance(
+          userCoords.latitude,
+          userCoords.longitude,
+          parseFloat(lot.latitude),
+          parseFloat(lot.longitude)
+        );
+        return { ...lot, distance: dist };
+      }
+      return { ...lot, distance: null };
+    });
+    
+    return [...lotsWithDistance].sort((a, b) => {
+      if (a.distance !== null && b.distance !== null) {
+        return a.distance - b.distance;
+      }
+      if (a.distance !== null) return -1;
+      if (b.distance !== null) return 1;
+      return 0;
+    });
+  }, [parkingLots, userCoords]);
+
+  // Auto-select nearest parking lot on initial load if location is available and no manual selection is stored
+  useEffect(() => {
+    if (userCoords && sortedParkingLots.length > 0) {
+      const storedSelected = localStorage.getItem('selectedParking');
+      if (!storedSelected) {
+        setFormData(prev => ({
+          ...prev,
+          parkingLotId: sortedParkingLots[0].id
+        }));
+      }
+    }
+  }, [userCoords, sortedParkingLots]);
+
+  const selectedParking = sortedParkingLots.find((p: any) => p.id === formData.parkingLotId) || sortedParkingLots[0] || parkingLots[0];
 
   const [isSlotSelected, setIsSlotSelected] = useState(fromStatus);
   const [currentSlot, setCurrentSlot] = useState(() => localStorage.getItem('selectedSlot') || '');
@@ -442,9 +512,25 @@ const ReservationPage = () => {
 
                 {/* Custom Parking Lot Dropdown */}
                 <div className="space-y-1.5 relative">
-                  <label className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-slate-400/90 ml-1 flex items-center gap-1.5">
-                    <MapPin size={12} className="text-blue-500" /> {t('selectParkingLot')}
-                  </label>
+                  <div className="flex items-center justify-between ml-1">
+                    <label className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-slate-400/90 flex items-center gap-1.5">
+                      <MapPin size={12} className="text-blue-500" /> {t('selectParkingLot')}
+                    </label>
+                    {userCoords && sortedParkingLots.length > 0 && formData.parkingLotId !== sortedParkingLots[0].id && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsSlotSelected(false);
+                          setCurrentSlot('');
+                          setFormData(prev => ({ ...prev, parkingLotId: sortedParkingLots[0].id }));
+                        }}
+                        className="text-[9px] font-extrabold text-blue-600 hover:text-blue-700 transition-colors uppercase tracking-wider flex items-center gap-1 bg-blue-50 hover:bg-blue-100/80 px-2 py-0.5 rounded-full border border-blue-100 animate-pulse"
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                        Bãi gần nhất
+                      </button>
+                    )}
+                  </div>
                   {fromStatus ? (
                     <div className="w-full bg-slate-50 border border-slate-200 rounded-full py-2.5 px-5 text-slate-500 font-extrabold flex items-center justify-between cursor-not-allowed shadow-inner">
                       <span className="text-xs truncate pr-2">{selectedParking.name}</span>
@@ -455,7 +541,14 @@ const ReservationPage = () => {
                       onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                       className="w-full bg-white border border-outline-variant/80 hover:border-blue-500/40 rounded-full py-2.5 px-5 text-slate-900 font-extrabold flex items-center justify-between cursor-pointer transition-all duration-300 group shadow-sm hover:shadow-md"
                     >
-                      <span className="text-xs truncate pr-2">{selectedParking.name}</span>
+                      <span className="text-xs truncate pr-2 flex items-center gap-1.5">
+                        {selectedParking.name}
+                        {userCoords && selectedParking.latitude && selectedParking.longitude && (
+                          <span className="text-[9px] text-blue-500 bg-blue-50/50 px-2 py-0.5 rounded-full border border-blue-100/30">
+                            ~ {getDistance(userCoords.latitude, userCoords.longitude, parseFloat(selectedParking.latitude), parseFloat(selectedParking.longitude)).toFixed(1)} km
+                          </span>
+                        )}
+                      </span>
                       <span className={`material-symbols-outlined text-[18px] text-slate-400 group-hover:text-blue-500 transition-all duration-300 ${isDropdownOpen ? 'rotate-180' : ''}`}>
                         keyboard_arrow_down
                       </span>
@@ -471,7 +564,7 @@ const ReservationPage = () => {
                         transition={{ duration: 0.2, ease: "easeOut" }}
                         className="absolute z-[2500] left-0 right-0 mt-2 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-100/90 max-h-56 overflow-y-auto divide-y divide-slate-50 scrollbar-thin overflow-hidden p-1.5"
                       >
-                        {parkingLots.map((lot: any) => (
+                        {sortedParkingLots.map((lot: any, idx: number) => (
                           <div
                             key={lot.id}
                             onClick={() => {
@@ -486,11 +579,25 @@ const ReservationPage = () => {
                               ${formData.parkingLotId === lot.id ? 'bg-blue-50 text-blue-600 font-bold' : 'text-slate-600'}`}
                           >
                             <div className="flex flex-col">
-                              <span className="font-extrabold text-xs text-slate-800">{lot.name}</span>
+                              <span className="font-extrabold text-xs text-slate-800 flex items-center gap-1.5">
+                                {lot.name}
+                                {idx === 0 && lot.distance !== null && (
+                                  <span className="text-[8px] bg-emerald-50 text-emerald-600 font-black uppercase px-2 py-0.5 rounded-full border border-emerald-100 flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                    Gần nhất
+                                  </span>
+                                )}
+                              </span>
                               <div className="flex items-center gap-1 text-[9px] text-slate-400 font-black uppercase mt-0.5">
                                 <span>{lot.floor}</span>
                                 <span className="w-1 h-1 rounded-full bg-slate-200"></span>
                                 <span>{lot.block}</span>
+                                {lot.distance !== null && (
+                                  <>
+                                    <span className="w-1 h-1 rounded-full bg-slate-200"></span>
+                                    <span className="text-blue-500 font-bold">~ {lot.distance.toFixed(1)} km</span>
+                                  </>
+                                )}
                               </div>
                             </div>
                             {formData.parkingLotId === lot.id && (

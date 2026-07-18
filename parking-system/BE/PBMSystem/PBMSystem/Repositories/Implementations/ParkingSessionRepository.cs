@@ -17,20 +17,20 @@ public class ParkingSessionRepository : Repository<ParkingSession>, IParkingSess
 
     public async Task<bool> IsSlotTakenAsync(string parkingLotName, string parkingSlot)
     {
-        return await _dbSet.AnyAsync(ps => ps.Status == "Active" 
+        return await _dbSet.AnyAsync(ps => (ps.Status == "Active" || ps.Status == "PendingPayment") 
                                      && ps.ParkingLotName == parkingLotName 
                                      && ps.ParkingSlot == parkingSlot);
     }
 
     public async Task<List<ParkingSession>> GetActiveSessionsAsync()
     {
-        return await _dbSet.Where(ps => ps.Status == "Active").ToListAsync();
+        return await _dbSet.Where(ps => ps.Status == "Active" || ps.Status == "PendingPayment").ToListAsync();
     }
 
     public async Task<ParkingSession?> GetActiveByUserIdAsync(Guid userId)
     {
         return await _dbSet
-            .Where(ps => ps.UserId == userId && ps.Status == "Active")
+            .Where(ps => ps.UserId == userId && (ps.Status == "Active" || ps.Status == "PendingPayment"))
             .OrderByDescending(ps => ps.EntryTime)
             .FirstOrDefaultAsync();
     }
@@ -42,13 +42,13 @@ public class ParkingSessionRepository : Repository<ParkingSession>, IParkingSess
 
     public async Task<ParkingSession?> GetActiveByQrCodeAsync(string qrCode)
     {
-        return await _dbSet.FirstOrDefaultAsync(ps => ps.QrCode == qrCode && ps.Status == "Active");
+        return await _dbSet.FirstOrDefaultAsync(ps => ps.QrCode == qrCode && (ps.Status == "Active" || ps.Status == "PendingPayment"));
     }
 
     public async Task<List<string>> GetActiveSlotsAsync()
     {
         return await _dbSet
-            .Where(ps => ps.Status == "Active" && !string.IsNullOrEmpty(ps.ParkingSlot))
+            .Where(ps => (ps.Status == "Active" || ps.Status == "PendingPayment") && !string.IsNullOrEmpty(ps.ParkingSlot))
             .Select(ps => ps.ParkingSlot!)
             .Distinct()
             .ToListAsync();

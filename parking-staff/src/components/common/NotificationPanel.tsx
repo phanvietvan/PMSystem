@@ -1,15 +1,13 @@
 import { Bell, AlertTriangle, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { API_BASE_URL } from '../../utils/api';
+import { authService } from '../../services/auth.service';
 
 export interface NotificationPanelProps {
   role: 'user' | 'admin' | 'staff';
   onClose?: () => void;
 }
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-  ? 'https://localhost:7087/api' // Note: fallback for local dev
-  : 'https://pmsystem-oxl8.onrender.com/api');
 
 const NotificationPanel = ({ role, onClose }: NotificationPanelProps) => {
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -17,11 +15,11 @@ const NotificationPanel = ({ role, onClose }: NotificationPanelProps) => {
 
   const fetchNotifs = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = authService.getToken();
       const res = await fetch(`${API_BASE_URL}/Notifications`, {
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
+          Authorization: `Bearer ${token}`,
+        },
       });
       if (res.ok) {
         const data = await res.json();
@@ -36,7 +34,7 @@ const NotificationPanel = ({ role, onClose }: NotificationPanelProps) => {
 
   useEffect(() => {
     fetchNotifs();
-    
+
     // Polling
     const interval = setInterval(fetchNotifs, 15000);
     return () => clearInterval(interval);
@@ -44,14 +42,14 @@ const NotificationPanel = ({ role, onClose }: NotificationPanelProps) => {
 
   const handleMarkAllAsRead = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = authService.getToken();
       await fetch(`${API_BASE_URL}/Notifications/mark-read`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
+          Authorization: `Bearer ${token}`,
+        },
       });
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     } catch (err) {
       console.error(err);
     }
