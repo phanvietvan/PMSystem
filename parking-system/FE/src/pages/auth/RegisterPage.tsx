@@ -126,6 +126,7 @@ const RegisterPage = () => {
 
   const handleNext = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setError('');
 
     if (step === 0) {
