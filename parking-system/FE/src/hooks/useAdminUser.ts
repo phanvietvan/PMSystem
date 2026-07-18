@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import api from '../services/api';
+﻿import { useEffect, useState } from 'react';
 import { getStoredUser, syncCurrentUserFromApi, type StoredUser } from '../utils/auth';
 
 export function useAdminUser() {
@@ -10,7 +9,7 @@ export function useAdminUser() {
     apply();
 
     if (localStorage.getItem('token')) {
-      void syncCurrentUserFromApi(api).then((fresh) => {
+      void syncCurrentUserFromApi().then((fresh) => {
         if (fresh) setUser(fresh);
       });
     }

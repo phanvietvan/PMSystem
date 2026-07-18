@@ -3,19 +3,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 import { hasActiveSessions, addActiveQr } from '../utils/auth';
-import api from '../services/api';
-import { useSettings } from '../hooks/useSettings.tsx';
+import { parkingService } from '../services/parking.service';
+import { adminService } from '../services/admin.service';
 
 const PricingPage = () => {
   const navigate = useNavigate();
   const [showActiveWarning, setShowActiveWarning] = useState(false);
-  const { t, language } = useSettings();
-
+  
   // Sync and verify active session with DB
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-      api.get('/ParkingSessions/my-session')
+      parkingService.getMySession()
         .then(res => {
           if (res.data) {
             if (res.data.hasActiveSession && res.data.session) {
@@ -66,7 +65,7 @@ const PricingPage = () => {
     const fetchPricing = async () => {
       try {
         // Try PricingConfigs DB API first
-        const response = await api.get('/PricingConfigs');
+        const response = await adminService.getPricingConfigs();
         if (response.data && Array.isArray(response.data) && response.data.length > 0) {
           const mapped = response.data.map((c: any) => ({ type: c.type, price: c.price, sub: c.sub }));
           setPrices(mapped);
@@ -76,7 +75,7 @@ const PricingPage = () => {
       } catch (e) {}
       // Fallback to legacy endpoint
       try {
-        const response = await api.get('/ParkingSessions/pricing');
+        const response = await parkingService.getPricing();
         if (response.data && Array.isArray(response.data)) {
           setPrices(response.data);
           localStorage.setItem('parking_pricing', JSON.stringify(response.data));
@@ -89,7 +88,7 @@ const PricingPage = () => {
 
     const fetchRegulations = async () => {
       try {
-        const response = await api.get('/Regulations');
+        const response = await adminService.getRegulations();
         if (response.data && Array.isArray(response.data) && response.data.length > 0) {
           const mapped = response.data.map((r: any) => r.content);
           setRegulations(mapped);
@@ -106,13 +105,13 @@ const PricingPage = () => {
   const getLocalizedVehicleType = (type: string) => {
     const t = type.toLowerCase();
     if (t.includes('xe máy') || t.includes('motorbike')) {
-      return language === 'en' ? 'Motorbike' : 'Xe máy';
+      return 'Xe máy';
     }
     if (t.includes('4-7 chỗ') || t.includes('ô tô') || t.includes('car')) {
-      return language === 'en' ? 'Car (4-7 seats)' : 'Ô tô 4-7 chỗ';
+      return 'Ô tô 4-7 chỗ';
     }
     if (t.includes('suv') || t.includes('bán tải') || t.includes('truck')) {
-      return language === 'en' ? 'SUV / Truck' : 'SUV / Bán tải';
+      return 'SUV / Bán tải';
     }
     return type;
   };
@@ -121,31 +120,18 @@ const PricingPage = () => {
     if (!sub) return '';
     const cleanSub = sub.replace(/[Vv][Nn]Đ/g, '').replace(/[Vv][Nn][Dd]/g, '').replace(/[\/\s]/g, '').toLowerCase();
     if (cleanSub.includes('lượt') || cleanSub.includes('turn') || cleanSub.includes('session')) {
-      return language === 'en' ? '/ Session' : '/ Lượt';
+      return '/ Lượt';
     }
     if (cleanSub.includes('giờ') || cleanSub.includes('hour')) {
-      return language === 'en' ? '/ Hour' : '/ Giờ';
+      return '/ Giờ';
     }
     if (cleanSub.includes('ngày') || cleanSub.includes('day')) {
-      return language === 'en' ? '/ Day' : '/ Ngày';
+      return '/ Ngày';
     }
     return sub;
   };
 
-  const getLocalizedRegulation = (content: string, index: number) => {
-    const defaultEnRules = [
-      'Please park in the reserved slot or scan the QR code on spot.',
-      'Maximum speed limit within the entire parking area is 10km/h.',
-      'Strictly comply with staff instructions and smart traffic signs.',
-      'Complete online payment via the app before reaching the exit gate.',
-      'No flammable materials, explosives, weapons, or contraband inside vehicles.',
-      'Take care of personal valuables. Management holds no liability for loss inside vehicle.'
-    ];
-    if (language === 'en' && index < defaultEnRules.length) {
-      return defaultEnRules[index];
-    }
-    return content;
-  };
+  const getLocalizedRegulation = (content: string, _index: number) => content;
 
   // Fresh design properties for each vehicle card
   const getCardTheme = (type: string) => {
@@ -222,282 +208,274 @@ const PricingPage = () => {
 
   return (
     <>
-      <div className="bg-mesh-gradient text-slate-900 antialiased min-h-screen selection:bg-blue-100 font-['Inter'] overflow-x-hidden relative pb-24">
-        <Navbar />
-
-        {/* Abstract Background Orbs to match Landing Page */}
-        <div className="absolute top-1/4 -left-20 w-[500px] h-[500px] bg-blue-100/30 rounded-full blur-[120px] -z-10 animate-pulse"></div>
-        <div className="absolute top-1/2 -right-20 w-[400px] h-[400px] bg-indigo-100/20 rounded-full blur-[100px] -z-10 animate-pulse" style={{ animationDelay: '2s' }}></div>
-
-        <main className="pt-32 max-w-6xl mx-auto px-4 sm:px-6 relative z-10">
-
-          {/* Majestic Soft Page Header */}
-          <div className="text-center max-w-4xl mx-auto mb-16 space-y-4">
-            
-            <motion.h1
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1, duration: 0.6 }}
-              className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.15]"
-            >
-              {language === 'en' ? 'Pricing' : 'Bảng Giá'} <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">&</span> {language === 'en' ? 'Regulations' : 'Nội Quy'}
-            </motion.h1>
-            
-            <motion.p
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.6 }}
-              className="text-slate-500 text-lg font-medium leading-relaxed max-w-2xl mx-auto"
-            >
-              {language === 'en' 
-                ? 'Transparent pricing and clear regulations to ensure your parking experience is always safe, smooth, and highly convenient.'
-                : 'Thông tin minh bạch và quy định rõ ràng, giúp trải nghiệm đỗ xe của bạn luôn an toàn, mượt mà và tiện lợi nhất.'}
-            </motion.p>
-          </div>
-
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-            className="space-y-12"
-          >
-            {/* Template: 3 Column Majestic Interactive Cards */}
-            <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
-              {prices.map((p: any, idx: number) => {
-                const theme = getCardTheme(p.type);
-                return (
-                  <motion.div
-                    key={idx}
-                    variants={cardVariants}
-                    whileHover={{
-                      y: -8,
-                      scale: 1.02,
-                      boxShadow: theme.hoverShadow
-                    }}
-                    transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                    className={`relative backdrop-blur-xl border rounded-[28px] p-8 lg:p-10 flex flex-col items-center text-center shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300 cursor-pointer overflow-hidden group ${theme.cardBg} ${theme.border} ${theme.hoverBorder}`}
-                  >
-                    {/* Soft ambient glow inside card */}
-                    <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl ${theme.glow} to-transparent rounded-full blur-[30px] -mr-16 -mt-16 transition-transform duration-700 group-hover:scale-150 opacity-60`}></div>
-
-                    {/* Minimalist Soft Icon Circle */}
-                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm mb-6 relative z-10 group-hover:scale-110 transition-transform duration-300 ${theme.iconBg}`}>
-                      <span className="material-symbols-outlined text-2xl">{theme.icon}</span>
-                    </div>
-
-                    {/* Title */}
-                    <h3 className="text-lg font-bold text-slate-800 tracking-tight mb-6 relative z-10">
-                      {getLocalizedVehicleType(p.type)}
-                    </h3>
-
-                    {/* Price Block */}
-                    <div className="w-full pt-6 border-t border-slate-100/80 flex flex-col items-center relative z-10">
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="text-4xl lg:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-slate-800 to-slate-900 tracking-tight">
-                          {p.price}
-                        </span>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                          {language === 'en' ? getLocalizedSub(p.sub).replace('/', '').trim() : p.sub.replace('VNĐ', '').trim()}
-                        </span>
-                      </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-
-            {/* Centered Footnote */}
-            <div className="text-center text-xs text-slate-400 font-medium">
-              {language === 'en' 
-                ? '* All fees listed above include tax and smart utility services.'
-                : '* Tất cả các biểu phí trên đã bao gồm thuế và dịch vụ tiện ích thông minh.'}
-            </div>
-
-            {/* Flat Grid: Action triggers & Operating Regulations */}
-            <div className="grid lg:grid-cols-12 gap-6 lg:gap-8 items-stretch mt-8">
-
-              {/* Left column: Quick Actions Card */}
+          <div className="bg-mesh-gradient text-slate-900 antialiased min-h-screen selection:bg-blue-100 font-['Inter'] overflow-x-hidden relative pb-24">
+            <Navbar />
+    
+            {/* Abstract Background Orbs to match Landing Page */}
+            <div className="absolute top-1/4 -left-20 w-[500px] h-[500px] bg-blue-100/30 rounded-full blur-[120px] -z-10 animate-pulse"></div>
+            <div className="absolute top-1/2 -right-20 w-[400px] h-[400px] bg-indigo-100/20 rounded-full blur-[100px] -z-10 animate-pulse" style={{ animationDelay: '2s' }}></div>
+    
+            <main className="pt-32 max-w-6xl mx-auto px-4 sm:px-6 relative z-10">
+    
+              {/* Majestic Soft Page Header */}
+              <div className="text-center max-w-4xl mx-auto mb-16 space-y-4">
+                
+                <motion.h1
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1, duration: 0.6 }}
+                  className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.15]"
+                >
+                  {'Bảng Giá'} <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">&</span> {'Nội Quy'}
+                </motion.h1>
+                
+                <motion.p
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2, duration: 0.6 }}
+                  className="text-slate-500 text-lg font-medium leading-relaxed max-w-2xl mx-auto"
+                >
+                  {'Thông tin minh bạch và quy định rõ ràng, giúp trải nghiệm đỗ xe của bạn luôn an toàn, mượt mà và tiện lợi nhất.'}
+                </motion.p>
+              </div>
+    
               <motion.div
-                variants={cardVariants}
-                className="lg:col-span-5 bg-white/70 backdrop-blur-xl border border-white rounded-[28px] p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between"
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+                className="space-y-12"
               >
-                <div className="text-left">
-                  <h3 className="text-xl font-bold text-slate-900 tracking-tight mb-3">
-                    {language === 'en' ? 'Online Reservation' : 'Đặt Chỗ Trực Tuyến'}
-                  </h3>
-                  <p className="text-sm text-slate-500 font-medium leading-relaxed">
-                    {language === 'en'
-                      ? 'Reserve your spot in advance via the app to secure a slot as soon as your vehicle enters the smart parking lot.'
-                      : 'Giữ chỗ trước qua ứng dụng để đảm bảo có vị trí trống ngay khi phương tiện đi vào bãi đỗ xe thông minh.'}
-                  </p>
-
-                  <div className="mt-8 p-6 rounded-2xl bg-gradient-to-br from-blue-50/50 to-indigo-50/50 border border-blue-100/50 space-y-4">
-                    <div className="flex gap-3 items-start">
-                      <div className="w-6 h-6 rounded-full bg-blue-100/80 flex items-center justify-center shrink-0">
-                        <span className="material-symbols-outlined text-blue-600 text-[14px] font-bold">check</span>
-                      </div>
-                      <p className="text-xs text-slate-600 font-semibold leading-relaxed pt-1">
-                        {language === 'en' ? 'Instant 2s license plate recognition.' : 'Nhận diện biển số thông minh 2s.'}
-                      </p>
-                    </div>
-                    <div className="flex gap-3 items-start">
-                      <div className="w-6 h-6 rounded-full bg-indigo-100/80 flex items-center justify-center shrink-0">
-                        <span className="material-symbols-outlined text-indigo-600 text-[14px] font-bold">check</span>
-                      </div>
-                      <p className="text-xs text-slate-600 font-semibold leading-relaxed pt-1">
-                        {language === 'en' ? 'Cashless payment via QR code.' : 'Thanh toán QR không dùng tiền mặt.'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-8 space-y-3">
-                  <button
-                    onClick={() => {
-                      if (hasActiveSessions()) {
-                        setShowActiveWarning(true);
-                      } else {
-                        navigate('/reserve');
-                      }
-                    }}
-                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-4 rounded-2xl text-sm transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)] hover:shadow-[0_0_30px_rgba(37,99,235,0.5)] cursor-pointer flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99]"
-                  >
-                    <span>{language === 'en' ? 'Start Booking' : 'Bắt Đầu Đặt Chỗ'}</span>
-                    <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
-                  </button>
-                  <button
-                    onClick={() => navigate('/')}
-                    className="w-full bg-white/80 hover:bg-white border border-slate-200 text-slate-500 hover:text-blue-600 font-bold py-4 rounded-2xl text-sm transition-all cursor-pointer text-center"
-                  >
-                    {language === 'en' ? 'Back to Home' : 'Về Trang Chủ'}
-                  </button>
-                </div>
-              </motion.div>
-
-              {/* Right column: Regulations grid */}
-              <motion.div
-                variants={cardVariants}
-                className="lg:col-span-7 bg-white/70 backdrop-blur-xl border border-white rounded-[28px] p-8 sm:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] text-left"
-              >
-                <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-100/80">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-slate-50 border border-slate-100 text-slate-600 rounded-2xl flex items-center justify-center shrink-0 shadow-sm">
-                      <span className="material-symbols-outlined text-xl">gavel</span>
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-slate-900 tracking-tight leading-none mb-1.5">
-                        {language === 'en' ? 'Operating Regulations' : 'Nội Quy Vận Hành'}
-                      </h3>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">PM System Management</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 2-Column Grid for rules */}
-                <div className="grid sm:grid-cols-2 gap-6">
-                  {regulations.map((reg: string, i: number) => {
-                    const icon = getRuleIcon(i);
+                {/* Template: 3 Column Majestic Interactive Cards */}
+                <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
+                  {prices.map((p: any, idx: number) => {
+                    const theme = getCardTheme(p.type);
                     return (
-                      <div
-                        key={i}
-                        className="flex gap-4 items-start p-4 bg-slate-50/50 hover:bg-white border border-slate-100/80 hover:border-blue-100 hover:shadow-md rounded-2xl transition-all duration-300 group"
+                      <motion.div
+                        key={idx}
+                        variants={cardVariants}
+                        whileHover={{
+                          y: -8,
+                          scale: 1.02,
+                          boxShadow: theme.hoverShadow
+                        }}
+                        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                        className={`relative backdrop-blur-xl border rounded-[28px] p-8 lg:p-10 flex flex-col items-center text-center shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300 cursor-pointer overflow-hidden group ${theme.cardBg} ${theme.border} ${theme.hoverBorder}`}
                       >
-                        <div className="w-10 h-10 rounded-xl bg-white border border-slate-100 text-slate-400 group-hover:text-blue-500 group-hover:border-blue-100 flex items-center justify-center shrink-0 shadow-sm transition-colors">
-                          <span className="material-symbols-outlined text-[18px]">{icon}</span>
+                        {/* Soft ambient glow inside card */}
+                        <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl ${theme.glow} to-transparent rounded-full blur-[30px] -mr-16 -mt-16 transition-transform duration-700 group-hover:scale-150 opacity-60`}></div>
+    
+                        {/* Minimalist Soft Icon Circle */}
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm mb-6 relative z-10 group-hover:scale-110 transition-transform duration-300 ${theme.iconBg}`}>
+                          <span className="material-symbols-outlined text-2xl">{theme.icon}</span>
                         </div>
-                        <div className="pt-0.5">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">
-                            {language === 'en' ? `Rule 0${i + 1}` : `Quy định 0${i + 1}`}
-                          </span>
-                          <p className="text-slate-600 text-xs font-medium leading-relaxed">
-                            {getLocalizedRegulation(reg, i)}
-                          </p>
+    
+                        {/* Title */}
+                        <h3 className="text-lg font-bold text-slate-800 tracking-tight mb-6 relative z-10">
+                          {getLocalizedVehicleType(p.type)}
+                        </h3>
+    
+                        {/* Price Block */}
+                        <div className="w-full pt-6 border-t border-slate-100/80 flex flex-col items-center relative z-10">
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-4xl lg:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-slate-800 to-slate-900 tracking-tight">
+                              {p.price}
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                              {p.sub.replace('VNĐ', '').trim()}
+                            </span>
+                          </div>
                         </div>
-                      </div>
+                      </motion.div>
                     );
                   })}
                 </div>
-
-                <div className="mt-8 pt-6 border-t border-slate-100/80 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-500 font-bold">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>{language === 'en' ? '24/7 Security Monitoring System' : 'Hệ thống giám sát bảo mật 24/7'}</span>
-                  </div>
-                  <span className="bg-slate-100 px-3 py-1.5 rounded-lg text-[11px] uppercase tracking-wider text-slate-500">
-                    Hotline: 0816 386 382
-                  </span>
+    
+                {/* Centered Footnote */}
+                <div className="text-center text-xs text-slate-400 font-medium">
+                  {'* Tất cả các biểu phí trên đã bao gồm thuế và dịch vụ tiện ích thông minh.'}
+                </div>
+    
+                {/* Flat Grid: Action triggers & Operating Regulations */}
+                <div className="grid lg:grid-cols-12 gap-6 lg:gap-8 items-stretch mt-8">
+    
+                  {/* Left column: Quick Actions Card */}
+                  <motion.div
+                    variants={cardVariants}
+                    className="lg:col-span-5 bg-white/70 backdrop-blur-xl border border-white rounded-[28px] p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between"
+                  >
+                    <div className="text-left">
+                      <h3 className="text-xl font-bold text-slate-900 tracking-tight mb-3">
+                        {'Đặt Chỗ Trực Tuyến'}
+                      </h3>
+                      <p className="text-sm text-slate-500 font-medium leading-relaxed">
+                        {'Giữ chỗ trước qua ứng dụng để đảm bảo có vị trí trống ngay khi phương tiện đi vào bãi đỗ xe thông minh.'}
+                      </p>
+    
+                      <div className="mt-8 p-6 rounded-2xl bg-gradient-to-br from-blue-50/50 to-indigo-50/50 border border-blue-100/50 space-y-4">
+                        <div className="flex gap-3 items-start">
+                          <div className="w-6 h-6 rounded-full bg-blue-100/80 flex items-center justify-center shrink-0">
+                            <span className="material-symbols-outlined text-blue-600 text-[14px] font-bold">check</span>
+                          </div>
+                          <p className="text-xs text-slate-600 font-semibold leading-relaxed pt-1">
+                            {'Nhận diện biển số thông minh 2s.'}
+                          </p>
+                        </div>
+                        <div className="flex gap-3 items-start">
+                          <div className="w-6 h-6 rounded-full bg-indigo-100/80 flex items-center justify-center shrink-0">
+                            <span className="material-symbols-outlined text-indigo-600 text-[14px] font-bold">check</span>
+                          </div>
+                          <p className="text-xs text-slate-600 font-semibold leading-relaxed pt-1">
+                            {'Thanh toán QR không dùng tiền mặt.'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+    
+                    <div className="mt-8 space-y-3">
+                      <button
+                        onClick={() => {
+                          if (hasActiveSessions()) {
+                            setShowActiveWarning(true);
+                          } else {
+                            navigate('/reserve');
+                          }
+                        }}
+                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-4 rounded-2xl text-sm transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)] hover:shadow-[0_0_30px_rgba(37,99,235,0.5)] cursor-pointer flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99]"
+                      >
+                        <span>{'Bắt Đầu Đặt Chỗ'}</span>
+                        <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                      </button>
+                      <button
+                        onClick={() => navigate('/')}
+                        className="w-full bg-white/80 hover:bg-white border border-slate-200 text-slate-500 hover:text-blue-600 font-bold py-4 rounded-2xl text-sm transition-all cursor-pointer text-center"
+                      >
+                        {'Về Trang Chủ'}
+                      </button>
+                    </div>
+                  </motion.div>
+    
+                  {/* Right column: Regulations grid */}
+                  <motion.div
+                    variants={cardVariants}
+                    className="lg:col-span-7 bg-white/70 backdrop-blur-xl border border-white rounded-[28px] p-8 sm:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] text-left"
+                  >
+                    <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-100/80">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-slate-50 border border-slate-100 text-slate-600 rounded-2xl flex items-center justify-center shrink-0 shadow-sm">
+                          <span className="material-symbols-outlined text-xl">gavel</span>
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-bold text-slate-900 tracking-tight leading-none mb-1.5">
+                            {'Nội Quy Vận Hành'}
+                          </h3>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">PM System Management</p>
+                        </div>
+                      </div>
+                    </div>
+    
+                    {/* 2-Column Grid for rules */}
+                    <div className="grid sm:grid-cols-2 gap-6">
+                      {regulations.map((reg: string, i: number) => {
+                        const icon = getRuleIcon(i);
+                        return (
+                          <div
+                            key={i}
+                            className="flex gap-4 items-start p-4 bg-slate-50/50 hover:bg-white border border-slate-100/80 hover:border-blue-100 hover:shadow-md rounded-2xl transition-all duration-300 group"
+                          >
+                            <div className="w-10 h-10 rounded-xl bg-white border border-slate-100 text-slate-400 group-hover:text-blue-500 group-hover:border-blue-100 flex items-center justify-center shrink-0 shadow-sm transition-colors">
+                              <span className="material-symbols-outlined text-[18px]">{icon}</span>
+                            </div>
+                            <div className="pt-0.5">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">
+                                {`Quy định 0${i + 1}`}
+                              </span>
+                              <p className="text-slate-600 text-xs font-medium leading-relaxed">
+                                {getLocalizedRegulation(reg, i)}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+    
+                    <div className="mt-8 pt-6 border-t border-slate-100/80 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-500 font-bold">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <span>{'Hệ thống giám sát bảo mật 24/7'}</span>
+                      </div>
+                      <span className="bg-slate-100 px-3 py-1.5 rounded-lg text-[11px] uppercase tracking-wider text-slate-500">
+                        Hotline: 0816 386 382
+                      </span>
+                    </div>
+                  </motion.div>
+    
                 </div>
               </motion.div>
-
-            </div>
-          </motion.div>
-        </main>
-      </div>
-
-      {/* ── Active Session Warning Modal ── */}
-      <AnimatePresence>
-        {showActiveWarning && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[9999] flex items-center justify-center p-4"
-          >
-            <motion.div
-              initial={{ scale: 0.95, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 20 }}
-              className="bg-white/95 backdrop-blur-xl rounded-[32px] p-8 max-w-sm w-full shadow-2xl border border-white flex flex-col items-center text-center relative overflow-hidden font-sans"
-            >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-rose-500/10 to-transparent blur-xl rounded-full" />
-
-              <div className="w-16 h-16 bg-rose-50 border border-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mb-6 shadow-sm relative z-10">
-                <span className="material-symbols-outlined text-3xl text-rose-500">warning</span>
-              </div>
-
-              <h3 className="text-xl font-bold text-slate-900 tracking-tight leading-snug mb-3 relative z-10">
-                {language === 'en' ? 'Active Parking Session' : 'Phiên đỗ đang hoạt động'}
-              </h3>
-
-              <p className="text-slate-500 text-sm font-medium leading-relaxed mb-8 px-2 relative z-10">
-                {language === 'en'
-                  ? 'You currently have an active parking session (vehicle still inside). Please complete payment for the current vehicle before creating a new booking.'
-                  : 'Bạn đang có một phiên đỗ xe chưa kết thúc (xe chưa ra khỏi bãi). Vui lòng hoàn tất thanh toán cho xe hiện tại trước khi đặt chỗ mới.'}
-              </p>
-
-              <div className="flex flex-col gap-3 w-full relative z-10">
-                <button
-                  onClick={() => {
-                    setShowActiveWarning(false);
-                    navigate('/active-session');
-                  }}
-                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 rounded-2xl text-sm transition-all shadow-lg active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
+            </main>
+          </div>
+    
+          {/* ── Active Session Warning Modal ── */}
+          <AnimatePresence>
+            {showActiveWarning && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[9999] flex items-center justify-center p-4"
+              >
+                <motion.div
+                  initial={{ scale: 0.95, y: 20 }}
+                  animate={{ scale: 1, y: 0 }}
+                  exit={{ scale: 0.95, y: 20 }}
+                  className="bg-white/95 backdrop-blur-xl rounded-[32px] p-8 max-w-sm w-full shadow-2xl border border-white flex flex-col items-center text-center relative overflow-hidden font-sans"
                 >
-                  <span className="material-symbols-outlined text-[18px]">visibility</span>
-                  {language === 'en' ? 'View current session' : 'Xem phiên hiện tại'}
-                </button>
-                <button
-                  onClick={() => {
-                    setShowActiveWarning(false);
-                    navigate('/reserve', { state: { bypassActiveCheck: true } });
-                  }}
-                  className="w-full bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold py-4 rounded-2xl text-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[18px]">directions_car</span>
-                  {language === 'en' ? 'Book another vehicle' : 'Đặt xe khác'}
-                </button>
-                <button
-                  onClick={() => setShowActiveWarning(false)}
-                  className="w-full text-slate-400 hover:text-slate-600 font-bold py-3 rounded-2xl text-sm transition-all cursor-pointer"
-                >
-                  {language === 'en' ? 'Cancel' : 'Hủy'}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </>
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-rose-500/10 to-transparent blur-xl rounded-full" />
+    
+                  <div className="w-16 h-16 bg-rose-50 border border-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mb-6 shadow-sm relative z-10">
+                    <span className="material-symbols-outlined text-3xl text-rose-500">warning</span>
+                  </div>
+    
+                  <h3 className="text-xl font-bold text-slate-900 tracking-tight leading-snug mb-3 relative z-10">
+                    {'Phiên đỗ đang hoạt động'}
+                  </h3>
+    
+                  <p className="text-slate-500 text-sm font-medium leading-relaxed mb-8 px-2 relative z-10">
+                    {'Bạn đang có một phiên đỗ xe chưa kết thúc (xe chưa ra khỏi bãi). Vui lòng hoàn tất thanh toán cho xe hiện tại trước khi đặt chỗ mới.'}
+                  </p>
+    
+                  <div className="flex flex-col gap-3 w-full relative z-10">
+                    <button
+                      onClick={() => {
+                        setShowActiveWarning(false);
+                        navigate('/active-session');
+                      }}
+                      className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 rounded-2xl text-sm transition-all shadow-lg active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">visibility</span>
+                      {'Xem phiên hiện tại'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowActiveWarning(false);
+                        navigate('/reserve', { state: { bypassActiveCheck: true } });
+                      }}
+                      className="w-full bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold py-4 rounded-2xl text-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">directions_car</span>
+                      {'Đặt xe khác'}
+                    </button>
+                    <button
+                      onClick={() => setShowActiveWarning(false)}
+                      className="w-full text-slate-400 hover:text-slate-600 font-bold py-3 rounded-2xl text-sm transition-all cursor-pointer"
+                    >
+                      {'Hủy'}
+                    </button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </>
   );
 };
 

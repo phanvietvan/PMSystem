@@ -1,7 +1,13 @@
 import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { SettingsProvider } from './hooks/useSettings.tsx';
+
+/* ── Trang mở ── */
 import LandingPage from './pages/LandingPage';
+import PricingPage from './pages/PricingPage';
+import ContactPage from './pages/ContactPage';
+
+/* ── Đặt chỗ / gửi xe ── */
 import ParkingStatus from './pages/ParkingStatus';
 import ReservationPage from './pages/ReservationPage';
 import PaymentPage from './pages/PaymentPage';
@@ -9,13 +15,16 @@ import SuccessPage from './pages/SuccessPage';
 import GateScanPage from './pages/GateScanPage';
 import NavigationPage from './pages/NavigationPage';
 import ActiveSessionPage from './pages/ActiveSessionPage';
-import ContactPage from './pages/ContactPage';
-import ProfilePage from './pages/ProfilePage';
-import LoginPage from './pages/auth/LoginPage';
-import PricingPage from './pages/PricingPage';
-import RegisterPage from './pages/auth/RegisterPage';
-import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
+import ReportIncidentPage from './pages/ReportIncidentPage';
 import VnPayReturnPage from './pages/VnPayReturnPage';
+
+/* ── Tài khoản & đăng nhập ── */
+import ProfilePage from './pages/ProfilePage';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+
+/* ── Quản trị ── */
 import AdminDashboard from './pages/AdminDashboard';
 import AdminMonitoring from './pages/AdminMonitoring';
 import AdminReservations from './pages/AdminReservations';
@@ -23,12 +32,13 @@ import AdminReports from './pages/AdminReports';
 import AdminUsers from './pages/AdminUsers';
 import AdminSettings from './pages/AdminSettings';
 import AdminBlacklist from './pages/AdminBlacklist';
-import ReportIncidentPage from './pages/ReportIncidentPage';
 import AdminIncidents from './pages/AdminIncidents';
+
 import AdminRoute from './components/auth/AdminRoute';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import './index.css';
 
+/** Bắt buộc cập nhật hồ sơ đủ trước khi dùng các trang khác */
 function ProfileCheckWrapper({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -60,41 +70,43 @@ function App() {
   return (
     <SettingsProvider>
       <Router>
-      <ProfileCheckWrapper>
-        <Routes>
-          <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-          {/* Admin Dashboard Routes — Admin role only */}
-          <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-          <Route path="/admin/monitoring" element={<AdminRoute><AdminMonitoring /></AdminRoute>} />
-          <Route path="/admin/reservations" element={<AdminRoute><AdminReservations /></AdminRoute>} />
-          <Route path="/admin/reports" element={<AdminRoute><AdminReports /></AdminRoute>} />
-          <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
-          <Route path="/admin/incidents" element={<AdminRoute><AdminIncidents /></AdminRoute>} />
-          <Route path="/admin/blacklist" element={<AdminRoute><AdminBlacklist /></AdminRoute>} />
-          <Route path="/admin/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />
+        <ProfileCheckWrapper>
+          <Routes>
+            {/* Tài khoản */}
+            <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
 
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/pricing" element={<PricingPage />} />
-          <Route path="/status" element={<ProtectedRoute><ParkingStatus /></ProtectedRoute>} />
-          <Route path="/reserve" element={<ProtectedRoute><ReservationPage /></ProtectedRoute>} />
-          <Route path="/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
-          <Route path="/payment/vnpay-return" element={<VnPayReturnPage />} />
-          <Route path="/success" element={<ProtectedRoute><SuccessPage /></ProtectedRoute>} />
-          <Route path="/gate-scan" element={<ProtectedRoute><GateScanPage /></ProtectedRoute>} />
-          <Route path="/navigation" element={<ProtectedRoute><NavigationPage /></ProtectedRoute>} />
-          <Route path="/active-session" element={<ProtectedRoute><ActiveSessionPage /></ProtectedRoute>} />
-          <Route path="/report-incident" element={<ProtectedRoute><ReportIncidentPage /></ProtectedRoute>} />
-          <Route path="/contact" element={<ContactPage />} />
+            {/* Admin — chỉ role Admin */}
+            <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+            <Route path="/admin/monitoring" element={<AdminRoute><AdminMonitoring /></AdminRoute>} />
+            <Route path="/admin/reservations" element={<AdminRoute><AdminReservations /></AdminRoute>} />
+            <Route path="/admin/reports" element={<AdminRoute><AdminReports /></AdminRoute>} />
+            <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
+            <Route path="/admin/incidents" element={<AdminRoute><AdminIncidents /></AdminRoute>} />
+            <Route path="/admin/blacklist" element={<AdminRoute><AdminBlacklist /></AdminRoute>} />
+            <Route path="/admin/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />
 
-          {/* Premium Auth Routes */}
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            {/* Trang mở + đặt chỗ */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/pricing" element={<PricingPage />} />
+            <Route path="/status" element={<ProtectedRoute><ParkingStatus /></ProtectedRoute>} />
+            <Route path="/reserve" element={<ProtectedRoute><ReservationPage /></ProtectedRoute>} />
+            <Route path="/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
+            <Route path="/payment/vnpay-return" element={<VnPayReturnPage />} />
+            <Route path="/success" element={<ProtectedRoute><SuccessPage /></ProtectedRoute>} />
+            <Route path="/gate-scan" element={<ProtectedRoute><GateScanPage /></ProtectedRoute>} />
+            <Route path="/navigation" element={<ProtectedRoute><NavigationPage /></ProtectedRoute>} />
+            <Route path="/active-session" element={<ProtectedRoute><ActiveSessionPage /></ProtectedRoute>} />
+            <Route path="/report-incident" element={<ProtectedRoute><ReportIncidentPage /></ProtectedRoute>} />
+            <Route path="/contact" element={<ContactPage />} />
 
-          {/* Fallback */}
-          <Route path="*" element={<LandingPage />} />
-        </Routes>
-      </ProfileCheckWrapper>
+            {/* Đăng nhập */}
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+
+            <Route path="*" element={<LandingPage />} />
+          </Routes>
+        </ProfileCheckWrapper>
       </Router>
     </SettingsProvider>
   );

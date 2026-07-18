@@ -1,3 +1,5 @@
+import { authService } from '../services/auth.service';
+
 export interface StoredUser {
   id: string;
   email: string;
@@ -66,14 +68,12 @@ export function isAdmin(user?: StoredUser | null): boolean {
 }
 
 /** Refresh user from GET /auth/me (includes role from database). */
-export async function syncCurrentUserFromApi(
-  api: { get: (url: string) => Promise<{ data: unknown }> }
-): Promise<StoredUser | null> {
+export async function syncCurrentUserFromApi(): Promise<StoredUser | null> {
   const token = localStorage.getItem('token');
   if (!token) return null;
 
   try {
-    const response = await api.get('/auth/me');
+    const response = await authService.getMe();
     const body = response.data as {
       success?: boolean;
       data?: StoredUser;

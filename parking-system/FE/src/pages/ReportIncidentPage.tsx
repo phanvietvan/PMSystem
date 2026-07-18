@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { AlertTriangle, Send, Check, MapPin, Layers } from 'lucide-react';
 import Navbar from '../components/layout/Navbar';
-import api from '../services/api';
-import { useSettings } from '../hooks/useSettings.tsx';
+import { parkingService } from '../services/parking.service';
+import { adminService } from '../services/admin.service';
 
 interface Incident {
   id: string;
@@ -81,8 +81,7 @@ const ReportIncidentPage = () => {
   const [floor, setFloor] = useState('Tầng 1');
   const [urgency, setUrgency] = useState<'Bình thường' | 'Cao' | 'Khẩn cấp'>('Bình thường');
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const { t, language } = useSettings();
-
+  
   // Available branches from localStorage or default
   const [branches, setBranches] = useState<any[]>([]);
   const [myIncidents, setMyIncidents] = useState<Incident[]>([]);
@@ -90,7 +89,7 @@ const ReportIncidentPage = () => {
   const loadMyIncidents = async () => {
     const reporterName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username || user.email : 'Khách vãng lai';
     try {
-      const response = await api.get('/Incidents');
+      const response = await adminService.getIncidents();
       if (response.data) {
         const allIncidents: Incident[] = response.data;
         setMyIncidents(allIncidents.filter(inc => inc.reporter === reporterName));
@@ -117,7 +116,7 @@ const ReportIncidentPage = () => {
 
     const loadBranches = async () => {
       try {
-        const response = await api.get('/ParkingLots');
+        const response = await parkingService.getParkingLots();
         if (response.data && Array.isArray(response.data) && response.data.length > 0) {
           setBranches(response.data);
           return;
@@ -162,7 +161,7 @@ const ReportIncidentPage = () => {
     };
 
     try {
-      await api.post('/Incidents', newIncidentPayload);
+      await adminService.createIncident( newIncidentPayload);
       setIsSubmitted(true);
       setTitle('');
       setDescription('');
@@ -174,275 +173,271 @@ const ReportIncidentPage = () => {
       }, 5000);
     } catch (error) {
       console.error('Error submitting incident to database:', error);
-      alert(language === 'en' ? 'Could not submit incident report at this time. Please try again later.' : 'Không thể gửi báo cáo sự cố lúc này. Vui lòng thử lại sau.');
+      alert('Không thể gửi báo cáo sự cố lúc này. Vui lòng thử lại sau.');
     }
   };
 
   const getLocalizedUrgency = (urg: string) => {
-    if (urg === 'Khẩn cấp') return language === 'en' ? 'Emergency' : 'Khẩn cấp';
-    if (urg === 'Cao') return language === 'en' ? 'High' : 'Cao';
-    return language === 'en' ? 'Normal' : 'Bình thường';
+    if (urg === 'Khẩn cấp') return 'Khẩn cấp';
+    if (urg === 'Cao') return 'Cao';
+    return 'Bình thường';
   };
 
   const getLocalizedStatus = (status: string) => {
-    if (status === 'Đã xử lý') return language === 'en' ? 'Resolved' : 'Đã xử lý';
-    return language === 'en' ? 'Pending' : 'Chờ xử lý';
+    if (status === 'Đã xử lý') return 'Đã xử lý';
+    return 'Chờ xử lý';
   };
 
   const getLocalizedFloor = (fl: string) => {
     if (!fl) return '';
-    return fl.replace('Tầng', language === 'en' ? 'Floor' : 'Tầng');
+    return fl.replace('Tầng', 'Tầng');
   };
 
   const getLocalizedType = (tType: string) => {
-    if (tType === 'Thiết bị hỏng') return language === 'en' ? 'Broken Equipment' : 'Thiết bị hỏng';
-    if (tType === 'Lỗi thanh toán') return language === 'en' ? 'Payment Issue' : 'Lỗi thanh toán';
-    if (tType === 'Xe đỗ sai vị trí') return language === 'en' ? 'Wrongly Parked Vehicle' : 'Xe đỗ sai vị trí';
-    if (tType === 'Vấn đề thẻ/vé') return language === 'en' ? 'Card/Ticket Problem' : 'Vấn đề thẻ/vé';
-    if (tType === 'Khác') return language === 'en' ? 'Other' : 'Khác';
+    if (tType === 'Thiết bị hỏng') return 'Thiết bị hỏng';
+    if (tType === 'Lỗi thanh toán') return 'Lỗi thanh toán';
+    if (tType === 'Xe đỗ sai vị trí') return 'Xe đỗ sai vị trí';
+    if (tType === 'Vấn đề thẻ/vé') return 'Vấn đề thẻ/vé';
+    if (tType === 'Khác') return 'Khác';
     return tType;
   };
 
   return (
     <div className="min-h-screen bg-mesh-gradient text-slate-900 flex flex-col">
-      <Navbar />
-
-      <div className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-28 flex flex-col justify-center">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-8 sm:p-10 rounded-[32px] border border-slate-200/80 shadow-xl relative overflow-hidden"
-        >
-          {/* Ambient Glows */}
-          <div className="absolute top-0 left-0 w-40 h-40 bg-red-400/5 rounded-full blur-3xl pointer-events-none"></div>
-          <div className="absolute bottom-0 right-0 w-40 h-40 bg-orange-400/5 rounded-full blur-3xl pointer-events-none"></div>
-
-          <div className="relative z-10">
-            <div className="flex items-center gap-5 mb-10">
-              <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center shrink-0 border border-red-100">
-                <AlertTriangle className="w-8 h-8" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-slate-800 tracking-tight">
-                  {language === 'en' ? 'Report System Incident' : 'Báo cáo Sự cố Hệ thống'}
-                </h2>
-                <p className="text-[13px] text-slate-500 font-medium mt-1">
-                  {language === 'en'
-                    ? 'Send incident information directly to the Administrator (Admin) for timely resolution.'
-                    : 'Gửi thông tin sự cố trực tiếp đến Quản trị viên (Admin) để xử lý kịp thời.'}
-                </p>
-              </div>
-            </div>
-
-            {isSubmitted ? (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="bg-emerald-50 border border-emerald-100 p-8 rounded-2xl text-center flex flex-col items-center justify-center space-y-4"
-              >
-                <div className="w-12 h-12 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                  <Check className="w-6 h-6" />
-                </div>
-                <h3 className="text-base font-bold text-slate-850">
-                  {language === 'en' ? 'Your report has been submitted successfully!' : 'Báo cáo của bạn đã được gửi thành công!'}
-                </h3>
-                <p className="text-xs text-slate-500 max-w-md">
-                  {language === 'en'
-                    ? 'Thank you for your contribution. The parking management team has received the information and will inspect and resolve it as soon as possible.'
-                    : 'Cảm ơn sự đóng góp của bạn. Ban quản lý bãi xe đã nhận được thông tin và sẽ kiểm tra khắc phục trong thời gian sớm nhất.'}
-                </p>
-                <button
-                  onClick={() => setIsSubmitted(false)}
-                  className="mt-4 px-6 py-2.5 bg-white border border-slate-200 hover:border-slate-350 text-xs font-bold text-slate-700 rounded-full shadow-sm transition-all cursor-pointer"
-                >
-                  {language === 'en' ? 'Submit another report' : 'Gửi thêm báo cáo khác'}
-                </button>
-              </motion.div>
-            ) : (
-              <form onSubmit={handleSubmit}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                  {/* Left Column */}
-                  <div className="flex flex-col gap-6">
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
-                        {language === 'en' ? 'INCIDENT TYPE' : 'LOẠI SỰ CỐ'}
-                      </label>
-                      <CustomSelect
-                        value={type}
-                        onChange={(val: string) => setType(val)}
-                        isError={true} // Giữ viền đỏ theo mockup
-                        options={[
-                          { value: 'Thiết bị hỏng', label: language === 'en' ? 'Broken Equipment' : 'Thiết bị hỏng' },
-                          { value: 'Lỗi thanh toán', label: language === 'en' ? 'Payment Issue' : 'Lỗi thanh toán' },
-                          { value: 'Xe đỗ sai vị trí', label: language === 'en' ? 'Wrongly Parked Vehicle' : 'Xe đỗ sai vị trí' },
-                          { value: 'Vấn đề thẻ/vé', label: language === 'en' ? 'Card/Ticket Problem' : 'Vấn đề thẻ/vé' },
-                          { value: 'Khác', label: language === 'en' ? 'Other' : 'Khác' }
-                        ]}
-                      />
-                    </div>
-
-                    <div>
-                      <input
-                        type="text"
-                        required
-                        placeholder={language === 'en' ? 'Example: Entrance barrier on Landmark 81 Floor 2 is stuck' : 'Ví dụ: Rào chắn bãi đỗ xe tầng 2 Landmark 81 bị kẹt'}
-                        value={title}
-                        onChange={e => setTitle(e.target.value)}
-                        className="w-full px-5 py-3.5 bg-white border border-slate-200 rounded-full text-sm font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
-                        {language === 'en' ? 'BRANCH' : 'CHI NHÁNH'}
-                      </label>
-                      <CustomSelect
-                        icon={MapPin}
-                        value={branch}
-                        onChange={(val: string) => setBranch(val)}
-                        options={branches.map(b => ({ value: b.name, label: b.name }))}
-                      />
-                    </div>
+          <Navbar />
+    
+          <div className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-28 flex flex-col justify-center">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white p-8 sm:p-10 rounded-[32px] border border-slate-200/80 shadow-xl relative overflow-hidden"
+            >
+              {/* Ambient Glows */}
+              <div className="absolute top-0 left-0 w-40 h-40 bg-red-400/5 rounded-full blur-3xl pointer-events-none"></div>
+              <div className="absolute bottom-0 right-0 w-40 h-40 bg-orange-400/5 rounded-full blur-3xl pointer-events-none"></div>
+    
+              <div className="relative z-10">
+                <div className="flex items-center gap-5 mb-10">
+                  <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center shrink-0 border border-red-100">
+                    <AlertTriangle className="w-8 h-8" />
                   </div>
-
-                  {/* Right Column */}
-                  <div className="flex flex-col gap-6">
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
-                        {language === 'en' ? 'URGENCY LEVEL' : 'MỨC ĐỘ KHẨN CẤP'}
-                      </label>
-                      <div className="grid grid-cols-3 gap-3">
-                        {(['Bình thường', 'Cao', 'Khẩn cấp'] as const).map(level => {
-                          const isSelected = urgency === level;
-                          const levelColors = {
-                            'Bình thường': isSelected ? 'bg-blue-600 text-white border-blue-600' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200',
-                            'Cao': isSelected ? 'bg-amber-500 text-white border-amber-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200',
-                            'Khẩn cấp': isSelected ? 'bg-rose-600 text-white border-rose-600' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
-                          };
-                          const levelLabel = level === 'Bình thường' ? (language === 'en' ? 'Normal' : 'Bình thường') :
-                                             level === 'Cao' ? (language === 'en' ? 'High' : 'Cao') :
-                                             (language === 'en' ? 'Emergency' : 'Khẩn cấp');
-                          return (
-                            <button
-                              key={level}
-                              type="button"
-                              onClick={() => setUrgency(level)}
-                              className={`py-3 text-[11px] font-bold rounded-full border transition-all cursor-pointer shadow-sm ${levelColors[level]}`}
-                            >
-                              {levelLabel}
-                            </button>
-                          );
-                        })}
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-800 tracking-tight">
+                      {'Báo cáo Sự cố Hệ thống'}
+                    </h2>
+                    <p className="text-[13px] text-slate-500 font-medium mt-1">
+                      {'Gửi thông tin sự cố trực tiếp đến Quản trị viên (Admin) để xử lý kịp thời.'}
+                    </p>
+                  </div>
+                </div>
+    
+                {isSubmitted ? (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="bg-emerald-50 border border-emerald-100 p-8 rounded-2xl text-center flex flex-col items-center justify-center space-y-4"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                      <Check className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-base font-bold text-slate-850">
+                      {'Báo cáo của bạn đã được gửi thành công!'}
+                    </h3>
+                    <p className="text-xs text-slate-500 max-w-md">
+                      {'Cảm ơn sự đóng góp của bạn. Ban quản lý bãi xe đã nhận được thông tin và sẽ kiểm tra khắc phục trong thời gian sớm nhất.'}
+                    </p>
+                    <button
+                      onClick={() => setIsSubmitted(false)}
+                      className="mt-4 px-6 py-2.5 bg-white border border-slate-200 hover:border-slate-350 text-xs font-bold text-slate-700 rounded-full shadow-sm transition-all cursor-pointer"
+                    >
+                      {'Gửi thêm báo cáo khác'}
+                    </button>
+                  </motion.div>
+                ) : (
+                  <form onSubmit={handleSubmit}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                      {/* Left Column */}
+                      <div className="flex flex-col gap-6">
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
+                            {'LOẠI SỰ CỐ'}
+                          </label>
+                          <CustomSelect
+                            value={type}
+                            onChange={(val: string) => setType(val)}
+                            isError={true} // Giữ viền đỏ theo mockup
+                            options={[
+                              { value: 'Thiết bị hỏng', label: 'Thiết bị hỏng' },
+                              { value: 'Lỗi thanh toán', label: 'Lỗi thanh toán' },
+                              { value: 'Xe đỗ sai vị trí', label: 'Xe đỗ sai vị trí' },
+                              { value: 'Vấn đề thẻ/vé', label: 'Vấn đề thẻ/vé' },
+                              { value: 'Khác', label: 'Khác' }
+                            ]}
+                          />
+                        </div>
+    
+                        <div>
+                          <input
+                            type="text"
+                            required
+                            placeholder={'Ví dụ: Rào chắn bãi đỗ xe tầng 2 Landmark 81 bị kẹt'}
+                            value={title}
+                            onChange={e => setTitle(e.target.value)}
+                            className="w-full px-5 py-3.5 bg-white border border-slate-200 rounded-full text-sm font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm"
+                          />
+                        </div>
+    
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
+                            {'CHI NHÁNH'}
+                          </label>
+                          <CustomSelect
+                            icon={MapPin}
+                            value={branch}
+                            onChange={(val: string) => setBranch(val)}
+                            options={branches.map(b => ({ value: b.name, label: b.name }))}
+                          />
+                        </div>
+                      </div>
+    
+                      {/* Right Column */}
+                      <div className="flex flex-col gap-6">
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
+                            {'MỨC ĐỘ KHẨN CẤP'}
+                          </label>
+                          <div className="grid grid-cols-3 gap-3">
+                            {(['Bình thường', 'Cao', 'Khẩn cấp'] as const).map(level => {
+                              const isSelected = urgency === level;
+                              const levelColors = {
+                                'Bình thường': isSelected ? 'bg-blue-600 text-white border-blue-600' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200',
+                                'Cao': isSelected ? 'bg-amber-500 text-white border-amber-500' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200',
+                                'Khẩn cấp': isSelected ? 'bg-rose-600 text-white border-rose-600' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+                              };
+                              const levelLabel = level === 'Bình thường' ? ('Bình thường') :
+                                                 level === 'Cao' ? ('Cao') :
+                                                 ('Khẩn cấp');
+                              return (
+                                <button
+                                  key={level}
+                                  type="button"
+                                  onClick={() => setUrgency(level)}
+                                  className={`py-3 text-[11px] font-bold rounded-full border transition-all cursor-pointer shadow-sm ${levelColors[level]}`}
+                                >
+                                  {levelLabel}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+    
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
+                            {'KHU VỰC TẦNG'}
+                          </label>
+                          <CustomSelect
+                            icon={Layers}
+                            value={floor}
+                            onChange={(val: string) => setFloor(val)}
+                            options={(() => {
+                              const selectedObj = branches.find(b => b.name === branch);
+                              const floorList = selectedObj && selectedObj.floors ? selectedObj.floors : [1, 2, 3];
+                              return floorList.map((f: any) => ({ 
+                                value: `Tầng ${f}`, 
+                                label: `Tầng ${f}` 
+                              }));
+                            })()}
+                          />
+                        </div>
                       </div>
                     </div>
-
-                    <div>
+    
+                    <div className="mt-6">
                       <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
-                        {language === 'en' ? 'FLOOR LEVEL' : 'KHU VỰC TẦNG'}
+                        {'MÔ TẢ CHI TIẾT'}
                       </label>
-                      <CustomSelect
-                        icon={Layers}
-                        value={floor}
-                        onChange={(val: string) => setFloor(val)}
-                        options={(() => {
-                          const selectedObj = branches.find(b => b.name === branch);
-                          const floorList = selectedObj && selectedObj.floors ? selectedObj.floors : [1, 2, 3];
-                          return floorList.map((f: any) => ({ 
-                            value: `Tầng ${f}`, 
-                            label: language === 'en' ? `Floor ${f}` : `Tầng ${f}` 
-                          }));
-                        })()}
-                      />
+                      <textarea
+                        required
+                        rows={4}
+                        placeholder={'Vui lòng mô tả chi tiết sự cố gặp phải (vị trí cụ thể, hiện tượng xảy ra, lỗi màn hình nếu có...)'}
+                        value={description}
+                        onChange={e => setDescription(e.target.value)}
+                        className="w-full px-5 py-4 bg-white border border-slate-200 rounded-3xl text-sm font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm resize-none"
+                      ></textarea>
                     </div>
-                  </div>
+    
+                    <button
+                      type="submit"
+                      className="w-full bg-[#f00] hover:bg-red-700 text-white font-bold py-4 px-6 rounded-full text-[13px] uppercase tracking-wider transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 flex items-center justify-center gap-2 mt-8 cursor-pointer"
+                    >
+                      <Send className="w-5 h-5" />
+                      {'GỬI BÁO CÁO SỰ CỐ'}
+                    </button>
+                  </form>
+                )}
+              </div>
+            </motion.div>
+    
+            {/* Incident History List */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="bg-white p-8 sm:p-10 rounded-[32px] border border-slate-200/80 shadow-xl mt-8 relative overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-400/5 rounded-full blur-3xl pointer-events-none"></div>
+              
+              <h3 className="text-lg font-black text-slate-800 tracking-tight mb-6">
+                {'Lịch sử báo cáo của bạn'}
+              </h3>
+              
+              {myIncidents.length === 0 ? (
+                <p className="text-xs text-slate-400 font-bold text-center py-8">
+                  {'Bạn chưa gửi báo cáo sự cố nào.'}
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {myIncidents.map(inc => (
+                    <div key={inc.id} className="p-5 rounded-2xl border border-slate-100 hover:border-blue-200/50 bg-slate-50/50 hover:bg-blue-50/10 transition-all duration-300">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                            {inc.id.startsWith('#') ? inc.id : '#INC-' + inc.id.substring(0, 4).toUpperCase()}
+                          </span>
+                          <span className={`px-2.5 py-0.5 rounded-md text-[9px] font-black uppercase ${
+                            inc.urgency === 'Khẩn cấp' ? 'bg-rose-100 text-rose-600 animate-pulse' :
+                            inc.urgency === 'Cao' ? 'bg-amber-100 text-amber-600' :
+                            'bg-slate-200 text-slate-600'
+                          }`}>
+                            {getLocalizedUrgency(inc.urgency)}
+                          </span>
+                          <span className={`px-2.5 py-0.5 rounded-md text-[9px] font-black uppercase ${
+                            inc.status === 'Đã xử lý' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'
+                          }`}>
+                            {getLocalizedStatus(inc.status)}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-bold">
+                          {inc.createdAt.includes('T') || inc.createdAt.includes('-') 
+                            ? new Date(inc.createdAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) 
+                            : inc.createdAt}
+                        </span>
+                      </div>
+                      
+                      <h4 className="text-xs font-bold text-slate-850 mt-2.5 leading-snug">{inc.title}</h4>
+                      <p className="text-[11px] text-slate-500 font-medium mt-1">{inc.description}</p>
+                      
+                      <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 mt-3 border-t border-slate-100 pt-2.5">
+                        <MapPin className="w-3.5 h-3.5 text-blue-500/80" />
+                        <span>{inc.branch} • {getLocalizedFloor(inc.floor)}</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-
-                <div className="mt-6">
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
-                    {language === 'en' ? 'DETAILED DESCRIPTION' : 'MÔ TẢ CHI TIẾT'}
-                  </label>
-                  <textarea
-                    required
-                    rows={4}
-                    placeholder={language === 'en' ? 'Please describe the incident in detail (specific location, symptoms, screen errors if any...)' : 'Vui lòng mô tả chi tiết sự cố gặp phải (vị trí cụ thể, hiện tượng xảy ra, lỗi màn hình nếu có...)'}
-                    value={description}
-                    onChange={e => setDescription(e.target.value)}
-                    className="w-full px-5 py-4 bg-white border border-slate-200 rounded-3xl text-sm font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm resize-none"
-                  ></textarea>
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full bg-[#f00] hover:bg-red-700 text-white font-bold py-4 px-6 rounded-full text-[13px] uppercase tracking-wider transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 flex items-center justify-center gap-2 mt-8 cursor-pointer"
-                >
-                  <Send className="w-5 h-5" />
-                  {language === 'en' ? 'SUBMIT INCIDENT REPORT' : 'GỬI BÁO CÁO SỰ CỐ'}
-                </button>
-              </form>
-            )}
+              )}
+            </motion.div>
           </div>
-        </motion.div>
-
-        {/* Incident History List */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="bg-white p-8 sm:p-10 rounded-[32px] border border-slate-200/80 shadow-xl mt-8 relative overflow-hidden"
-        >
-          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-400/5 rounded-full blur-3xl pointer-events-none"></div>
-          
-          <h3 className="text-lg font-black text-slate-800 tracking-tight mb-6">
-            {language === 'en' ? 'Your report history' : 'Lịch sử báo cáo của bạn'}
-          </h3>
-          
-          {myIncidents.length === 0 ? (
-            <p className="text-xs text-slate-400 font-bold text-center py-8">
-              {language === 'en' ? 'You have not submitted any incident reports.' : 'Bạn chưa gửi báo cáo sự cố nào.'}
-            </p>
-          ) : (
-            <div className="space-y-4">
-              {myIncidents.map(inc => (
-                <div key={inc.id} className="p-5 rounded-2xl border border-slate-100 hover:border-blue-200/50 bg-slate-50/50 hover:bg-blue-50/10 transition-all duration-300">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                        {inc.id.startsWith('#') ? inc.id : '#INC-' + inc.id.substring(0, 4).toUpperCase()}
-                      </span>
-                      <span className={`px-2.5 py-0.5 rounded-md text-[9px] font-black uppercase ${
-                        inc.urgency === 'Khẩn cấp' ? 'bg-rose-100 text-rose-600 animate-pulse' :
-                        inc.urgency === 'Cao' ? 'bg-amber-100 text-amber-600' :
-                        'bg-slate-200 text-slate-600'
-                      }`}>
-                        {getLocalizedUrgency(inc.urgency)}
-                      </span>
-                      <span className={`px-2.5 py-0.5 rounded-md text-[9px] font-black uppercase ${
-                        inc.status === 'Đã xử lý' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'
-                      }`}>
-                        {getLocalizedStatus(inc.status)}
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-slate-400 font-bold">
-                      {inc.createdAt.includes('T') || inc.createdAt.includes('-') 
-                        ? new Date(inc.createdAt).toLocaleString(language === 'en' ? 'en-US' : 'vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) 
-                        : inc.createdAt}
-                    </span>
-                  </div>
-                  
-                  <h4 className="text-xs font-bold text-slate-850 mt-2.5 leading-snug">{inc.title}</h4>
-                  <p className="text-[11px] text-slate-500 font-medium mt-1">{inc.description}</p>
-                  
-                  <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 mt-3 border-t border-slate-100 pt-2.5">
-                    <MapPin className="w-3.5 h-3.5 text-blue-500/80" />
-                    <span>{inc.branch} • {getLocalizedFloor(inc.floor)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </motion.div>
-      </div>
-    </div>
+        </div>
   );
 };
 

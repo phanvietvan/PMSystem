@@ -5,9 +5,8 @@ import { User, LogOut, ChevronDown, Car, AlertTriangle, Bell } from 'lucide-reac
 import NotificationPanel from '../common/NotificationPanel';
 import SettingsDropdown from '../common/SettingsDropdown';
 import BrandLogo from '../brand/BrandLogo';
-import api from '../../services/api';
 import { isAdmin, syncCurrentUserFromApi, clearSession } from '../../utils/auth';
-import { useSettings } from '../../hooks/useSettings.tsx';
+import { adminService } from '../../services/admin.service';
 
 const Navbar = () => {
   const location = useLocation();
@@ -18,8 +17,7 @@ const Navbar = () => {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [hasSeenUnread, setHasSeenUnread] = useState(true);
-  const { t } = useSettings();
-
+  
   useEffect(() => {
     const applyStoredUser = () => {
       const raw = localStorage.getItem('user');
@@ -29,7 +27,7 @@ const Navbar = () => {
     applyStoredUser();
 
     if (localStorage.getItem('token')) {
-      void syncCurrentUserFromApi(api).then((fresh) => {
+      void syncCurrentUserFromApi().then((fresh) => {
         if (fresh) setUser(fresh);
       });
     }
@@ -49,7 +47,7 @@ const Navbar = () => {
     if (!user) return;
     const fetchNotifs = async () => {
       try {
-        const res = await api.get('/Notifications');
+        const res = await adminService.getNotifications();
         const count = res.data.filter((n: any) => !n.read).length;
         setUnreadCount(count);
       } catch (err) {}
@@ -84,9 +82,9 @@ const Navbar = () => {
   };
 
   const navLinks = [
-    { nameKey: 'home', path: '/' },
-    { nameKey: 'status', path: '/status' },
-    { nameKey: 'contact', path: '/contact' },
+    { name: 'Trang chủ', path: '/' },
+    { name: 'Trạng thái', path: '/status' },
+    { name: 'Liên hệ', path: '/contact' },
   ];
 
   return (
@@ -100,14 +98,14 @@ const Navbar = () => {
             const isActive = currentPath === link.path;
             return (
               <Link
-                key={link.nameKey}
+                key={link.path}
                 to={link.path}
                 className={`text-sm font-semibold transition-all hover:scale-105 transform duration-200 relative
                   ${isActive
                     ? 'text-blue-600'
                     : 'text-slate-500 hover:text-blue-600'}`}
               >
-                {t(link.nameKey)}
+                {link.name}
                 {isActive && (
                   <motion.div
                     layoutId="nav-underline"
@@ -128,13 +126,13 @@ const Navbar = () => {
                 to="/login"
                 className="hidden sm:block text-sm font-bold text-slate-700 hover:text-blue-600 uppercase tracking-wider px-4 py-2 transition-colors"
               >
-                {t('login')}
+                {'Đăng nhập'}
               </Link>
               <Link
                 to="/register"
                 className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-3 px-6 rounded-full shadow-xl shadow-blue-600/25 transition-all transform hover:-translate-y-0.5 active:scale-95 uppercase tracking-wider"
               >
-                {t('register')}
+                {'Đăng ký ngay'}
               </Link>
             </>
           ) : (
@@ -143,7 +141,7 @@ const Navbar = () => {
                 <Link
                   to="/admin"
                   className="w-10 h-10 flex items-center justify-center bg-white hover:bg-blue-50 text-blue-600 rounded-full transition-all duration-300 font-black text-sm border border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-0.5"
-                  title="Dashboard (Admin)"
+                  title="Bảng quản trị"
                 >
                   D
                 </Link>
@@ -192,7 +190,7 @@ const Navbar = () => {
                     )}
                   </div>
                   <div className="hidden sm:block text-left">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight leading-none mb-0.5">{t('hello')}</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight leading-none mb-0.5">{'Xin chào,'}</p>
                     <p className="text-xs font-bold text-slate-900 leading-none">
                       {user.firstName || user.lastName ? `${user.firstName} ${user.lastName}`.trim() : user.username}
                     </p>
@@ -220,7 +218,7 @@ const Navbar = () => {
                         className="flex items-center gap-3 px-3.5 py-2.5 text-xs font-semibold text-slate-700 hover:bg-blue-50/50 hover:text-blue-600 transition-colors duration-200 rounded-xl"
                       >
                         <User size={15} className="opacity-70" />
-                        <span>{t('profile')}</span>
+                        <span>{'Thông tin cá nhân'}</span>
                       </Link>
 
                       <Link
@@ -229,7 +227,7 @@ const Navbar = () => {
                         className="flex items-center gap-3 px-3.5 py-2.5 text-xs font-semibold text-slate-700 hover:bg-blue-50/50 hover:text-blue-600 transition-colors duration-200 rounded-xl"
                       >
                         <Car size={15} className="opacity-70" />
-                        <span>{t('history')}</span>
+                        <span>{'Lịch sử gửi xe'}</span>
                       </Link>
 
                       <Link
@@ -238,7 +236,7 @@ const Navbar = () => {
                         className="flex items-center gap-3 px-3.5 py-2.5 text-xs font-semibold text-slate-700 hover:bg-rose-50/50 hover:text-rose-600 transition-colors duration-200 rounded-xl"
                       >
                         <AlertTriangle size={15} className="opacity-70 text-rose-500" />
-                        <span>{t('reportIncident')}</span>
+                        <span>{'Báo cáo sự cố'}</span>
                       </Link>
 
                       <button
@@ -249,7 +247,7 @@ const Navbar = () => {
                         className="flex items-center gap-3 px-3.5 py-2.5 text-xs font-semibold text-red-600 hover:bg-red-50/50 transition-colors duration-200 rounded-xl w-full text-left border-t border-slate-100/80 mt-1.5 pt-2"
                       >
                         <LogOut size={15} />
-                        <span>{t('logout')}</span>
+                        <span>{'Đăng xuất'}</span>
                       </button>
                     </div>
                   </>

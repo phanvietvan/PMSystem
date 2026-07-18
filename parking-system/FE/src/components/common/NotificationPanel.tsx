@@ -1,7 +1,7 @@
 import { Bell, AlertTriangle, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import api from '../../services/api';
+import { adminService } from '../../services/admin.service';
 
 export interface NotificationPanelProps {
   role: 'user' | 'admin' | 'staff';
@@ -14,7 +14,7 @@ const NotificationPanel = ({ role }: NotificationPanelProps) => {
 
   const fetchNotifs = async () => {
     try {
-      const res = await api.get('/Notifications');
+      const res = await adminService.getNotifications();
       setNotifications(res.data);
     } catch (err) {
       console.error(err);
@@ -33,7 +33,7 @@ const NotificationPanel = ({ role }: NotificationPanelProps) => {
 
   const handleMarkAllAsRead = async () => {
     try {
-      await api.post('/Notifications/mark-read');
+      await adminService.markNotificationsRead();
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     } catch (err) {
       console.error(err);

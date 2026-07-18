@@ -5,7 +5,6 @@ import NotificationPanel from '../common/NotificationPanel';
 import SettingsDropdown from '../common/SettingsDropdown';
 import BrandLogo from '../brand/BrandLogo';
 import { useAdminUser } from '../../hooks/useAdminUser';
-import api from '../../services/api';
 import {
   clearSession,
   getRoleLabel,
@@ -13,7 +12,7 @@ import {
   getUserInitials,
 } from '../../utils/auth';
 import { ADMIN_NAV, isNavActive } from './adminNav';
-import { useSettings } from '../../hooks/useSettings.tsx';
+import { adminService } from '../../services/admin.service';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -38,13 +37,12 @@ const AdminLayout = ({
   const location = useLocation();
   const navigate = useNavigate();
   const user = useAdminUser();
-  const { t } = useSettings();
-
+  
   useEffect(() => {
     if (!user) return;
     const fetchNotifs = async () => {
       try {
-        const res = await api.get('/Notifications');
+        const res = await adminService.getNotifications();
         const count = res.data.filter((n: any) => !n.read).length;
         setUnreadCount(count);
       } catch (err) {}
@@ -106,7 +104,7 @@ const AdminLayout = ({
                     active ? 'text-white' : 'text-slate-400 group-hover:text-blue-500'
                   }`}
                 />
-                <span className={`text-sm ${active ? 'font-bold' : 'font-semibold'}`}>{t(link.nameKey)}</span>
+                <span className={`text-sm ${active ? 'font-bold' : 'font-semibold'}`}>{link.name}</span>
               </Link>
             );
           })}
@@ -122,7 +120,7 @@ const AdminLayout = ({
             className="flex items-center gap-3.5 px-5 py-3.5 rounded-xl transition-all duration-300 group text-emerald-600 hover:bg-emerald-50 shadow-sm border border-emerald-100 bg-white/50"
           >
             <MonitorSmartphone className="w-5 h-5 transition-transform group-hover:scale-110" />
-            <span className="text-sm font-bold flex-1">{t('staffGate')}</span>
+            <span className="text-sm font-bold flex-1">{'Cổng Staff (Máy quét)'}</span>
             <ExternalLink className="w-4 h-4 opacity-70" />
           </a>
         </nav>
@@ -141,7 +139,7 @@ const AdminLayout = ({
               className="flex items-center gap-3 px-5 py-3 text-slate-500 text-sm hover:text-blue-600 transition-colors font-bold group"
             >
               <HelpCircle className="w-5 h-5 text-slate-400 group-hover:text-blue-600" />
-              <span>{t('helpCenter')}</span>
+              <span>{'Trung tâm Trợ giúp'}</span>
             </Link>
             <button
               type="button"
@@ -149,7 +147,7 @@ const AdminLayout = ({
               className="flex items-center gap-3 px-5 py-3 text-red-500 text-sm hover:text-red-600 transition-colors font-bold group w-full text-left"
             >
               <LogOut className="w-5 h-5 text-red-400 group-hover:text-red-600" />
-              <span>{t('logout')}</span>
+              <span>{'Đăng xuất'}</span>
             </button>
           </div>
         </div>
@@ -176,7 +174,7 @@ const AdminLayout = ({
             <Link
               to="/"
               className="w-10 h-10 flex items-center justify-center bg-white hover:bg-blue-50 text-blue-600 rounded-full transition-all duration-300 font-black text-sm border border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-0.5"
-              title={t('backToHome')}
+              title={'Quay lại trang chủ'}
             >
               W
             </Link>
