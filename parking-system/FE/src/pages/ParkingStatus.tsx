@@ -1,207 +1,38 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Layers, Sparkles, ChevronDown, CheckCircle, XCircle, X } from 'lucide-react';
-import { useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
-import { hasActiveSessions, addActiveQr } from '../utils/auth';
-import { parkingService } from '../services/parking.service';
+import { useParkingStatus } from '../hooks/useParkingStatus';
 
-/* ─── Types ─── */
-type SlotStatus = 'available' | 'occupied' | 'reserved' | 'locked';
-
-interface ParkingSlot {
-  id: string;
-  status: SlotStatus;
-  isBest?: boolean;
-}
-
-/* ─── Helpers ─── */
-const generateSlots = (prefix: string, count: number, level: number, slotStatusMap: Record<string, SlotStatus> = {}, lockedSlots: string[] = []): ParkingSlot[] => {
-  const startChar = prefix === 'A' ? 65 : 66; // 'A' or 'B'
-  const offset = (level - 1) * 2;
-  const actualPrefix = String.fromCharCode(startChar + offset);
-
-  return Array.from({ length: count }, (_, i) => {
-    const slotId = `${actualPrefix}${i + 1}`;
-    // Real status from database. By default, it's 'available' (clean & empty).
-    let status = slotStatusMap[slotId] || 'available';
-    if (lockedSlots.includes(slotId)) status = 'locked';
-
-    return {
-      id: slotId,
-      status,
-      isBest: prefix === 'A' && ((level === 1 && i === 2) || (level === 2 && i === 4) || (level === 3 && i === 1)) && status === 'available',
-    };
-  });
-};
-
-const countByStatus = (slots: ParkingSlot[], s: SlotStatus) =>
-  slots.filter((sl) => sl.status === s).length;
-
-/* ─── Main Page ─── */
 const ParkingStatus: React.FC = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-    const [selectedLevel, setSelectedLevel] = useState(1);
-  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
-  const [showReservePrompt, setShowReservePrompt] = useState(false);
-  const [showActiveSessionWarning, setShowActiveSessionWarning] = useState(false);
-  const [slotStatusMap, setSlotStatusMap] = useState<Record<string, SlotStatus>>({});
-  const [toast, setToast] = useState<{message: string, type: 'success'|'error'} | null>(null);
-
-  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  };
-
-  const defaultLots = [
-    { id: 1, name: "Landmark 81 - Bãi đỗ A1", floor: "Tầng 1", block: "Block A" },
-    { id: 2, name: "Bitexco Financial - Bãi đỗ B2", floor: "Tầng 2", block: "Block B" },
-    { id: 3, name: "Vincom Center - Bãi đỗ V3", floor: "Hầm B3", block: "Block V" },
-    { id: 4, name: "Saigon Centre - Bãi đỗ S1", floor: "Tầng 4", block: "Block S" },
-    { id: 5, name: "Lotte Mart Q7 - Bãi đỗ L1", floor: "Hầm B1", block: "Block L" },
-    { id: 6, name: "Crescent Mall Q7 - Bãi đỗ C1", floor: "Tầng G", block: "Block C" },
-    { id: 7, name: "Sân bay Tân Sơn Nhất - Block A", floor: "Ga quốc tế", block: "Khu vực A" }
-  ];
-
-  const [parkingLots, setParkingLots] = useState<any[]>(defaultLots);
-
-  useEffect(() => {
-    const loadLots = async () => {
-      try {
-        const response = await parkingService.getParkingLots();
-        if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-          setParkingLots(response.data);
-        }
-      } catch (e) {
-        console.error('Error fetching parking lots:', e);
-      }
-    };
-    loadLots();
-  }, []);
-
-  const [selectedParking, setSelectedParking] = useState(
-    location.state?.selectedParking ||
-    JSON.parse(localStorage.getItem('selectedParking') || 'null') ||
-    defaultLots[0]
-  );
-  
-  const floors = selectedParking.floors || [1, 2, 3];
-  
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-
-  useEffect(() => {
-    if (selectedParking.floor?.includes('Tầng')) {
-      const n = parseInt(selectedParking.floor.replace('Tầng ', ''));
-      if (!isNaN(n) && n <= 3) setSelectedLevel(n);
-    }
-  }, [selectedParking.floor]);
-
-  // Fetch actual occupied/reserved slots and parking lot configs from BE
-  useEffect(() => {
-    const fetchStatus = () => {
-      parkingService.getSlotsStatus(selectedParking.name)
-        .then(res => {
-          if (res.data) setSlotStatusMap(res.data);
-        })
-        .catch(err => console.error('Error fetching slot status map', err));
-
-      parkingService.getParkingLots().then(res => {
-        if (res.data && Array.isArray(res.data) && res.data.length > 0) {
-          setParkingLots(res.data);
-          setSelectedParking((prev: any) => {
-            const updated = res.data.find((l: any) => l.id === prev?.id);
-            if (updated) {
-              localStorage.setItem('selectedParking', JSON.stringify(updated));
-              return updated;
-            }
-            return prev;
-          });
-        }
-      }).catch(err => console.error(err));
-    };
-
-    fetchStatus();
-    const interval = setInterval(fetchStatus, 2000);
-    return () => clearInterval(interval);
-  }, [selectedParking.name]);
-
-  // Verify and sync active session from database
-  useEffect(() => {
-    parkingService.getMySession()
-      .then(res => {
-        if (res.data) {
-          if (res.data.hasActiveSession && res.data.session) {
-            addActiveQr(res.data.session.qrCode);
-          } else {
-            localStorage.removeItem('activeSessionQrs');
-            localStorage.removeItem('activeSessionQr');
-            setShowActiveSessionWarning(false);
-          }
-        }
-      })
-      .catch(err => {
-        console.log('No active session on database.', err);
-      });
-  }, []);
-
-  // Clear selection on floor change
-  useEffect(() => { setSelectedSlot(null); }, [selectedLevel]);
-
-  const currentFloorCapacity = selectedParking.floorCapacities?.[selectedLevel.toString()] || selectedParking.capacity || 24;
-  const capacityHalf = Math.floor(currentFloorCapacity / 2);
-  const westSlots = generateSlots('A', capacityHalf, selectedLevel, slotStatusMap, selectedParking.lockedSlots || []);
-  const eastSlots = generateSlots('B', capacityHalf, selectedLevel, slotStatusMap, selectedParking.lockedSlots || []);
-  const allSlots = [...westSlots, ...eastSlots];
-  const availableCount = countByStatus(allSlots, 'available');
-  const occupiedCount = countByStatus(allSlots, 'occupied');
-
-  const getSlotCoords = (slotId: string) => {
-    const prefix = slotId.charAt(0);
-    const num = parseInt(slotId.substring(1));
-    const isWest = prefix.charCodeAt(0) % 2 !== 0; // Odd character codes are west zone
-    
-    const rowSize = Math.floor(capacityHalf / 2);
-    const isRow1 = num <= rowSize;
-    const colIndex = isRow1 ? num - 1 : num - rowSize - 1;
-
-    // Dynamically adjust spacing and width to fit any capacity (SVG width is 800)
-    let slotWidth = 40;
-    let spacing = 52; // slotWidth + gap
-    
-    const availableWidth = 290; // Space on each side
-    if (rowSize * spacing > availableWidth) {
-      spacing = Math.floor(availableWidth / Math.max(1, rowSize));
-      slotWidth = Math.max(16, spacing - (spacing > 25 ? 6 : 2)); 
-    }
-
-    const startX = 40;
-    const eastStartX = 760 - ((rowSize - 1) * spacing + slotWidth);
-
-    const x = isWest ? startX + colIndex * spacing : eastStartX + colIndex * spacing;
-    const y = isRow1 ? 80 : 350;
-    const centerX = x + (slotWidth / 2);
-    const centerY = y + 35;
-
-    return { x, y, centerX, centerY, isRow1, isWest, slotWidth };
-  };
-
-  const handleSlotClick = (id: string) => {
-    if (slotStatusMap[id] === 'reserved') {
-      showToast('Vị trí này đã có người đặt trước!', 'error');
-      return;
-    }
-    setSelectedSlot((prev) => {
-      const newSlot = prev === id ? null : id;
-      if (newSlot) {
-        localStorage.setItem('selectedSlot', newSlot);
-        localStorage.setItem('selectedLevel', selectedLevel.toString());
-      } else {
-        localStorage.removeItem('selectedSlot');
-      }
-      return newSlot;
-    });
-  };
+  const {
+    navigate,
+    location,
+    selectedLevel,
+    setSelectedLevel,
+    selectedSlot,
+    showReservePrompt,
+    setShowReservePrompt,
+    showActiveSessionWarning,
+    setShowActiveSessionWarning,
+    slotStatusMap,
+    toast,
+    setToast,
+    parkingLots,
+    selectedParking,
+    floors,
+    isDropdownOpen,
+    setIsDropdownOpen,
+    westSlots,
+    eastSlots,
+    availableCount,
+    occupiedCount,
+    getSlotCoords,
+    handleSlotClick,
+    selectParkingLot,
+    confirmSelectedSlot,
+    goToReserveFromPrompt,
+  } = useParkingStatus();
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-mesh-gradient text-slate-800 antialiased font-sans selection:bg-blue-500/10 flex flex-col">
@@ -246,12 +77,7 @@ const ParkingStatus: React.FC = () => {
                                 ? 'text-blue-600 bg-blue-50/40 font-black' 
                                 : 'text-slate-600'
                             }`}
-                            onClick={() => {
-                              setSelectedParking(lot);
-                              localStorage.setItem('selectedParking', JSON.stringify(lot));
-                              setIsDropdownOpen(false);
-                              setSelectedSlot(null); // Clear selected slot when changing building
-                            }}
+                            onClick={() => selectParkingLot(lot)}
                           >
                             <span className="material-symbols-outlined text-[14px]">location_on</span>
                             <span className="truncate">{lot.name}</span>
@@ -622,23 +448,7 @@ const ParkingStatus: React.FC = () => {
                     </span>
                   </div>
                   <button
-                    onClick={() => {
-                      const bypassActiveCheck = location.state?.bypassActiveCheck || false;
-                      const isActive = hasActiveSessions();
-                      if (isActive && !bypassActiveCheck) {
-                        setShowActiveSessionWarning(true);
-                        return;
-                      }
-    
-                      localStorage.setItem('selectedSlot', selectedSlot || 'A3');
-                      localStorage.setItem('selectedLevel', selectedLevel.toString());
-                      
-                      if (location.state?.fromReserve) {
-                        navigate('/payment', { state: { mode: 'reserve' } });
-                      } else {
-                        navigate('/reserve', { state: { fromStatus: true } });
-                      }
-                    }}
+                    onClick={confirmSelectedSlot}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-full text-[9px] font-extrabold uppercase tracking-widest hover:scale-105 active:scale-95 transition-all flex items-center gap-2 shadow-lg shadow-blue-500/20 cursor-pointer"
                   >
                     <span>{location.state?.fromReserve ? ('Xác nhận và thanh toán') : ('Tiếp tục đăng ký xe')}</span>
@@ -680,12 +490,7 @@ const ParkingStatus: React.FC = () => {
                   
                   <div className="flex flex-col gap-3 w-full">
                     <button
-                      onClick={() => {
-                        setShowReservePrompt(false);
-                        localStorage.setItem('selectedSlot', selectedSlot || 'A3');
-                        localStorage.setItem('selectedLevel', selectedLevel.toString());
-                        navigate('/reserve', { state: { fromStatus: true } });
-                      }}
+                      onClick={goToReserveFromPrompt}
                       className="w-full bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-extrabold py-3.5 rounded-full text-[10px] uppercase tracking-wider transition-all shadow-lg shadow-blue-500/20 cursor-pointer"
                     >
                       {'Nhập thông tin ngay'}

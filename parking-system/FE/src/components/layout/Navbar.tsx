@@ -5,66 +5,24 @@ import { User, LogOut, ChevronDown, Car, AlertTriangle, Bell } from 'lucide-reac
 import NotificationPanel from '../common/NotificationPanel';
 import SettingsDropdown from '../common/SettingsDropdown';
 import BrandLogo from '../brand/BrandLogo';
-import { isAdmin, syncCurrentUserFromApi, clearSession } from '../../utils/auth';
-import { adminService } from '../../services/admin.service';
+import { isAdmin } from '../../utils/auth';
+import { useCurrentUser } from '../../hooks/useCurrentUser';
+import { useNotifications } from '../../hooks/useNotifications';
 
 const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const currentPath = location.pathname;
-  const [user, setUser] = useState<any>(null);
+  const { user, logout } = useCurrentUser();
+  const { unreadCount } = useNotifications({ enabled: Boolean(user) });
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [hasSeenUnread, setHasSeenUnread] = useState(true);
-  
-  useEffect(() => {
-    const applyStoredUser = () => {
-      const raw = localStorage.getItem('user');
-      setUser(raw ? JSON.parse(raw) : null);
-    };
-
-    applyStoredUser();
-
-    if (localStorage.getItem('token')) {
-      void syncCurrentUserFromApi().then((fresh) => {
-        if (fresh) setUser(fresh);
-      });
-    }
-
-    const handleStorageChange = () => applyStoredUser();
-
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('user-login', handleStorageChange);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('user-login', handleStorageChange);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!user) return;
-    const fetchNotifs = async () => {
-      try {
-        const res = await adminService.getNotifications();
-        const count = res.data.filter((n: any) => !n.read).length;
-        setUnreadCount(count);
-      } catch (err) {}
-    };
-    fetchNotifs();
-    const interval = setInterval(fetchNotifs, 15000);
-    return () => clearInterval(interval);
-  }, [user]);
 
   useEffect(() => {
     if (!user) return;
     const lastSeen = Number(localStorage.getItem(`lastSeenNotifCount_${user.id}`) || '0');
-    if (unreadCount > lastSeen) {
-       setHasSeenUnread(false);
-    } else {
-       setHasSeenUnread(true);
-    }
+    setHasSeenUnread(unreadCount <= lastSeen);
   }, [unreadCount, user]);
 
   const handleOpenNotif = () => {
@@ -76,8 +34,7 @@ const Navbar = () => {
   };
 
   const handleLogout = () => {
-    clearSession();
-    setUser(null);
+    logout();
     navigate('/');
   };
 

@@ -1,20 +1,21 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Phone, Mail, MapPin, Clock, Send, CheckCircle2, AlertCircle, Shield,
   ChevronDown, MessageSquare, Globe, Zap
 } from 'lucide-react';
 import Navbar from '../components/layout/Navbar';
-import { parkingService } from '../services/parking.service';
+import { useContactForm } from '../hooks/useContactForm';
 
 const ContactPage = () => {
-    const [formData, setFormData] = useState({
-    name: '', email: '', phone: '', subject: 'general', message: '',
-  });
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [submitError, setSubmitError] = useState('');
+  const {
+    formData,
+    isSubmitting,
+    submitStatus,
+    submitError,
+    handleChange,
+    handleSubmit,
+  } = useContactForm();
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
 
   const faqs = [
@@ -30,50 +31,6 @@ const ContactPage = () => {
     { value: '24/7', label: 'Hỗ Trợ Kỹ Thuật' },
     { value: '10k+', label: 'Vấn Đề Đã Xử Lý' }
   ];
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.name || !formData.email || !formData.message) {
-      setSubmitStatus('error');
-      return;
-    }
-
-    setIsSubmitting(true);
-    setSubmitError('');
-
-    try {
-      await parkingService.sendContact( {
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone || null,
-        subject: formData.subject === 'general' ? 'Hỏi đáp chung / Tư vấn' : formData.subject === 'support' ? 'Báo lỗi kỹ thuật / Sự cố' : formData.subject === 'partnership' ? 'Hợp tác kinh doanh' : 'Góp ý nâng cấp dịch vụ',
-        message: formData.message
-      });
-
-      setIsSubmitting(false);
-      setSubmitStatus('success');
-      setFormData({ name: '', email: '', phone: '', subject: 'general', message: '' });
-      setTimeout(() => setSubmitStatus('idle'), 5000);
-    } catch (err: any) {
-      setIsSubmitting(false);
-      setSubmitStatus('error');
-      const apiMsg = err?.response?.data?.error || err?.response?.data?.message;
-      setSubmitError(
-        apiMsg
-          ? String(apiMsg)
-          : 'Gửi thất bại. Kiểm tra lại form hoặc kết nối máy chủ (SMTP).'
-      );
-      setTimeout(() => {
-        setSubmitStatus('idle');
-        setSubmitError('');
-      }, 8000);
-    }
-  };
 
   const contactInfos = [
     {

@@ -1,83 +1,19 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { AlertCircle } from 'lucide-react';
-import { useGoogleLogin } from '@react-oauth/google';
 import BrandLogo from '../components/brand/BrandLogo';
-import { syncCurrentUserFromApi } from '../utils/auth';
-import { authService } from '../services/auth.service';
+import { useLogin } from '../hooks/useLogin';
 
 const LoginPage = () => {
-  const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const navigate = useNavigate();
-  
-  const loginGoogle = useGoogleLogin({
-    onSuccess: async (tokenResponse) => {
-      setLoading(true);
-      setError('');
-      try {
-        const response = await authService.googleLogin( {
-          idToken: tokenResponse.access_token
-        });
-        
-        const apiResponse = response.data;
-        const { user, accessToken } = apiResponse.data;
-
-        localStorage.setItem('token', accessToken);
-        localStorage.setItem('user', JSON.stringify(user));
-        
-        window.dispatchEvent(new Event('user-login'));
-        setLoading(false);
-        
-        const isForceUpdate = !user.firstName || !user.lastName || user.firstName === 'Google' || user.lastName === 'User';
-        if (isForceUpdate) {
-          navigate('/profile');
-        } else {
-          navigate('/');
-        }
-      } catch (err: any) {
-        setLoading(false);
-        console.error('Google Login Error:', err.response?.data);
-        setError(err.response?.data?.message || ('Đăng nhập Google thất bại.'));
-      }
-    },
-    onError: () => {
-      setError('Đăng nhập Google thất bại.');
-    }
-  });
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-
-    try {
-      const response = await authService.login( {
-        emailOrUsername: email,
-        password: password
-      });
-
-      // Phản hồi từ BE mới có cấu trúc { success, data: { accessToken, user }, ... }
-      const apiResponse = response.data;
-      const { user, accessToken } = apiResponse.data;
-
-      // Save to localStorage
-      localStorage.setItem('token', accessToken);
-      localStorage.setItem('user', JSON.stringify(user));
-
-      await syncCurrentUserFromApi();
-
-      setLoading(false);
-      navigate('/profile');
-    } catch (err: any) {
-      setLoading(false);
-      console.error('Login Error Details:', err.response?.data);
-      const errorMessage = err.response?.data?.message || err.response?.data?.errors?.[0] || ('Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
-      setError(errorMessage);
-    }
-  };
+  const {
+    loading,
+    email,
+    setEmail,
+    password,
+    setPassword,
+    error,
+    loginGoogle,
+    handleLogin,
+  } = useLogin();
 
   return (
     <main className="flex min-h-screen w-full relative overflow-hidden bg-mesh-gradient font-sans antialiased text-on-surface">

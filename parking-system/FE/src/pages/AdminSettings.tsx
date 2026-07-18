@@ -6,70 +6,20 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import AdminLayout from '../components/admin/AdminLayout';
-import { parkingService } from '../services/parking.service';
-import { adminService } from '../services/admin.service';
+import { usePricing } from '../hooks/usePricing';
+import { useRegulations } from '../hooks/useRegulations';
 
 const AdminSettings = () => {
-    const [searchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'general');
+  const [showToast, setShowToast] = useState(false);
+  const { prices, setPrices, savePricing } = usePricing();
+  const { regulations, setRegulations, saveRegulations } = useRegulations();
 
   useEffect(() => {
     const tab = searchParams.get('tab');
     if (tab) setActiveTab(tab);
   }, [searchParams]);
-
-  useEffect(() => {
-    const fetchPricing = async () => {
-      try {
-        // Try new PricingConfigs API first
-        const response = await adminService.getPricingConfigs();
-        if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-          const mapped = response.data.map((c: any) => ({ type: c.type, price: c.price, sub: c.sub }));
-          setPrices(mapped);
-          localStorage.setItem('parking_pricing', JSON.stringify(mapped));
-          return;
-        }
-      } catch (e) {}
-      // Fallback to legacy pricing endpoint
-      try {
-        const response = await parkingService.getPricing();
-        if (response.data && Array.isArray(response.data)) {
-          setPrices(response.data);
-          localStorage.setItem('parking_pricing', JSON.stringify(response.data));
-        }
-      } catch (e) {
-        console.error('Error fetching pricing from backend', e);
-      }
-    };
-
-    const fetchRegulations = async () => {
-      try {
-        const response = await adminService.getRegulations();
-        if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-          const mapped = response.data.map((r: any) => r.content);
-          setRegulations(mapped);
-          localStorage.setItem('parking_regulations', JSON.stringify(mapped));
-        }
-      } catch (e) {
-        console.error('Error fetching regulations from backend', e);
-      }
-    };
-
-    fetchPricing();
-    fetchRegulations();
-  }, []);
-
-  const [showToast, setShowToast] = useState(false);
-
-  // Pricing State & Handlers
-  const [prices, setPrices] = useState(() => {
-    const saved = localStorage.getItem('parking_pricing');
-    return saved ? JSON.parse(saved) : [
-      { type: 'Xe máy', price: '5.000', sub: 'VNĐ / Lượt' },
-      { type: 'Ô tô 4-7 chỗ', price: '30.000', sub: 'VNĐ / Giờ' },
-      { type: 'SUV / Bán tải', price: '50.000', sub: 'VNĐ / Giờ' }
-    ];
-  });
 
   const handlePriceChange = (index: number, newPrice: string) => {
     const updated = [...prices];
@@ -78,32 +28,10 @@ const AdminSettings = () => {
   };
 
   const handleSavePricing = async () => {
-    try {
-      await adminService.savePricingConfigs( prices);
-    } catch (e) {
-      console.error('Error saving pricing to backend', e);
-    }
-    // Also update legacy pricing endpoint
-    try {
-      await parkingService.setPricing( prices);
-    } catch (e) {}
-    localStorage.setItem('parking_pricing', JSON.stringify(prices));
+    await savePricing(prices);
     setShowToast(true);
     setTimeout(() => setShowToast(false), 3000);
   };
-
-  // Regulations State & Handlers
-  const [regulations, setRegulations] = useState(() => {
-    const saved = localStorage.getItem('parking_regulations');
-    return saved ? JSON.parse(saved) : [
-      'Vui lòng đỗ xe đúng vị trí ô đỗ đã đặt trước hoặc quét mã tại chỗ.',
-      'Tốc độ di chuyển tối đa trong toàn bộ khuôn viên bãi đỗ xe là 10km/h.',
-      'Tuân thủ tuyệt đối chỉ dẫn của nhân viên và biển báo thông minh.',
-      'Thực hiện thanh toán trực tuyến qua ứng dụng trước khi ra cổng chắn.',
-      'Không chứa các chất dễ cháy nổ, vũ khí hoặc hàng cấm trong phương tiện.',
-      'Tự bảo quản tài sản cá nhân có giá trị. Ban quản lý không chịu trách nhiệm mất mát trong xe.'
-    ];
-  });
 
   const handleRegulationChange = (index: number, newValue: string) => {
     const updated = [...regulations];
@@ -112,12 +40,7 @@ const AdminSettings = () => {
   };
 
   const handleSaveRegulations = async () => {
-    try {
-      await adminService.saveRegulations( regulations);
-    } catch (e) {
-      console.error('Error saving regulations to backend', e);
-    }
-    localStorage.setItem('parking_regulations', JSON.stringify(regulations));
+    await saveRegulations(regulations);
     setShowToast(true);
     setTimeout(() => setShowToast(false), 3000);
   };

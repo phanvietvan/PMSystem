@@ -1,67 +1,10 @@
-import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle2, XCircle, Loader2, ArrowLeft, RotateCcw } from 'lucide-react';
-import { useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
-import { paymentService } from '../services/payment.service';
-
-interface VnPayResult {
-  success: boolean;
-  isPaid: boolean;
-  vnpResponseCode?: string;
-  vnpTransactionNo?: string;
-  amount?: number;
-  txnRef?: string;
-  message?: string;
-}
+import { useVnPayReturn } from '../hooks/useVnPayReturn';
 
 const VnPayReturnPage = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [status, setStatus] = useState<'loading' | 'success' | 'failed'>('loading');
-  const [result, setResult] = useState<VnPayResult | null>(null);
-  const [errorDetail, setErrorDetail] = useState<string>('');
-  
-  useEffect(() => {
-    const verifyPayment = async () => {
-      try {
-        // Lấy toàn bộ query string từ VNPay trả về
-        const queryString = location.search; // ví dụ: ?vnp_ResponseCode=00&...
-        
-        // Gọi BE để verify chữ ký HMAC
-        const response = await paymentService.verifyVnPayReturn(queryString);
-        const data = response.data as VnPayResult;
-
-        setResult(data);
-
-        if (data.isPaid) {
-          setStatus('success');
-          // Chuyển tới trang success sau 2 giây
-          setTimeout(() => {
-            navigate('/success', {
-              state: {
-                mode: 'reserve',
-                qrCode: localStorage.getItem('pendingVnPayQrCode') || '',
-                fromVnPay: true,
-              },
-            });
-          }, 2500);
-        } else {
-          setStatus('failed');
-          setErrorDetail(data.message || ('Giao dịch không thành công.'));
-        }
-      } catch (err: any) {
-        console.error('VNPay verify error:', err);
-        setStatus('failed');
-        setErrorDetail(
-          err?.response?.data?.message ||
-          ('Không thể xác minh kết quả thanh toán. Vui lòng liên hệ hỗ trợ.')
-        );
-      }
-    };
-
-    verifyPayment();
-  }, [location.search, navigate]);
+  const { status, result, errorDetail, navigate } = useVnPayReturn();
 
   return (
     <div className="min-h-screen bg-mesh-gradient selection:bg-primary/10 relative">

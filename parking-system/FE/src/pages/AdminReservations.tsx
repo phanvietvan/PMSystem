@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import {
   Search,
   TrendingUp,
@@ -18,116 +17,57 @@ import {
 import AdminLayout from '../components/admin/AdminLayout';
 import { getUserInitials } from '../utils/auth';
 import ExcelJS from 'exceljs';
-import { parkingService } from '../services/parking.service';
+import { useAdminReservations } from '../hooks/useAdminReservations';
 
 const AdminReservations = () => {
-    const [reservations, setReservations] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedReservation, setSelectedReservation] = useState<any>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 10;
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState('All');
-  const [vehicleFilter, setVehicleFilter] = useState('All');
-  const [locationFilter, setLocationFilter] = useState('All');
-  const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
-  const [isVehicleDropdownOpen, setIsVehicleDropdownOpen] = useState(false);
-  const [isLocationDropdownOpen, setIsLocationDropdownOpen] = useState(false);
-
-  const [newEndTime, setNewEndTime] = useState('');
-  const [isExtending, setIsExtending] = useState(false);
-  const [extensionError, setExtensionError] = useState<string | null>(null);
-
-  const statusOptions = [
-    { value: 'All', label: 'Tất cả trạng thái' },
-    { value: 'Waiting', label: 'Chờ vào bãi' },
-    { value: 'Parking', label: 'Đang đỗ xe' },
-    { value: 'Completed', label: 'Đã hoàn tất' },
-    { value: 'Cancelled', label: 'Đã hủy' }
-  ];
-
-  const vehicleOptions = [
-    { value: 'All', label: 'Tất cả các loại' },
-    { value: 'car', label: 'Ô tô (Car)' },
-    { value: 'suv', label: 'Bán tải / SUV' },
-    { value: 'bike', label: 'Xe máy (Bike)' }
-  ];
-
-  const locationOptions = [
-    { value: 'All', label: 'Tất cả khu vực' },
-    ...Array.from(new Set(reservations.map(r => r.parkingLotName).filter(Boolean))).map(loc => ({
-      value: loc as string,
-      label: loc as string
-    }))
-  ];
-
-  useEffect(() => {
-    const fetchReservations = async () => {
-      try {
-        const response = await parkingService.getParkingSessions();
-        if (response.data) {
-          const sessions = Array.isArray(response.data) ? response.data : (response.data.data || []);
-          // Sort by createdAt descending (newest first)
-          const sorted = [...sessions].sort((a, b) => {
-            const timeA = new Date(a.createdAt || a.entryTime).getTime();
-            const timeB = new Date(b.createdAt || b.entryTime).getTime();
-            return timeB - timeA;
-          });
-          setReservations(sorted);
-        }
-      } catch (error) {
-        console.error("Error fetching reservations:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    // Fetch immediately on mount
-    fetchReservations();
-    
-    // Poll every 5 seconds for real-time updates
-    const interval = setInterval(fetchReservations, 5000);
-    return () => clearInterval(interval);
-  }, []);
+  const {
+    reservations,
+    loading,
+    selectedReservation,
+    isModalOpen,
+    setIsModalOpen,
+    searchQuery,
+    setSearchQuery,
+    currentPage,
+    setCurrentPage,
+    isFilterOpen,
+    setIsFilterOpen,
+    statusFilter,
+    setStatusFilter,
+    vehicleFilter,
+    setVehicleFilter,
+    locationFilter,
+    setLocationFilter,
+    isStatusDropdownOpen,
+    setIsStatusDropdownOpen,
+    isVehicleDropdownOpen,
+    setIsVehicleDropdownOpen,
+    isLocationDropdownOpen,
+    setIsLocationDropdownOpen,
+    newEndTime,
+    setNewEndTime,
+    isExtending,
+    extensionError,
+    statusOptions,
+    vehicleOptions,
+    locationOptions,
+    filteredReservations,
+    currentReservations,
+    totalPages,
+    startIndex,
+    endIndex,
+    totalReservations,
+    pendingCount,
+    completedCount,
+    totalRevenue,
+    handleOpenModal,
+    handleExtend,
+  } = useAdminReservations();
 
   const formatTime = (dateString?: string) => {
     if (!dateString) return '--:--';
     const d = new Date(dateString);
     return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')} - ${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
-  };
-
-  const handleOpenModal = (row: any) => {
-    setSelectedReservation(row);
-    setNewEndTime(row.reservationEndTime || '');
-    setExtensionError(null);
-    setIsModalOpen(true);
-  };
-
-  const handleExtend = async () => {
-    if (!newEndTime) return;
-    setIsExtending(true);
-    setExtensionError(null);
-    try {
-      const response = await parkingService.extendSession(selectedReservation.id,  {
-        newEndTime: newEndTime
-      });
-      
-      const updatedSession = response.data?.session || response.data;
-      if (updatedSession) {
-        setReservations((prev: any[]) => prev.map((r: any) => r.id === selectedReservation.id ? { ...r, ...updatedSession } : r));
-        setSelectedReservation((prev: any) => ({ ...prev, ...updatedSession }));
-      }
-      
-      alert('Gia hạn thời gian đỗ xe thành công!');
-    } catch (error: any) {
-      console.error('Failed to extend session:', error);
-      const errMsg = error.response?.data?.message || error.message || 'Gia hạn thất bại';
-      setExtensionError(errMsg);
-    } finally {
-      setIsExtending(false);
-    }
   };
 
   const exportToExcel = async () => {
@@ -292,70 +232,6 @@ const AdminReservations = () => {
     document.body.removeChild(link);
   };
 
-  const filteredReservations = reservations.filter(r => {
-    // Search Filter
-    let matchSearch = true;
-    if (searchQuery) {
-      const term = searchQuery.toLowerCase();
-      const qr = (r.qrCode || '').toLowerCase();
-      const id = (r.id || '').substring(0, 8).toLowerCase();
-      const plate = (r.licensePlate || '').toLowerCase();
-      const exitPlate = (r.exitLicensePlate || '').toLowerCase();
-      const userName = r.user ? `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim().toLowerCase() : 'khách vãng lai';
-      const email = (r.user?.email || '').toLowerCase();
-      const phone = (r.user?.phoneNumber || '').toLowerCase();
-      const location = (r.parkingLotName || '').toLowerCase();
-      const vehicle = (r.vehicleType || '').toLowerCase();
-      
-      matchSearch = qr.includes(term) 
-                 || id.includes(term)
-                 || plate.includes(term) 
-                 || exitPlate.includes(term)
-                 || userName.includes(term)
-                 || email.includes(term)
-                 || phone.includes(term)
-                 || location.includes(term)
-                 || vehicle.includes(term);
-    }
-    
-    // Status Filter
-    let matchStatus = true;
-    if (statusFilter !== 'All') {
-       if (statusFilter === 'Completed') matchStatus = r.status === 'Completed';
-       else if (statusFilter === 'Cancelled') matchStatus = r.status === 'Cancelled';
-       else if (statusFilter === 'Waiting') matchStatus = r.status !== 'Completed' && r.status !== 'Cancelled' && !r.isCheckedIn;
-       else if (statusFilter === 'Parking') matchStatus = r.status !== 'Completed' && r.status !== 'Cancelled' && r.isCheckedIn;
-    }
-
-    // Vehicle Filter
-    let matchVehicle = true;
-    if (vehicleFilter !== 'All') {
-       const vType = (r.vehicleType || '').toLowerCase();
-       if (vehicleFilter === 'car') matchVehicle = vType === 'car';
-       else if (vehicleFilter === 'bike') matchVehicle = vType === 'bike';
-       else if (vehicleFilter === 'suv') matchVehicle = vType === 'suv';
-    }
-
-    // Location Filter
-    let matchLocation = true;
-    if (locationFilter !== 'All') {
-       matchLocation = r.parkingLotName === locationFilter;
-    }
-
-    return matchSearch && matchStatus && matchVehicle && matchLocation;
-  });
-
-  const totalPages = Math.max(1, Math.ceil(filteredReservations.length / ITEMS_PER_PAGE));
-  const currentReservations = filteredReservations.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE + 1;
-  const endIndex = Math.min(currentPage * ITEMS_PER_PAGE, filteredReservations.length);
-
-  // Tính toán thống kê theo thời gian thực (Real-time Stats)
-  const totalReservations = reservations.length;
-  const pendingCount = reservations.filter(r => !r.isCheckedIn && r.status !== 'Completed' && r.status !== 'Cancelled').length;
-  const completedCount = reservations.filter(r => r.status === 'Completed').length;
-  const totalRevenue = reservations.reduce((sum, r) => sum + (r.totalFee || 0), 0);
-  
   // Format doanh thu (VD: 45,000,000 -> 45M)
   const formatRevenue = (amount: number) => {
     if (amount >= 1000000) return (amount / 1000000).toFixed(1) + 'M';

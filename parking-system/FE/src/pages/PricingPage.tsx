@@ -1,106 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
-import { hasActiveSessions, addActiveQr } from '../utils/auth';
-import { parkingService } from '../services/parking.service';
-import { adminService } from '../services/admin.service';
+import { hasActiveSessions } from '../utils/auth';
+import { useMySession } from '../hooks/useMySession';
+import { usePricing } from '../hooks/usePricing';
+import { useRegulations } from '../hooks/useRegulations';
 
 const PricingPage = () => {
   const navigate = useNavigate();
   const [showActiveWarning, setShowActiveWarning] = useState(false);
-  
-  // Sync and verify active session with DB
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      parkingService.getMySession()
-        .then(res => {
-          if (res.data) {
-            if (res.data.hasActiveSession && res.data.session) {
-              const sQrCode = res.data.session.qrCode || res.data.session.QrCode;
-              if (sQrCode) {
-                addActiveQr(sQrCode);
-              }
-            } else {
-              localStorage.removeItem('activeSessionQrs');
-              localStorage.removeItem('activeSessionQr');
-              setShowActiveWarning(false);
-            }
-          }
-        })
-        .catch(err => {
-          console.log('Error syncing active session:', err);
-        });
-    }
-  }, []);
-
-  // Real-time Pricing State
-  const [prices, setPrices] = useState(() => {
-    const saved = localStorage.getItem('parking_pricing');
-    return saved ? JSON.parse(saved) : [
-      { type: 'Xe máy', price: '5.000', sub: 'VNĐ / Lượt' },
-      { type: 'Ô tô 4-7 chỗ', price: '30.000', sub: 'VNĐ / Giờ' },
-      { type: 'SUV / Bán tải', price: '50.000', sub: 'VNĐ / Giờ' }
-    ];
-  });
-
-  // Real-time Regulations State
-  const [regulations, setRegulations] = useState(() => {
-    const saved = localStorage.getItem('parking_regulations');
-    return saved ? JSON.parse(saved) : [
-      'Vui lòng đỗ xe đúng vị trí ô đỗ đã đặt trước hoặc quét mã tại chỗ.',
-      'Tốc độ di chuyển tối đa trong toàn bộ khuôn viên bãi đỗ xe là 10km/h.',
-      'Tuân thủ tuyệt đối chỉ dẫn của nhân viên và biển báo thông minh.',
-      'Thực hiện thanh toán trực tuyến qua ứng dụng trước khi ra cổng chắn.',
-      'Không chứa các chất dễ cháy nổ, vũ khí hoặc hàng cấm trong phương tiện.',
-      'Tự bảo quản tài sản cá nhân có giá trị. Ban quản lý không chịu trách nhiệm mất mát trong xe.'
-    ];
-  });
-
-  useEffect(() => {
-    const savedPrices = localStorage.getItem('parking_pricing');
-    if (savedPrices) setPrices(JSON.parse(savedPrices));
-
-    const fetchPricing = async () => {
-      try {
-        // Try PricingConfigs DB API first
-        const response = await adminService.getPricingConfigs();
-        if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-          const mapped = response.data.map((c: any) => ({ type: c.type, price: c.price, sub: c.sub }));
-          setPrices(mapped);
-          localStorage.setItem('parking_pricing', JSON.stringify(mapped));
-          return;
-        }
-      } catch (e) {}
-      // Fallback to legacy endpoint
-      try {
-        const response = await parkingService.getPricing();
-        if (response.data && Array.isArray(response.data)) {
-          setPrices(response.data);
-          localStorage.setItem('parking_pricing', JSON.stringify(response.data));
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    };
-    fetchPricing();
-
-    const fetchRegulations = async () => {
-      try {
-        const response = await adminService.getRegulations();
-        if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-          const mapped = response.data.map((r: any) => r.content);
-          setRegulations(mapped);
-          localStorage.setItem('parking_regulations', JSON.stringify(mapped));
-          return;
-        }
-      } catch (e) {}
-      const savedRegs = localStorage.getItem('parking_regulations');
-      if (savedRegs) setRegulations(JSON.parse(savedRegs));
-    };
-    fetchRegulations();
-  }, []);
+  useMySession({ onCleared: () => setShowActiveWarning(false) });
+  const { prices } = usePricing();
+  const { regulations } = useRegulations();
 
   const getLocalizedVehicleType = (type: string) => {
     const t = type.toLowerCase();

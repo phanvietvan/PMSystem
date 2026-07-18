@@ -5,6 +5,7 @@ import NotificationPanel from '../common/NotificationPanel';
 import SettingsDropdown from '../common/SettingsDropdown';
 import BrandLogo from '../brand/BrandLogo';
 import { useAdminUser } from '../../hooks/useAdminUser';
+import { useNotifications } from '../../hooks/useNotifications';
 import {
   clearSession,
   getRoleLabel,
@@ -12,7 +13,6 @@ import {
   getUserInitials,
 } from '../../utils/auth';
 import { ADMIN_NAV, isNavActive } from './adminNav';
-import { adminService } from '../../services/admin.service';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -32,34 +32,16 @@ const AdminLayout = ({
   headerActions,
 }: AdminLayoutProps) => {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [hasSeenUnread, setHasSeenUnread] = useState(true);
   const location = useLocation();
   const navigate = useNavigate();
   const user = useAdminUser();
-  
-  useEffect(() => {
-    if (!user) return;
-    const fetchNotifs = async () => {
-      try {
-        const res = await adminService.getNotifications();
-        const count = res.data.filter((n: any) => !n.read).length;
-        setUnreadCount(count);
-      } catch (err) {}
-    };
-    fetchNotifs();
-    const interval = setInterval(fetchNotifs, 15000);
-    return () => clearInterval(interval);
-  }, [user]);
+  const { unreadCount } = useNotifications({ enabled: Boolean(user) });
 
   useEffect(() => {
     if (!user) return;
     const lastSeen = Number(localStorage.getItem(`lastSeenNotifCount_${user.id}`) || '0');
-    if (unreadCount > lastSeen) {
-       setHasSeenUnread(false);
-    } else {
-       setHasSeenUnread(true);
-    }
+    setHasSeenUnread(unreadCount <= lastSeen);
   }, [unreadCount, user]);
 
   const handleOpenNotif = () => {

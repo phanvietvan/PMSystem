@@ -2,22 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { AlertTriangle, Send, Check, MapPin, Layers } from 'lucide-react';
 import Navbar from '../components/layout/Navbar';
-import { parkingService } from '../services/parking.service';
-import { adminService } from '../services/admin.service';
-
-interface Incident {
-  id: string;
-  type: string;
-  title: string;
-  description: string;
-  branch: string;
-  floor: string;
-  urgency: 'Bình thường' | 'Cao' | 'Khẩn cấp';
-  reporter: string;
-  role: string;
-  createdAt: string;
-  status: 'Chờ xử lý' | 'Đã xử lý';
-}
+import { useReportIncident } from '../hooks/useReportIncident';
 
 const CustomSelect = ({ value, onChange, options, icon: Icon, isError = false }: any) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -73,134 +58,21 @@ const CustomSelect = ({ value, onChange, options, icon: Icon, isError = false }:
 };
 
 const ReportIncidentPage = () => {
-  const [user, setUser] = useState<any>(null);
-  const [type, setType] = useState('Thiết bị hỏng');
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [branch, setBranch] = useState('Landmark 81 - Bãi đỗ A1');
-  const [floor, setFloor] = useState('Tầng 1');
-  const [urgency, setUrgency] = useState<'Bình thường' | 'Cao' | 'Khẩn cấp'>('Bình thường');
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  
-  // Available branches from localStorage or default
-  const [branches, setBranches] = useState<any[]>([]);
-  const [myIncidents, setMyIncidents] = useState<Incident[]>([]);
-
-  const loadMyIncidents = async () => {
-    const reporterName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username || user.email : 'Khách vãng lai';
-    try {
-      const response = await adminService.getIncidents();
-      if (response.data) {
-        const allIncidents: Incident[] = response.data;
-        setMyIncidents(allIncidents.filter(inc => inc.reporter === reporterName));
-      }
-    } catch (error) {
-      console.error('Error loading incidents:', error);
-      setMyIncidents([]);
-    }
-  };
-
-  useEffect(() => {
-    if (user) {
-      loadMyIncidents();
-    }
-  }, [user]);
-
-  useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (e) {}
-    }
-
-    const loadBranches = async () => {
-      try {
-        const response = await parkingService.getParkingLots();
-        if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-          setBranches(response.data);
-          return;
-        }
-      } catch (e) {
-        console.error('Error fetching parking lots:', e);
-      }
-      // Fallback
-      setBranches([
-        { id: 1, name: "Landmark 81 - Bãi đỗ A1", floors: [1, 2, 3] },
-        { id: 2, name: "Bitexco Financial - Bãi đỗ B2", floors: [1, 2, 3] },
-        { id: 3, name: "Vincom Center - Bãi đỗ V3", floors: [1, 2, 3] }
-      ]);
-    };
-    loadBranches();
-  }, []);
-
-  // Update default floor based on selected branch
-  useEffect(() => {
-    const selectedObj = branches.find(b => b.name === branch);
-    if (selectedObj && selectedObj.floors && selectedObj.floors.length > 0) {
-      setFloor(`Tầng ${selectedObj.floors[0]}`);
-    }
-  }, [branch, branches]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim() || !description.trim()) return;
-
-    const reporterName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username || user.email : 'Khách vãng lai';
-    const reporterRole = user ? user.role || 'Khách hàng' : 'Khách hàng';
-
-    const newIncidentPayload = {
-      type,
-      title,
-      description,
-      branch,
-      floor,
-      urgency,
-      reporter: reporterName,
-      role: reporterRole
-    };
-
-    try {
-      await adminService.createIncident( newIncidentPayload);
-      setIsSubmitted(true);
-      setTitle('');
-      setDescription('');
-      
-      await loadMyIncidents();
-      
-      setTimeout(() => {
-        setIsSubmitted(false);
-      }, 5000);
-    } catch (error) {
-      console.error('Error submitting incident to database:', error);
-      alert('Không thể gửi báo cáo sự cố lúc này. Vui lòng thử lại sau.');
-    }
-  };
-
-  const getLocalizedUrgency = (urg: string) => {
-    if (urg === 'Khẩn cấp') return 'Khẩn cấp';
-    if (urg === 'Cao') return 'Cao';
-    return 'Bình thường';
-  };
-
-  const getLocalizedStatus = (status: string) => {
-    if (status === 'Đã xử lý') return 'Đã xử lý';
-    return 'Chờ xử lý';
-  };
-
-  const getLocalizedFloor = (fl: string) => {
-    if (!fl) return '';
-    return fl.replace('Tầng', 'Tầng');
-  };
-
-  const getLocalizedType = (tType: string) => {
-    if (tType === 'Thiết bị hỏng') return 'Thiết bị hỏng';
-    if (tType === 'Lỗi thanh toán') return 'Lỗi thanh toán';
-    if (tType === 'Xe đỗ sai vị trí') return 'Xe đỗ sai vị trí';
-    if (tType === 'Vấn đề thẻ/vé') return 'Vấn đề thẻ/vé';
-    if (tType === 'Khác') return 'Khác';
-    return tType;
-  };
+  const {
+    type, setType,
+    title, setTitle,
+    description, setDescription,
+    branch, setBranch,
+    floor, setFloor,
+    urgency, setUrgency,
+    isSubmitted, setIsSubmitted,
+    branches,
+    myIncidents,
+    handleSubmit,
+    getLocalizedUrgency,
+    getLocalizedStatus,
+    getLocalizedFloor,
+  } = useReportIncident();
 
   return (
     <div className="min-h-screen bg-mesh-gradient text-slate-900 flex flex-col">

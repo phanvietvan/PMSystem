@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { 
   CalendarDays, 
   TrendingUp, 
@@ -16,15 +16,16 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import AdminLayout from '../components/admin/AdminLayout';
 import { useAdminUser } from '../hooks/useAdminUser';
+import { useParkingSessions } from '../hooks/useParkingSessions';
+import { useParkingLots } from '../hooks/useParkingLots';
+import { useIncidents } from '../hooks/useIncidents';
 import { getUserDisplayName, parseLicensePlate } from '../utils/auth';
-import { parkingService } from '../services/parking.service';
-import { adminService } from '../services/admin.service';
 
 const AdminDashboard = () => {
   const user = useAdminUser();
-  
-  const [sessions, setSessions] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { sessions, loading } = useParkingSessions({ pollIntervalMs: 5000 });
+  const { parkingLots } = useParkingLots();
+  const { incidents } = useIncidents();
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -33,67 +34,11 @@ const AdminDashboard = () => {
     return '🌙 Chào buổi tối';
   };
 
-  useEffect(() => {
-    const fetchSessions = async () => {
-      try {
-        const response = await parkingService.getParkingSessions();
-        if (response.data) {
-          setSessions(Array.isArray(response.data) ? response.data : (response.data.data || []));
-        }
-      } catch (error) {
-        console.error('Error fetching sessions:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchSessions();
-    const interval = setInterval(fetchSessions, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
   const totalRevenue = sessions.reduce((sum, s) => sum + (s.totalFee || 0), 0);
   const activeBookings = sessions.filter(s => s.status === 'Active' || s.status === 'Pending').length;
   const occupancyRate = sessions.length ? ((activeBookings / 174) * 100).toFixed(1) + '%' : '0%';
 
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-
-  // State for Managing Parking Lots (Branches & Maps)
-  const [parkingLots, setParkingLots] = useState<any[]>([]);
-
-  const fetchParkingLots = async () => {
-    try {
-      const response = await parkingService.getParkingLots();
-      if (response.data && Array.isArray(response.data)) {
-        setParkingLots(response.data);
-      } else {
-        setParkingLots([]);
-      }
-    } catch (error) {
-      console.error('Error fetching parking lots:', error);
-      setParkingLots([]);
-    }
-  };
-
-  useEffect(() => {
-    fetchParkingLots();
-  }, []);
-
-  const [incidents, setIncidents] = useState<any[]>([]);
-
-  const fetchIncidents = async () => {
-    try {
-      const response = await adminService.getIncidents();
-      if (response.data) {
-        setIncidents(response.data);
-      }
-    } catch (error) {
-      console.error('Error fetching incidents from db:', error);
-    }
-  };
-
-  useEffect(() => {
-    fetchIncidents();
-  }, []);
 
 
 

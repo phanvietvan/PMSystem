@@ -1,43 +1,16 @@
-import { useState, useEffect } from 'react';
 import { Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import AdminLayout from '../components/admin/AdminLayout';
-import { adminService } from '../services/admin.service';
+import { useIncidents } from '../hooks/useIncidents';
+import { useToast } from '../hooks/useToast';
 
 const AdminIncidents = () => {
-  const [incidents, setIncidents] = useState<any[]>([]);
-  const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
-  
-  const showToast = (text: string, type: 'success' | 'error' | 'info' = 'success') => {
-    setToastMessage({ text, type });
-  };
-
-  useEffect(() => {
-    if (toastMessage) {
-      const timer = setTimeout(() => setToastMessage(null), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [toastMessage]);
-
-  const fetchIncidents = async () => {
-    try {
-      const response = await adminService.getIncidents();
-      if (response.data) {
-        setIncidents(response.data);
-      }
-    } catch (error) {
-      console.error('Error fetching incidents from db:', error);
-    }
-  };
-
-  useEffect(() => {
-    fetchIncidents();
-  }, []);
+  const { incidents, resolveIncident, deleteIncident } = useIncidents();
+  const { toastMessage, showToast } = useToast();
 
   const handleResolveIncident = async (id: string) => {
     try {
-      await adminService.resolveIncident(id);
-      await fetchIncidents();
+      await resolveIncident(id);
       showToast('Đã đánh dấu sự cố là Đã giải quyết!', 'success');
     } catch (error) {
       console.error('Error resolving incident in db:', error);
@@ -47,8 +20,7 @@ const AdminIncidents = () => {
 
   const handleDeleteIncident = async (id: string) => {
     try {
-      await adminService.deleteIncident(id);
-      await fetchIncidents();
+      await deleteIncident(id);
       showToast('Đã xóa báo cáo sự cố thành công!', 'info');
     } catch (error) {
       console.error('Error deleting incident in db:', error);

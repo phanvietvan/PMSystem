@@ -1,299 +1,34 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 import ParkingMap from '../components/parking/map/ParkingMap';
 import { ArrowRight, Calendar, Clock, MapPin, Info, Map, Layers, Compass, Cpu, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { addActiveQr } from '../utils/auth';
 import { CustomTimePicker } from '../components/common/CustomTimePicker';
-import { parkingService } from '../services/parking.service';
+import { useReservation } from '../hooks/useReservation';
 
 const ReservationPage = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const fromStatus = location.state?.fromStatus || false;
-  const [, setUser] = useState<any>(null);
-    const [errorToast, setErrorToast] = useState<string | null>(null);
-
-  const defaultLots = [
-    { id: 1, name: "Landmark 81 - B�i d? A1", latitude: "10.7949", longitude: "106.7218", floor: "T?ng 1", block: "Block A" },
-    { id: 2, name: "Bitexco Financial - B�i d? B2", latitude: "10.7717", longitude: "106.7044", floor: "T?ng 2", block: "Block B" },
-    { id: 3, name: "Vincom Center - B�i d? V3", latitude: "10.7781", longitude: "106.7020", floor: "H?m B3", block: "Block V" },
-    { id: 4, name: "Saigon Centre - B�i d? S1", latitude: "10.7736", longitude: "106.7013", floor: "T?ng 4", block: "Block S" },
-    { id: 5, name: "Lotte Mart Q7 - B�i d? L1", latitude: "10.7482", longitude: "106.7023", floor: "H?m B1", block: "Block L" },
-    { id: 6, name: "Crescent Mall Q7 - B�i d? C1", latitude: "10.7287", longitude: "106.7169", floor: "T?ng G", block: "Block C" },
-    { id: 7, name: "S�n bay T�n Son Nh?t - Block A", latitude: "10.8160", longitude: "106.6630", floor: "Ga qu?c t?", block: "Khu v?c A" }
-  ];
-
-  const [parkingLots, setParkingLots] = useState<any[]>(() => {
-    const stored = localStorage.getItem('selectedParking');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (parsed && parsed.id && !defaultLots.some((p: any) => p.id === parsed.id)) {
-          return [...defaultLots, parsed];
-        }
-      } catch (e) {}
-    }
-    return defaultLots;
-  });
-
-  useEffect(() => {
-    const loadLots = async () => {
-      try {
-        const response = await parkingService.getParkingLots();
-        if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-          setParkingLots(response.data);
-        }
-      } catch (e) {
-        console.error('Error fetching parking lots:', e);
-      }
-    };
-    loadLots();
-  }, []);
-
-  const today = new Date().toISOString().split('T')[0];
-  const currentTime = new Date().toTimeString().slice(0, 5);
-
-  const getEndTimeDefault = (startTimeStr: string) => {
-    try {
-      const [h, m] = startTimeStr.split(':');
-      let hour = parseInt(h, 10) + 2; // Default 2 hours later
-      if (hour >= 24) hour = hour - 24;
-      return `${hour.toString().padStart(2, '0')}:${m}`;
-    } catch (e) {
-      return '18:00';
-    }
-  };
-
-  const defaultEndTime = getEndTimeDefault(currentTime);
-
-  const [formData, setFormData] = useState(() => {
-    const storedParking = localStorage.getItem('selectedParking');
-    let initialParkingLotId = 1;
-    if (storedParking) {
-      try {
-        const parsed = JSON.parse(storedParking);
-        if (parsed && parsed.id) {
-          initialParkingLotId = parsed.id;
-        } else {
-          const matched = parkingLots.find((p: any) => p.name === parsed?.name);
-          if (matched) initialParkingLotId = matched.id;
-        }
-      } catch (e) {}
-    }
-    return {
-      date: today,
-      startTime: currentTime,
-      endTime: defaultEndTime,
-      licensePlate: '',
-      vehicleType: 'car',
-      parkingLotId: initialParkingLotId
-    };
-  });
-
-  const handleStartTimeChange = (newTime: string) => {
-    setFormData(prev => ({
-      ...prev,
-      startTime: newTime,
-      endTime: getEndTimeDefault(newTime)
-    }));
-  };
-
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isVehicleDropdownOpen, setIsVehicleDropdownOpen] = useState(false);
-
-  const [userCoords, setUserCoords] = useState<{ latitude: number; longitude: number } | null>(null);
-
-  // Haversine formula to calculate distance in km
-  const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371; // Radius of the earth in km
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-      Math.sin(dLon/2) * Math.sin(dLon/2)
-      ; 
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
-    const d = R * c; // Distance in km
-    return d;
-  };
-
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserCoords({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
-          });
-        },
-        (error) => {
-          console.log("Error getting user geolocation:", error);
-        }
-      );
-    }
-  }, []);
-
-  const sortedParkingLots = useMemo(() => {
-    const lotsWithDistance = parkingLots.map(lot => {
-      if (userCoords && lot.latitude && lot.longitude) {
-        const dist = getDistance(
-          userCoords.latitude,
-          userCoords.longitude,
-          parseFloat(lot.latitude),
-          parseFloat(lot.longitude)
-        );
-        return { ...lot, distance: dist };
-      }
-      return { ...lot, distance: null };
-    });
-    
-    return [...lotsWithDistance].sort((a, b) => {
-      if (a.distance !== null && b.distance !== null) {
-        return a.distance - b.distance;
-      }
-      if (a.distance !== null) return -1;
-      if (b.distance !== null) return 1;
-      return 0;
-    });
-  }, [parkingLots, userCoords]);
-
-  // Auto-select nearest parking lot on initial load if location is available and no manual selection is stored
-  useEffect(() => {
-    if (userCoords && sortedParkingLots.length > 0) {
-      const storedSelected = localStorage.getItem('selectedParking');
-      if (!storedSelected) {
-        setFormData(prev => ({
-          ...prev,
-          parkingLotId: sortedParkingLots[0].id
-        }));
-      }
-    }
-  }, [userCoords, sortedParkingLots]);
-
-  const selectedParking = sortedParkingLots.find((p: any) => p.id === formData.parkingLotId) || sortedParkingLots[0] || parkingLots[0];
-
-  const [isSlotSelected, setIsSlotSelected] = useState(fromStatus);
-  const [currentSlot, setCurrentSlot] = useState(() => localStorage.getItem('selectedSlot') || '');
-
-  const [userVehicles, setUserVehicles] = useState<Array<{ plate: string; type: string }>>([]);
-  const [activePlates, setActivePlates] = useState<Array<{ plate: string; parkingLotName: string }>>([]);
-
-  useEffect(() => {
-    const bypassActiveCheck = location.state?.bypassActiveCheck || false;
-
-    if (!bypassActiveCheck) {
-      parkingService.getMySession()
-        .then(res => {
-          if (res.data) {
-            if (res.data.hasActiveSession && res.data.session) {
-              const sQrCode = res.data.session.qrCode || res.data.session.QrCode;
-              if (sQrCode) {
-                addActiveQr(sQrCode);
-              }
-            } else {
-              localStorage.removeItem('activeSessionQrs');
-              localStorage.removeItem('activeSessionQr');
-            }
-          }
-        })
-        .catch(err => {
-          console.log('No active session on database.', err);
-        });
-    }
-
-    const init = async () => {
-      const storedUser = localStorage.getItem('user');
-      if (storedUser) {
-        try {
-          const parsed = JSON.parse(storedUser);
-          setUser(parsed);
-          
-          const lp = parsed.licensePlate || '';
-          let parsedVehicles: Array<{ plate: string; type: string }> = [];
-          if (lp.startsWith('[')) {
-            parsedVehicles = JSON.parse(lp);
-          } else if (lp) {
-            parsedVehicles = [{ plate: lp, type: parsed.vehicleType || 'Car' }];
-          }
-          
-          setUserVehicles(parsedVehicles);
-
-          // Fetch active plates from BE to determine locked vehicles
-          try {
-            const resp = await parkingService.getActivePlates();
-            const data: any[] = resp.data || [];
-            const normalizedActive = data.map((item: any) => ({
-              plate: (item.licensePlate || item.LicensePlate || '').replace(/[-. ]/g, '').toUpperCase(),
-              parkingLotName: item.parkingLotName || item.ParkingLotName || ''
-            }));
-            setActivePlates(normalizedActive);
-
-            // Auto-select the first available (non-active in current building) vehicle
-            const currentLotName = parkingLots.find((p: any) => p.id === formData.parkingLotId)?.name || parkingLots[0].name;
-            const firstAvailable = parsedVehicles.find(v => {
-              const norm = v.plate.replace(/[-. ]/g, '').toUpperCase();
-              return !normalizedActive.some(a => a.plate === norm && a.parkingLotName === currentLotName);
-            });
-            if (firstAvailable) {
-              setFormData(prev => ({
-                ...prev,
-                licensePlate: firstAvailable.plate,
-                vehicleType: firstAvailable.type.toLowerCase() === 'motorbike' ? 'bike' : firstAvailable.type.toLowerCase() === 'bicycle' ? 'bike' : firstAvailable.type.toLowerCase()
-              }));
-            } else if (parsedVehicles.length > 0) {
-              setFormData(prev => ({ ...prev, licensePlate: 'CUSTOM', vehicleType: 'car' }));
-            }
-          } catch (e) {
-            if (parsedVehicles.length > 0) {
-              setFormData(prev => ({
-                ...prev,
-                licensePlate: parsedVehicles[0].plate,
-                vehicleType: parsedVehicles[0].type.toLowerCase() === 'motorbike' ? 'bike' : parsedVehicles[0].type.toLowerCase() === 'bicycle' ? 'bike' : parsedVehicles[0].type.toLowerCase()
-              }));
-            }
-          }
-        } catch (e) {
-          console.error('Error parsing stored user:', e);
-        }
-      }
-    };
-
-    init();
-  }, []);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const timeToMinutes = (timeStr: string) => {
-      if (!timeStr) return 0;
-      const [h, m] = timeStr.split(':').map(Number);
-      return (h || 0) * 60 + (m || 0);
-    };
-
-    if (timeToMinutes(formData.endTime) <= timeToMinutes(formData.startTime)) {
-      setErrorToast('Gi? k?t th�c ph?i sau gi? b?t d?u!');
-      setTimeout(() => setErrorToast(null), 3000);
-      return;
-    }
-
-    localStorage.setItem('selectedParking', JSON.stringify(selectedParking));
-    localStorage.setItem('reservationDate', formData.date);
-    localStorage.setItem('reservationStartTime', formData.startTime);
-    localStorage.setItem('reservationEndTime', formData.endTime);
-    localStorage.setItem('reservationVehicleType', formData.vehicleType);
-    localStorage.setItem('reservationLicensePlate', formData.licensePlate);
-    
-    if (isSlotSelected && currentSlot) {
-      navigate('/payment', { state: { mode: 'reserve' } });
-    } else {
-      localStorage.removeItem('selectedSlot');
-      localStorage.removeItem('selectedLevel');
-      navigate('/status', { state: { selectedParking, fromReserve: true, bypassActiveCheck: location.state?.bypassActiveCheck } });
-    }
-  };
+  const {
+    fromStatus,
+    errorToast,
+    parkingLots,
+    formData,
+    setFormData,
+    handleStartTimeChange,
+    isDropdownOpen,
+    setIsDropdownOpen,
+    isVehicleDropdownOpen,
+    setIsVehicleDropdownOpen,
+    userCoords,
+    sortedParkingLots,
+    selectedParking,
+    isSlotSelected,
+    setIsSlotSelected,
+    currentSlot,
+    setCurrentSlot,
+    userVehicles,
+    activePlates,
+    handleSubmit,
+    getDistance,
+  } = useReservation();
 
   return (
     <div className="h-screen overflow-hidden bg-mesh-gradient text-on-surface font-sans selection:bg-primary/10 relative flex flex-col">

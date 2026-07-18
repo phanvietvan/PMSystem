@@ -1,69 +1,10 @@
-import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Scan, QrCode, ShieldCheck, ArrowRight, Loader2, CheckCircle2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
-import { getActiveQrs } from '../utils/auth';
-import { parkingService } from '../services/parking.service';
+import { useGateScan } from '../hooks/useGateScan';
 
 const GateScanPage = () => {
-    const navigate = useNavigate();
-  const [scanStatus, setScanStatus] = useState<'idle' | 'scanning' | 'success'>('idle');
-
-  const handleScan = async () => {
-    setScanStatus('scanning');
-    
-    try {
-      const qrs = getActiveQrs();
-      const activeQr = qrs.length > 0 ? qrs[qrs.length - 1] : null;
-      
-      if (activeQr) {
-        // Real gate scan for reservation QR!
-        await parkingService.gateScan( { qrCode: activeQr });
-      } else {
-        const storedParking = localStorage.getItem('selectedParking');
-        let selectedParkingName = 'Landmark 81 - Bãi đỗ A1';
-        if (storedParking) {
-          try {
-            selectedParkingName = JSON.parse(storedParking).name;
-          } catch (e) {}
-        }
-
-        const storedSlot = localStorage.getItem('selectedSlot') || 'A8';
-        const storedVehicleType = localStorage.getItem('reservationVehicleType') || 'car';
-        const storedLicensePlate = localStorage.getItem('reservationLicensePlate') || '51G-888.88';
-
-        // Direct gate check-in for walk-in car!
-        const response = await parkingService.checkin( {
-          licensePlate: storedLicensePlate,
-          entryPhoto: '',
-          parkingLotName: selectedParkingName,
-          vehicleType: storedVehicleType,
-          parkingSlot: storedSlot
-        });
-        
-        const returnedQr = response.data.qrCode || response.data.QrCode;
-        if (returnedQr) {
-          const { addActiveQr } = await import('../utils/auth');
-          addActiveQr(returnedQr);
-        }
-      }
-      
-      // Delay slightly for natural feel
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      setScanStatus('success');
-      setTimeout(() => {
-        navigate('/navigation');
-      }, 2000);
-    } catch (err) {
-      console.error('Gate scan API error', err);
-      // Fallback to visual success
-      setScanStatus('success');
-      setTimeout(() => {
-        navigate('/navigation');
-      }, 2000);
-    }
-  };
+  const { scanStatus, handleScan } = useGateScan();
 
   return (
     <div className="min-h-screen bg-mesh-gradient selection:bg-primary/10 relative">
