@@ -121,5 +121,8 @@ public class GetAllSessionsResponse
     public string? ParkingLotName { get; set; }
     public string? ParkingSlot { get; set; }
     public string? VehicleType { get; set; }
+    public string? ReservationDate { get; set; }
+    public string? ReservationStartTime { get; set; }
+    public string? ReservationEndTime { get; set; }
     public GetAllUserDTO? User { get; set; }
 }

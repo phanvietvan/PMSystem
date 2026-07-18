@@ -38,6 +38,10 @@ const AdminReservations = () => {
   const [isVehicleDropdownOpen, setIsVehicleDropdownOpen] = useState(false);
   const [isLocationDropdownOpen, setIsLocationDropdownOpen] = useState(false);
 
+  const [newEndTime, setNewEndTime] = useState('');
+  const [isExtending, setIsExtending] = useState(false);
+  const [extensionError, setExtensionError] = useState<string | null>(null);
+
   const statusOptions = [
     { value: 'All', label: language === 'en' ? 'All statuses' : 'Tất cả trạng thái' },
     { value: 'Waiting', label: language === 'en' ? 'Waiting' : 'Chờ vào bãi' },
@@ -94,6 +98,38 @@ const AdminReservations = () => {
     if (!dateString) return '--:--';
     const d = new Date(dateString);
     return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')} - ${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+  };
+
+  const handleOpenModal = (row: any) => {
+    setSelectedReservation(row);
+    setNewEndTime(row.reservationEndTime || '');
+    setExtensionError(null);
+    setIsModalOpen(true);
+  };
+
+  const handleExtend = async () => {
+    if (!newEndTime) return;
+    setIsExtending(true);
+    setExtensionError(null);
+    try {
+      const response = await api.post(`/ParkingSessions/${selectedReservation.id}/extend`, {
+        newEndTime: newEndTime
+      });
+      
+      const updatedSession = response.data?.session || response.data;
+      if (updatedSession) {
+        setReservations((prev: any[]) => prev.map((r: any) => r.id === selectedReservation.id ? { ...r, ...updatedSession } : r));
+        setSelectedReservation((prev: any) => ({ ...prev, ...updatedSession }));
+      }
+      
+      alert(language === 'en' ? 'Session extended successfully!' : 'Gia hạn thời gian đỗ xe thành công!');
+    } catch (error: any) {
+      console.error('Failed to extend session:', error);
+      const errMsg = error.response?.data?.message || error.message || 'Failed to extend';
+      setExtensionError(errMsg);
+    } finally {
+      setIsExtending(false);
+    }
   };
 
   const exportToExcel = async () => {
@@ -579,6 +615,11 @@ const AdminReservations = () => {
                       </td>
                       <td className="px-8 py-6">
                          <div className="flex flex-col gap-1.5">
+                            {row.reservationStartTime && row.reservationEndTime && (
+                              <span className="text-[11px] font-bold text-indigo-600 flex items-center gap-2" title={language === 'en' ? "Reservation schedule" : "Khung giờ đặt trước"}>
+                                 <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></div> {language === 'en' ? 'Schedule:' : 'Khung giờ:'} {row.reservationStartTime} - {row.reservationEndTime} ({row.reservationDate})
+                              </span>
+                            )}
                             {row.userId && (
                               <span className="text-[11px] font-bold text-blue-600 flex items-center gap-2" title={language === 'en' ? "Booking time" : "Giờ đặt chỗ"}>
                                  <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div> {language === 'en' ? 'Booked:' : 'Đặt:'} {formatTime(row.createdAt || row.entryTime)}
@@ -601,12 +642,12 @@ const AdminReservations = () => {
                       <td className="px-8 py-6 text-right">
                         <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                           <button 
-                            onClick={() => { setSelectedReservation(row); setIsModalOpen(true); }}
+                            onClick={() => handleOpenModal(row)}
                             className="p-2.5 hover:bg-white hover:shadow-sm rounded-xl transition-all text-blue-600 border border-transparent hover:border-slate-200" title={language === 'en' ? "View details" : "Xem chi tiết"}>
                             <Eye className="w-4 h-4" />
                           </button>
                           <button 
-                            onClick={() => { setSelectedReservation(row); setIsModalOpen(true); }}
+                            onClick={() => handleOpenModal(row)}
                             className="p-2.5 hover:bg-white hover:shadow-sm rounded-xl transition-all text-slate-600 border border-transparent hover:border-slate-200" title={language === 'en' ? "Edit" : "Chỉnh sửa"}>
                             <Edit className="w-4 h-4" />
                           </button>
@@ -730,6 +771,12 @@ const AdminReservations = () => {
                     </div>
                     <div className="p-5 rounded-2xl border border-slate-100 bg-white shadow-[0_2px_10px_rgba(0,0,0,0.02)] space-y-3.5">
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] border-b border-slate-50 pb-2.5">{language === 'en' ? 'Time Log' : 'Hành Trình Thời Gian'}</p>
+                      {selectedReservation.reservationStartTime && selectedReservation.reservationEndTime && (
+                         <div className="flex items-center justify-between border-b border-slate-50/50 pb-2">
+                            <span className="text-[11px] font-bold text-slate-500 flex items-center gap-2"><div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></div> {language === 'en' ? 'Scheduled Range' : 'Khung giờ đặt'}</span>
+                            <span className="text-xs font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">{selectedReservation.reservationStartTime} - {selectedReservation.reservationEndTime} ({selectedReservation.reservationDate})</span>
+                         </div>
+                      )}
                       {selectedReservation.userId && (
                          <div className="flex items-center justify-between">
                             <span className="text-[11px] font-bold text-slate-500 flex items-center gap-2"><div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div> {language === 'en' ? 'Booked' : 'Đặt chỗ'}</span>
@@ -745,6 +792,36 @@ const AdminReservations = () => {
                          <span className="text-xs font-bold text-slate-900">{selectedReservation.exitTime ? formatTime(selectedReservation.exitTime) : <span className="italic text-slate-400">{language === 'en' ? 'Not Checked Out' : 'Chưa ra bãi'}</span>}</span>
                       </div>
                     </div>
+
+                    {selectedReservation.reservationEndTime && !selectedReservation.exitTime && (
+                      <div className="p-5 rounded-2xl border border-slate-100 bg-slate-50/50 space-y-3">
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.15em] flex items-center gap-2">
+                          <Clock className="w-3.5 h-3.5 text-blue-500" />
+                          {language === 'en' ? 'Extend Reservation Time' : 'Gia Hạn Khung Giờ Đặt'}
+                        </p>
+                        <div className="flex items-center gap-3">
+                          <div className="relative flex-1">
+                            <input
+                              type="time"
+                              value={newEndTime}
+                              onChange={(e) => setNewEndTime(e.target.value)}
+                              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/60 transition-all shadow-sm"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            disabled={isExtending || newEndTime === selectedReservation.reservationEndTime}
+                            onClick={handleExtend}
+                            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold rounded-xl transition-all shadow-md shadow-blue-500/10 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-wider shrink-0"
+                          >
+                            {isExtending ? (language === 'en' ? 'Saving...' : 'Đang lưu...') : (language === 'en' ? 'Extend' : 'Gia hạn')}
+                          </button>
+                        </div>
+                        {extensionError && (
+                          <p className="text-[10px] font-bold text-red-500 pl-1">{extensionError}</p>
+                        )}
+                      </div>
+                    )}
                     <div className="flex items-center justify-between p-5 rounded-2xl bg-indigo-50 border border-indigo-100/50 shadow-sm">
                       <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.15em]">{language === 'en' ? 'Total Fee' : 'Thành Tiền'}</p>
                       <p className="text-2xl font-black text-indigo-600 tracking-tight">{selectedReservation.totalFee ? selectedReservation.totalFee.toLocaleString() + ' ₫' : (language === 'en' ? 'Calculating...' : 'Đang tính...')}</p>

@@ -26,6 +26,7 @@ public interface IParkingSessionService
     Task<ServiceResult<List<GetAllSessionsResponse>>> GetAllAsync();
     Task<ServiceResult<string>> GetPricingAsync();
     Task<ServiceResult<bool>> SavePricingAsync(System.Text.Json.JsonElement pricing);
+    Task<ServiceResult<ParkingSession>> ExtendSessionAsync(Guid sessionId, string newEndTime);
     
     // Fee calculation logic is shared
     decimal CalculateFee(DateTime entryTime, DateTime exitTime, string? vehicleType);

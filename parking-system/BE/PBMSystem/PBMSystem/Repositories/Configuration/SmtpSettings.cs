@@ -5,8 +5,8 @@ namespace Repositories.Configuration;
 /// Injected via IOptions&lt;SmtpSettings&gt; in EmailService.
 ///
 /// Development flow:
-///   EnableMailtrap = false (default) — OTP returned in API response, no SMTP used.
-///   EnableMailtrap = true            — OTP sent to Mailtrap sandbox inbox via SMTP.
+///   EnableMailtrap = false — skip SMTP; OTP logged / returned in API response.
+///   EnableMailtrap = true  — send via real SMTP (Gmail, Mailtrap, …) when credentials are valid.
 ///
 /// Production:
 ///   EnableMailtrap is ignored. Real SMTP is always used.
@@ -21,10 +21,10 @@ public class SmtpSettings
     public string FromName { get; set; } = string.Empty;
 
     /// <summary>
-    /// Development only. Set to true to route emails through Mailtrap sandbox
-    /// so you can inspect them in the inbox. Set to false to skip SMTP entirely
-    /// and receive the OTP directly in the API response instead.
-    /// Has no effect in Production — real SMTP is always used there.
+    /// Development only. Despite the name, this means "enable real SMTP send".
+    /// true  → send via Host/Username/Password (Gmail App Password, Mailtrap, etc.)
+    /// false → simulate only (OTP in console / API response).
+    /// Ignored in Production.
     /// </summary>
     public bool EnableMailtrap { get; set; } = true;
 }

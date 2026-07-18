@@ -16,6 +16,7 @@ const ContactPage = () => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [submitError, setSubmitError] = useState('');
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
 
   const faqs = language === 'en' ? [
@@ -55,6 +56,7 @@ const ContactPage = () => {
     }
 
     setIsSubmitting(true);
+    setSubmitError('');
 
     try {
       await api.post('/contact', {
@@ -69,10 +71,21 @@ const ContactPage = () => {
       setSubmitStatus('success');
       setFormData({ name: '', email: '', phone: '', subject: 'general', message: '' });
       setTimeout(() => setSubmitStatus('idle'), 5000);
-    } catch (err) {
+    } catch (err: any) {
       setIsSubmitting(false);
       setSubmitStatus('error');
-      setTimeout(() => setSubmitStatus('idle'), 5000);
+      const apiMsg = err?.response?.data?.error || err?.response?.data?.message;
+      setSubmitError(
+        apiMsg
+          ? String(apiMsg)
+          : language === 'en'
+            ? 'Please double check required fields / server connection.'
+            : 'Gửi thất bại. Kiểm tra lại form hoặc kết nối máy chủ (SMTP).'
+      );
+      setTimeout(() => {
+        setSubmitStatus('idle');
+        setSubmitError('');
+      }, 8000);
     }
   };
 
@@ -325,8 +338,11 @@ const ContactPage = () => {
                         className="bg-rose-50/80 backdrop-blur-sm border border-rose-200 text-rose-800 p-4 rounded-2xl flex items-center gap-3 overflow-hidden"
                       >
                         <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
-                        <span className="text-sm font-medium">
-                          {language === 'en' ? 'Please double check. Make sure you filled in all required fields.' : 'Vui lòng kiểm tra lại. Hãy chắc chắn bạn đã điền đầy đủ thông tin bắt buộc.'}
+                        <span className="text-sm font-medium break-words">
+                          {submitError ||
+                            (language === 'en'
+                              ? 'Please double check. Make sure you filled in all required fields.'
+                              : 'Vui lòng kiểm tra lại. Hãy chắc chắn bạn đã điền đầy đủ thông tin bắt buộc.')}
                         </span>
                       </motion.div>
                     )}

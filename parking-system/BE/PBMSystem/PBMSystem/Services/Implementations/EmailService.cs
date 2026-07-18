@@ -26,6 +26,37 @@ public class EmailService : IEmailService
     }
 
     /// <summary>
+    /// Development only: skip SMTP when credentials are missing/placeholders,
+    /// or when EnableMailtrap/EnableSmtp is false.
+    /// With real Gmail (or any non-placeholder) credentials, emails ARE sent.
+    /// </summary>
+    private bool ShouldSimulateEmail()
+    {
+        if (!_isDevelopment) return false;
+
+        if (!HasValidSmtpCredentials()) return true;
+
+        // Legacy flag name: EnableMailtrap == "allow real SMTP send in Development"
+        return !_smtp.EnableMailtrap;
+    }
+
+    private bool HasValidSmtpCredentials()
+    {
+        if (string.IsNullOrWhiteSpace(_smtp.Host) ||
+            string.IsNullOrWhiteSpace(_smtp.Username) ||
+            string.IsNullOrWhiteSpace(_smtp.Password))
+        {
+            return false;
+        }
+
+        static bool IsPlaceholder(string value) =>
+            value.Contains("REPLACE_WITH", StringComparison.OrdinalIgnoreCase) ||
+            value.Contains("MAILTRAP_", StringComparison.OrdinalIgnoreCase);
+
+        return !IsPlaceholder(_smtp.Username) && !IsPlaceholder(_smtp.Password);
+    }
+
+    /// <summary>
     /// Three modes depending on environment and config:
     ///
     ///   Development + EnableMailtrap = false (default)
@@ -43,17 +74,15 @@ public class EmailService : IEmailService
     /// </summary>
     public async Task<string?> SendOtpEmailAsync(string toEmail, string otp, EmailOtpPurpose purpose)
     {
-        _logger.LogInformation("DEBUG: SMTP Settings Loaded - Host: {Host}, Username: {Username}", _smtp.Host, _smtp.Username);
+        _logger.LogInformation(
+            "SMTP config: Host={Host}, Port={Port}, User={Username}, Simulate={Simulate}",
+            _smtp.Host, _smtp.Port, _smtp.Username, ShouldSimulateEmail());
 
-        // If credentials are the default placeholders, use dev fallback mode
-        if (string.IsNullOrWhiteSpace(_smtp.Username) || 
-            _smtp.Username.Contains("MAILTRAP_") || 
-            _smtp.Username.Contains("REPLACE_WITH"))
+        if (ShouldSimulateEmail())
         {
             return await HandleDevModeAsync(toEmail, otp, purpose);
         }
 
-        // Real SMTP sending
         try
         {
             await SendSmtpAsync(toEmail, otp, purpose);
@@ -62,10 +91,13 @@ public class EmailService : IEmailService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send real SMTP email to {Email}. Falling back to dev mode OTP.", toEmail);
+            _logger.LogError(
+                ex,
+                "SMTP FAILED sending OTP to {Email}. Host={Host}:{Port} User={User}. Message={Message}",
+                toEmail, _smtp.Host, _smtp.Port, _smtp.Username, ex.Message);
             if (_isDevelopment)
             {
-                // In dev mode, return OTP so development is not blocked even if SMTP is misconfigured
+                // Dev: still return OTP so registration is not blocked
                 return otp;
             }
             throw;
@@ -100,16 +132,57 @@ public class EmailService : IEmailService
         message.Subject = subject;
         message.Body = new TextPart("html") { Text = body };
 
-        using var client = new SmtpClient();
+        // OTP path needs exceptions so caller can fall back to returning OTP in Development
+        if (!await SendMimeMessageAsync(message, $"OTP:{purpose}"))
+        {
+            throw new InvalidOperationException($"SMTP send failed for OTP email to {toEmail}");
+        }
+    }
 
-        // StartTls works for Mailtrap (port 587) and most production SMTP providers.
-        await client.ConnectAsync(_smtp.Host, _smtp.Port, SecureSocketOptions.StartTls);
-        await client.AuthenticateAsync(_smtp.Username, _smtp.Password);
-        await client.SendAsync(message);
-        await client.DisconnectAsync(true);
+    /// <summary>
+    /// Shared SMTP send.
+    /// Returns true on success. On failure: returns false, or throws if <paramref name="throwOnFailure"/>.
+    /// </summary>
+    private async Task<bool> SendMimeMessageAsync(MimeMessage message, string context, bool throwOnFailure = false)
+    {
+        if (ShouldSimulateEmail())
+        {
+            _logger.LogWarning(
+                "[DEV] Email SIMULATED ({Context}) — not sent. To={To} Subject={Subject}",
+                context, message.To, message.Subject);
+            if (throwOnFailure)
+            {
+                throw new InvalidOperationException(
+                    $"Email simulated in Development (SMTP disabled). Context={context}. Set SmtpSettings:EnableMailtrap=true with valid credentials.");
+            }
+            return false;
+        }
 
-        _logger.LogInformation(
-            "OTP email sent to {Email} via {Host}:{Port}", toEmail, _smtp.Host, _smtp.Port);
+        try
+        {
+            using var client = new SmtpClient();
+            // Gmail / Mailtrap on 587 use STARTTLS
+            await client.ConnectAsync(_smtp.Host, _smtp.Port, SecureSocketOptions.StartTls);
+            await client.AuthenticateAsync(_smtp.Username, _smtp.Password);
+            await client.SendAsync(message);
+            await client.DisconnectAsync(true);
+            _logger.LogInformation(
+                "Email SENT ({Context}) via {Host}:{Port} → {To}",
+                context, _smtp.Host, _smtp.Port, message.To);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "SMTP FAILED ({Context}). Host={Host}:{Port} User={User} To={To}. Error={Message}",
+                context, _smtp.Host, _smtp.Port, _smtp.Username, message.To, ex.Message);
+            if (throwOnFailure)
+            {
+                throw;
+            }
+            return false;
+        }
     }
 
     // ── Email Templates ───────────────────────────────────────────────────────
@@ -205,16 +278,15 @@ public class EmailService : IEmailService
         var mailMessage = new MimeMessage();
         mailMessage.From.Add(new MailboxAddress(_smtp.FromName, _smtp.FromAddress));
         mailMessage.To.Add(MailboxAddress.Parse("pmsystem.system" + "@" + "gmail.com"));
+        if (!string.IsNullOrWhiteSpace(fromEmail))
+        {
+            mailMessage.ReplyTo.Add(MailboxAddress.Parse(fromEmail));
+        }
         mailMessage.Subject = emailSubject;
         mailMessage.Body = new TextPart("html") { Text = body };
 
-        using var client = new SmtpClient();
-        await client.ConnectAsync(_smtp.Host, _smtp.Port, SecureSocketOptions.StartTls);
-        await client.AuthenticateAsync(_smtp.Username, _smtp.Password);
-        await client.SendAsync(mailMessage);
-        await client.DisconnectAsync(true);
-
-        _logger.LogInformation("Contact submission email successfully sent to pmsystem.system@gmail.com");
+        // Contact must surface SMTP errors to the API (UI was falsely showing success)
+        await SendMimeMessageAsync(mailMessage, "Contact", throwOnFailure: true);
     }
 
     public async Task SendBookingConfirmationEmailAsync(
@@ -293,25 +365,7 @@ public class EmailService : IEmailService
         mailMessage.Subject = emailSubject;
         mailMessage.Body = new TextPart("html") { Text = body };
 
-        if (_isDevelopment && (string.IsNullOrWhiteSpace(_smtp.Username) || _smtp.Username.Contains("MAILTRAP_") || _smtp.Username.Contains("REPLACE_WITH")))
-        {
-            _logger.LogInformation("Booking confirmation email simulated for {toEmail} with QR {qrCode}", toEmail, qrCode);
-            return;
-        }
-
-        try
-        {
-            using var client = new SmtpClient();
-            await client.ConnectAsync(_smtp.Host, _smtp.Port, SecureSocketOptions.StartTls);
-            await client.AuthenticateAsync(_smtp.Username, _smtp.Password);
-            await client.SendAsync(mailMessage);
-            await client.DisconnectAsync(true);
-            _logger.LogInformation("Booking confirmation email successfully sent to {toEmail}", toEmail);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to send booking confirmation email to {toEmail}", toEmail);
-        }
+        await SendMimeMessageAsync(mailMessage, $"BookingConfirmation:{qrCode}");
     }
 
     public async Task SendReservationReminderEmailAsync(string toEmail, string userName, string lotName, string slot, string licensePlate)
@@ -339,24 +393,7 @@ public class EmailService : IEmailService
         mailMessage.Subject = emailSubject;
         mailMessage.Body = new TextPart("html") { Text = body };
 
-        if (_isDevelopment && (string.IsNullOrWhiteSpace(_smtp.Username) || _smtp.Username.Contains("MAILTRAP_")))
-        {
-            _logger.LogInformation("Reminder email simulated for {toEmail}", toEmail);
-            return;
-        }
-
-        try
-        {
-            using var client = new SmtpClient();
-            await client.ConnectAsync(_smtp.Host, _smtp.Port, SecureSocketOptions.StartTls);
-            await client.AuthenticateAsync(_smtp.Username, _smtp.Password);
-            await client.SendAsync(mailMessage);
-            await client.DisconnectAsync(true);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to send reminder email to {toEmail}", toEmail);
-        }
+        await SendMimeMessageAsync(mailMessage, "ReservationReminder");
     }
 
     public async Task SendReservationCancellationEmailAsync(string toEmail, string userName, string lotName, string slot, string licensePlate)
@@ -384,24 +421,7 @@ public class EmailService : IEmailService
         mailMessage.Subject = emailSubject;
         mailMessage.Body = new TextPart("html") { Text = body };
 
-        if (_isDevelopment && (string.IsNullOrWhiteSpace(_smtp.Username) || _smtp.Username.Contains("MAILTRAP_")))
-        {
-            _logger.LogInformation("Cancellation email simulated for {toEmail}", toEmail);
-            return;
-        }
-
-        try
-        {
-            using var client = new SmtpClient();
-            await client.ConnectAsync(_smtp.Host, _smtp.Port, SecureSocketOptions.StartTls);
-            await client.AuthenticateAsync(_smtp.Username, _smtp.Password);
-            await client.SendAsync(mailMessage);
-            await client.DisconnectAsync(true);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to send cancellation email to {toEmail}", toEmail);
-        }
+        await SendMimeMessageAsync(mailMessage, "ReservationCancellation");
     }
 
     public async Task SendSlotChangeEmailAsync(string toEmail, string userName, string lotName, string oldSlot, string newSlot, string licensePlate)
@@ -444,24 +464,7 @@ public class EmailService : IEmailService
         mailMessage.Subject = emailSubject;
         mailMessage.Body = new TextPart("html") { Text = body };
 
-        if (_isDevelopment && (string.IsNullOrWhiteSpace(_smtp.Username) || _smtp.Username.Contains("MAILTRAP_")))
-        {
-            _logger.LogInformation("Slot change email simulated for {toEmail} (Old: {oldSlot}, New: {newSlot})", toEmail, oldSlot, newSlot);
-            return;
-        }
-
-        try
-        {
-            using var client = new SmtpClient();
-            await client.ConnectAsync(_smtp.Host, _smtp.Port, SecureSocketOptions.StartTls);
-            await client.AuthenticateAsync(_smtp.Username, _smtp.Password);
-            await client.SendAsync(mailMessage);
-            await client.DisconnectAsync(true);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to send slot change email to {toEmail}", toEmail);
-        }
+        await SendMimeMessageAsync(mailMessage, "SlotChange");
     }
 
     public async Task SendReservationExtensionEmailAsync(string toEmail, string userName, string lotName, string slot, string licensePlate, string originalEndTime, string newEndTime)
@@ -513,25 +516,7 @@ public class EmailService : IEmailService
         mailMessage.Subject = emailSubject;
         mailMessage.Body = new TextPart("html") { Text = body };
 
-        if (_isDevelopment && (string.IsNullOrWhiteSpace(_smtp.Username) || _smtp.Username.Contains("MAILTRAP_")))
-        {
-            _logger.LogInformation("Extension email simulated for {toEmail} (Old: {originalEndTime}, New: {newEndTime})", toEmail, originalEndTime, newEndTime);
-            return;
-        }
-
-        try
-        {
-            using var client = new SmtpClient();
-            await client.ConnectAsync(_smtp.Host, _smtp.Port, SecureSocketOptions.StartTls);
-            await client.AuthenticateAsync(_smtp.Username, _smtp.Password);
-            await client.SendAsync(mailMessage);
-            await client.DisconnectAsync(true);
-            _logger.LogInformation("Extension email successfully sent to {toEmail}", toEmail);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to send extension email to {toEmail}", toEmail);
-        }
+        await SendMimeMessageAsync(mailMessage, "ReservationExtension");
     }
 
     public async Task SendCheckoutInvoiceEmailAsync(
@@ -636,24 +621,6 @@ public class EmailService : IEmailService
         mailMessage.Subject = emailSubject;
         mailMessage.Body = new TextPart("html") { Text = body };
 
-        if (_isDevelopment && (string.IsNullOrWhiteSpace(_smtp.Username) || _smtp.Username.Contains("MAILTRAP_")))
-        {
-            _logger.LogInformation("Checkout invoice email simulated for {toEmail} (Total: {amountPaid:N0} VNĐ)", toEmail, amountPaid);
-            return;
-        }
-
-        try
-        {
-            using var client = new SmtpClient();
-            await client.ConnectAsync(_smtp.Host, _smtp.Port, SecureSocketOptions.StartTls);
-            await client.AuthenticateAsync(_smtp.Username, _smtp.Password);
-            await client.SendAsync(mailMessage);
-            await client.DisconnectAsync(true);
-            _logger.LogInformation("Checkout invoice email successfully sent to {toEmail}", toEmail);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to send checkout invoice email to {toEmail}", toEmail);
-        }
+        await SendMimeMessageAsync(mailMessage, "CheckoutInvoice");
     }
 }
