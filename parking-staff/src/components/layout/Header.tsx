@@ -157,16 +157,9 @@ const Header: React.FC<HeaderProps> = ({
                         <p className="text-xs font-bold text-slate-800 font-display">{displayName}</p>
                         <p className="text-[10px] text-slate-400 mt-0.5 truncate">{currentUser.email}</p>
                       </div>
-                      <a
-                        href="https://localhost:5173/"
-                        className="flex items-center gap-3 px-3.5 py-2.5 text-xs font-semibold text-slate-700 hover:bg-blue-50/50 hover:text-blue-600 transition-colors duration-200 rounded-xl"
-                      >
-                        <ExternalLink size={15} className="opacity-70" />
-                        <span>Về trang chủ</span>
-                      </a>
                       <button
                         onClick={handleLogout}
-                        className="flex items-center gap-3 px-3.5 py-2.5 text-xs font-semibold text-red-600 hover:bg-red-50/50 transition-colors duration-200 rounded-xl w-full text-left border-t border-slate-100/80 mt-1.5 pt-2 cursor-pointer"
+                        className="flex items-center gap-3 px-3.5 py-2.5 text-xs font-semibold text-red-600 hover:bg-red-50/50 transition-colors duration-200 rounded-xl w-full text-left cursor-pointer"
                       >
                         <LogOut size={15} />
                         <span>Đăng xuất</span>
