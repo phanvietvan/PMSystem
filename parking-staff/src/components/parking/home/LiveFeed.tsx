@@ -49,7 +49,7 @@ const LiveFeed: React.FC<LiveFeedProps> = ({
       )}
 
       {gateState === 'SCANNING' && (
-        <div className="flex-1 flex flex-col relative bg-transparent z-10 pointer-events-auto animate-fade-in h-full">
+        <div className="absolute inset-0 flex flex-col bg-transparent z-10 pointer-events-auto animate-fade-in">
           {/* Camera AI OCR LPR Loader */}
           <AnimatePresence>
             {isOcrLoading && (
