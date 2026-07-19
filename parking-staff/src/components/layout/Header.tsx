@@ -66,12 +66,6 @@ const Header: React.FC<HeaderProps> = ({
             Lịch sử
             {activeTab === 'history' && <div className="absolute -bottom-1 left-0 w-full h-0.5 bg-blue-600" />}
           </button>
-          <a
-            href="#"
-            className="text-sm font-semibold transition-all hover:scale-105 transform duration-200 relative text-slate-500 hover:text-blue-600"
-          >
-            Liên hệ
-          </a>
         </div>
 
         {/* Auth Buttons or User Menu */}
