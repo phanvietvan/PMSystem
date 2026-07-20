@@ -1,6 +1,6 @@
 import React from 'react';
 
-const APP_NAME = 'PM System';
+const APP_NAME = 'PMSystem Manager';
 
 type BrandLogoSize = 'xs' | 'sm' | 'md' | 'lg';
 
@@ -135,7 +135,7 @@ const BrandLogo: React.FC<BrandLogoProps> = ({
   size = 'md',
   showText = true,
   showTagline = false,
-  tagline = 'Parking Management',
+  tagline = 'Staff Portal',
   asLink = false,
   to = '#',
   className = '',

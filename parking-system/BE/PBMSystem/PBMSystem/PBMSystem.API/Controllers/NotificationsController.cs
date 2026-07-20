@@ -1,6 +1,7 @@
 using Repositories.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using PBMSystem.API.Extensions;
 using Services.Interfaces;
 using System.Security.Claims;
 
@@ -21,21 +22,24 @@ public class NotificationsController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetMyNotifications()
     {
+        var userId = User.GetUserId();
         var role = User.FindFirst(ClaimTypes.Role)?.Value?.ToLower() ?? "user";
 
-        var notifications = await _notificationService.GetMyNotificationsAsync(role);
+        var notifications = await _notificationService.GetMyNotificationsAsync(userId, role);
 
         return Ok(notifications);
     }
 
     [HttpPost("push")]
-    [AllowAnonymous]
+    [Authorize(Roles = "Admin,Staff")]
     public async Task<IActionResult> PushNotification([FromBody] PushNotifDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.Title) || string.IsNullOrWhiteSpace(dto.Message))
             return BadRequest(new { Message = "Title and message are required." });
 
-        await _notificationService.PushNotificationAsync(dto);
+        var result = await _notificationService.PushNotificationAsync(dto);
+        if (!result.Success)
+            return BadRequest(new { Message = result.ErrorMessage });
 
         return Ok(new { Message = "Notification pushed successfully." });
     }
@@ -43,9 +47,10 @@ public class NotificationsController : ControllerBase
     [HttpPost("mark-read")]
     public async Task<IActionResult> MarkAllAsRead()
     {
+        var userId = User.GetUserId();
         var role = User.FindFirst(ClaimTypes.Role)?.Value?.ToLower() ?? "user";
 
-        await _notificationService.MarkAllAsReadAsync(role);
+        await _notificationService.MarkAllAsReadAsync(userId, role);
 
         return Ok(new { Message = "Marked as read." });
     }

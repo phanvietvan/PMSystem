@@ -42,7 +42,7 @@ const getEndTimeDefault = (startTimeStr: string) => {
 export function useReservation() {
   const navigate = useNavigate();
   const location = useLocation();
-  const fromStatus = location.state?.fromStatus || false;
+  const [fromStatus, setFromStatus] = useState(() => !!location.state?.fromStatus);
   const bypassActiveCheck = location.state?.bypassActiveCheck || false;
   const [errorToast, setErrorToast] = useState<string | null>(null);
 
@@ -301,6 +301,14 @@ export function useReservation() {
     }
   };
 
+  const unlockParkingLotSelection = () => {
+    setIsSlotSelected(false);
+    setCurrentSlot('');
+    localStorage.removeItem('selectedSlot');
+    setFromStatus(false);
+    setIsDropdownOpen(true);
+  };
+
   return {
     fromStatus,
     errorToast,
@@ -321,6 +329,7 @@ export function useReservation() {
     setCurrentSlot,
     userVehicles,
     activePlates,
+    unlockParkingLotSelection,
     handleSubmit,
     getDistance,
   };

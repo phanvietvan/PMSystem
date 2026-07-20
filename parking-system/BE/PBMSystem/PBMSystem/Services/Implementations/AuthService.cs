@@ -483,6 +483,12 @@ public class AuthService : IAuthService
         if (user is null)
             return ApiResponse<UserResponse>.Fail("User not found.");
 
+        if (actorId == targetUserId
+            && (newStatus == UserStatus.Banned
+                || newStatus == UserStatus.Inactive
+                || newStatus == UserStatus.PendingVerification))
+            return ApiResponse<UserResponse>.Fail("Bạn không thể tự khóa hoặc vô hiệu hóa tài khoản của chính mình.");
+
         if (!string.IsNullOrWhiteSpace(request.LicensePlate) && !IsValidLicensePlate(request.LicensePlate))
             return ApiResponse<UserResponse>.Fail("Biển số xe không đúng định dạng. Ký tự thứ 3 bắt buộc là chữ cái (Ví dụ: 29A-123.45 hoặc 59G1-12345).");
 
