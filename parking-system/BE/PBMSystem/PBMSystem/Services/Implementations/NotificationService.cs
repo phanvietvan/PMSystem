@@ -14,22 +14,36 @@ public class NotificationService : INotificationService
         _notificationRepository = notificationRepository;
     }
 
-    public async Task<IEnumerable<object>> GetMyNotificationsAsync(string role)
+    public async Task<IEnumerable<object>> GetMyNotificationsAsync(Guid userId, string role)
     {
+        var roleNorm = (role ?? "user").ToLowerInvariant();
+
+        // Personal → only this user.
+        // Broadcast → Role all / matching role (IsBroadcast), or legacy Role == "all".
         var notifications = await _notificationRepository.FindAsync(n =>
-            n.Role == "all" || n.Role == role);
+            n.UserId == userId
+            || (n.IsBroadcast && (n.Role == "all" || n.Role == roleNorm))
+            || (n.UserId == null && !n.IsBroadcast && n.Role == "all"));
 
         return notifications
             .OrderByDescending(n => n.CreatedAt)
-            .Take(20)
-            .Select(n => new
+            .Take(30)
+            .Select(n =>
             {
-                n.Id,
-                type = n.Type,
-                title = n.Title,
-                desc = n.Message,
-                time = GetTimeAgo(n.CreatedAt),
-                read = n.IsRead
+                var isRead = n.ReadByUserIds != null && n.ReadByUserIds.Contains(userId)
+                    || (n.UserId == userId && n.IsRead);
+
+                return new
+                {
+                    id = n.Id,
+                    type = n.Type,
+                    title = n.Title,
+                    message = n.Message,
+                    desc = n.Message,
+                    time = GetTimeAgo(n.CreatedAt),
+                    createdAt = n.CreatedAt,
+                    read = isRead
+                };
             });
     }
 
@@ -44,11 +58,14 @@ public class NotificationService : INotificationService
         var notification = new AppNotification
         {
             Id = Guid.NewGuid(),
-            Role = dto.Role.ToLower(),
-            Title = dto.Title,
-            Message = dto.Message,
+            UserId = null,
+            IsBroadcast = true,
+            Role = (dto.Role ?? "all").ToLowerInvariant(),
+            Title = dto.Title.Trim(),
+            Message = dto.Message.Trim(),
             Type = "info",
             IsRead = false,
+            ReadByUserIds = new List<Guid>(),
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -59,17 +76,26 @@ public class NotificationService : INotificationService
         return ServiceResult<bool>.Ok(true);
     }
 
-    public async Task<ServiceResult<bool>> MarkAllAsReadAsync(string role)
+    public async Task<ServiceResult<bool>> MarkAllAsReadAsync(Guid userId, string role)
     {
+        var roleNorm = (role ?? "user").ToLowerInvariant();
+
         var notifications = await _notificationRepository.FindAsync(n =>
-            !n.IsRead &&
-            (n.Role == "all" || n.Role == role));
+            n.UserId == userId
+            || (n.IsBroadcast && (n.Role == "all" || n.Role == roleNorm))
+            || (n.UserId == null && !n.IsBroadcast && n.Role == "all"));
 
         foreach (var item in notifications)
         {
-            item.IsRead = true;
-            item.UpdatedAt = DateTime.UtcNow;
+            item.ReadByUserIds ??= new List<Guid>();
+            if (!item.ReadByUserIds.Contains(userId))
+                item.ReadByUserIds.Add(userId);
 
+            // Personal inbox: also flip legacy IsRead for this user only
+            if (item.UserId == userId)
+                item.IsRead = true;
+
+            item.UpdatedAt = DateTime.UtcNow;
             _notificationRepository.Update(item);
         }
 
@@ -78,7 +104,7 @@ public class NotificationService : INotificationService
         return ServiceResult<bool>.Ok(true);
     }
 
-    private string GetTimeAgo(DateTime dt)
+    private static string GetTimeAgo(DateTime dt)
     {
         var span = DateTime.UtcNow - dt;
 

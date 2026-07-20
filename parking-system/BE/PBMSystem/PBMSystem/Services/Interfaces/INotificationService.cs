@@ -4,9 +4,9 @@ namespace Services.Interfaces;
 
 public interface INotificationService
 {
-    Task<IEnumerable<object>> GetMyNotificationsAsync(string role);
+    Task<IEnumerable<object>> GetMyNotificationsAsync(Guid userId, string role);
 
     Task<ServiceResult<bool>> PushNotificationAsync(PushNotifDto dto);
 
-    Task<ServiceResult<bool>> MarkAllAsReadAsync(string role);
+    Task<ServiceResult<bool>> MarkAllAsReadAsync(Guid userId, string role);
 }

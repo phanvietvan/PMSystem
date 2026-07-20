@@ -36,8 +36,12 @@ const AdminUsers = () => {
     isDeleting,
     form,
     setForm,
+    updateVehicle,
+    addVehicle,
+    removeVehicle,
     canEdit,
     canAssignAdmin,
+    isEditingSelf,
     filtered,
     stats,
     openEdit,
@@ -243,8 +247,8 @@ const AdminUsers = () => {
     
           {editing && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg border border-slate-200 overflow-hidden">
-                <div className="flex items-center justify-between px-8 py-6 border-b border-slate-100">
+              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] border border-slate-200 flex flex-col overflow-hidden">
+                <div className="flex items-center justify-between px-6 sm:px-8 py-5 border-b border-slate-100 shrink-0">
                   <h3 className="text-lg font-black text-slate-900">
                     {'Chỉnh sửa nhân sự'}
                   </h3>
@@ -252,73 +256,121 @@ const AdminUsers = () => {
                     <X className="w-5 h-5" />
                   </button>
                 </div>
-                <form onSubmit={handleSave} className="p-8 space-y-4">
+                <form onSubmit={handleSave} className="p-6 sm:p-8 space-y-4 overflow-y-auto min-h-0">
                   {error && <p className="text-sm font-bold text-red-600">{error}</p>}
-                  <div className="grid grid-cols-2 gap-4">
-                    <label className="block">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <label className="block min-w-0">
                       <span className="text-[10px] font-black text-slate-400 uppercase">
                         {'Họ'}
                       </span>
-                      <input required className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" value={form.firstName} onChange={(e) => setForm({...form, firstName: e.target.value})} />
+                      <input required className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" value={form.firstName} onChange={(e) => setForm({...form, firstName: e.target.value})} />
                     </label>
-                    <label className="block">
+                    <label className="block min-w-0">
                       <span className="text-[10px] font-black text-slate-400 uppercase">
                         {'Tên'}
                       </span>
-                      <input required className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" value={form.lastName} onChange={(e) => setForm({...form, lastName: e.target.value})} />
+                      <input required className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" value={form.lastName} onChange={(e) => setForm({...form, lastName: e.target.value})} />
                     </label>
                   </div>
-                  <label className="block">
+                  <label className="block min-w-0">
                     <span className="text-[10px] font-black text-slate-400 uppercase">
                       {'SĐT'}
                     </span>
-                    <input className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" value={form.phoneNumber} onChange={(e) => setForm({...form, phoneNumber: e.target.value})} />
+                    <input className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" value={form.phoneNumber} onChange={(e) => setForm({...form, phoneNumber: e.target.value})} />
                   </label>
-                  <div className="grid grid-cols-2 gap-4">
-                    <label className="block">
-                      <span className="text-[10px] font-black text-slate-400 uppercase">
-                        {'Biển số'}
+
+                  <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                        {'Phương tiện'} ({form.vehicles.length})
                       </span>
-                      <input className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" value={form.licensePlate} onChange={(e) => setForm({...form, licensePlate: e.target.value})} />
-                    </label>
-                    <label className="block">
-                      <span className="text-[10px] font-black text-slate-400 uppercase">
-                        {'Loại xe'}
-                      </span>
-                      <input className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" value={form.vehicleType} onChange={(e) => setForm({...form, vehicleType: e.target.value})} />
-                    </label>
+                      <button
+                        type="button"
+                        onClick={addVehicle}
+                        className="text-[11px] font-bold text-blue-600 hover:text-blue-700 px-2 py-1 rounded-lg hover:bg-blue-50"
+                      >
+                        + Thêm xe
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      {form.vehicles.map((v, i) => (
+                        <div key={i} className="grid grid-cols-[1fr_110px_auto] gap-2 items-end bg-white p-2.5 rounded-xl border border-slate-100">
+                          <label className="block min-w-0">
+                            <span className="text-[9px] font-black text-slate-400 uppercase">Biển số</span>
+                            <input
+                              className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm font-bold uppercase tracking-wide outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                              placeholder="29A-123.45"
+                              value={v.plate}
+                              onChange={(e) => updateVehicle(i, { plate: e.target.value })}
+                            />
+                          </label>
+                          <label className="block min-w-0">
+                            <span className="text-[9px] font-black text-slate-400 uppercase">Loại xe</span>
+                            <select
+                              className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold outline-none focus:border-blue-400"
+                              value={v.type}
+                              onChange={(e) => updateVehicle(i, { type: e.target.value })}
+                            >
+                              <option value="Car">Ô tô</option>
+                              <option value="SUV">Xe SUV</option>
+                              <option value="Moto">Xe máy</option>
+                            </select>
+                          </label>
+                          <button
+                            type="button"
+                            disabled={form.vehicles.length <= 1}
+                            onClick={() => removeVehicle(i)}
+                            className="mb-0.5 p-2 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+                            title="Xóa xe"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <label className="block">
+
+                  <label className="block min-w-0">
                     <span className="text-[10px] font-black text-slate-400 uppercase">
                       {'Địa chỉ'}
                     </span>
-                    <input className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" value={form.address} onChange={(e) => setForm({...form, address: e.target.value})} />
+                    <input className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" value={form.address} onChange={(e) => setForm({...form, address: e.target.value})} />
                   </label>
-                  <div className="grid grid-cols-2 gap-4">
-                    <label className="block">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <label className="block min-w-0">
                       <span className="text-[10px] font-black text-slate-400 uppercase">
                         {'Vai trò'}
                       </span>
-                      <select className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold" value={form.role} onChange={(e) => setForm({...form, role: e.target.value})}>
+                      <select className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-bold outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" value={form.role} onChange={(e) => setForm({...form, role: e.target.value})}>
                         <option value="User">Người dùng</option>
                         <option value="Staff">Nhân viên</option>
                         {canAssignAdmin && <option value="Admin">Quản trị viên</option>}
                       </select>
                     </label>
-                    <label className="block">
+                    <label className="block min-w-0">
                       <span className="text-[10px] font-black text-slate-400 uppercase">
                         {'Trạng thái'}
                       </span>
-                      <select className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold" value={form.status} onChange={(e) => setForm({...form, status: e.target.value})}>
+                      <select
+                        className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-bold outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
+                        value={form.status}
+                        disabled={isEditingSelf}
+                        onChange={(e) => setForm({...form, status: e.target.value})}
+                      >
                         <option value="Active">Hoạt động</option>
-                        <option value="Inactive">Không hoạt động</option>
-                        <option value="Banned">Đã khóa</option>
-                        <option value="PendingVerification">Chờ xác thực</option>
+                        {!isEditingSelf && <option value="Inactive">Không hoạt động</option>}
+                        {!isEditingSelf && <option value="Banned">Đã khóa</option>}
+                        {!isEditingSelf && <option value="PendingVerification">Chờ xác thực</option>}
                       </select>
+                      {isEditingSelf && (
+                        <p className="mt-1 text-[11px] font-semibold text-slate-400">
+                          Bạn không thể tự khóa tài khoản của chính mình.
+                        </p>
+                      )}
                     </label>
                   </div>
-                  <div className="flex gap-3 pt-4">
-                    <button type="button" onClick={closeEdit} className="flex-1 py-3 rounded-xl border border-slate-200 text-sm font-bold text-slate-600">
+                  <div className="flex gap-3 pt-2 sticky bottom-0 bg-white pb-1">
+                    <button type="button" onClick={closeEdit} className="flex-1 py-3 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50">
                       {'Hủy'}
                     </button>
                     <button type="submit" disabled={saving} className="flex-1 py-3 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 disabled:opacity-60">

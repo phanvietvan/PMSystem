@@ -7,7 +7,7 @@ type Options = {
 };
 
 export function useNotifications(options: Options = {}) {
-  const { enabled = true, pollIntervalMs = 15000 } = options;
+  const { enabled = true, pollIntervalMs = 8000 } = options;
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -15,8 +15,22 @@ export function useNotifications(options: Options = {}) {
     try {
       const res = await adminService.getNotifications();
       const data = res.data ?? [];
-      setNotifications(Array.isArray(data) ? data : []);
-      return data;
+      const list = Array.isArray(data) ? data : [];
+      // Normalize API shape so UI always has title / message / time / read
+      setNotifications(
+        list.map((n: any) => ({
+          ...n,
+          id: n.id ?? n.Id,
+          title: n.title ?? n.Title ?? '',
+          message: n.message ?? n.Message ?? n.desc ?? n.Desc ?? '',
+          desc: n.desc ?? n.Desc ?? n.message ?? n.Message ?? '',
+          time: n.time ?? n.Time ?? '',
+          createdAt: n.createdAt ?? n.CreatedAt,
+          type: n.type ?? n.Type ?? 'info',
+          read: Boolean(n.read ?? n.Read ?? n.isRead ?? n.IsRead),
+        })),
+      );
+      return list;
     } catch (err) {
       console.error(err);
       return [];
@@ -32,6 +46,18 @@ export function useNotifications(options: Options = {}) {
     const id = setInterval(() => void fetchNotifications(), pollIntervalMs);
     return () => clearInterval(id);
   }, [enabled, pollIntervalMs, fetchNotifications]);
+
+  // Re-fetch when tab becomes visible again (near-realtime)
+  useEffect(() => {
+    if (!enabled) return;
+    const onFocus = () => void fetchNotifications();
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onFocus);
+    };
+  }, [enabled, fetchNotifications]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 

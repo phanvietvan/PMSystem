@@ -10,7 +10,7 @@ export interface NotificationPanelProps {
 const NotificationPanel = ({ role }: NotificationPanelProps) => {
   const { notifications, loading, unreadCount, markAllAsRead } = useNotifications({
     enabled: true,
-    pollIntervalMs: 15000,
+    pollIntervalMs: 5000,
   });
 
   const getIcon = (type: string) => {
@@ -24,6 +24,24 @@ const NotificationPanel = ({ role }: NotificationPanelProps) => {
       default:
         return <Bell size={18} className="text-blue-500" />;
     }
+  };
+
+  const getBody = (n: {
+    message?: string;
+    desc?: string;
+    title?: string;
+  }) => n.message || n.desc || '';
+
+  const getTime = (n: { time?: string; createdAt?: string }) => {
+    if (n.time) return n.time;
+    if (n.createdAt) {
+      try {
+        return new Date(n.createdAt).toLocaleString('vi-VN');
+      } catch {
+        return '';
+      }
+    }
+    return '';
   };
 
   return (
@@ -43,6 +61,7 @@ const NotificationPanel = ({ role }: NotificationPanelProps) => {
         </div>
         {unreadCount > 0 && (
           <button
+            type="button"
             onClick={() => void markAllAsRead()}
             className="text-[10px] font-black text-blue-600 hover:text-blue-700 uppercase tracking-wider"
           >
@@ -57,25 +76,42 @@ const NotificationPanel = ({ role }: NotificationPanelProps) => {
         ) : notifications.length === 0 ? (
           <div className="p-8 text-center text-xs font-bold text-slate-400">Chưa có thông báo</div>
         ) : (
-          notifications.map((n: any) => (
-            <div
-              key={n.id}
-              className={`px-5 py-4 border-b border-slate-50 flex gap-3 ${
-                n.read ? 'opacity-60' : 'bg-blue-50/30'
-              }`}
-            >
-              <div className="mt-0.5 shrink-0">{getIcon(n.type)}</div>
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-slate-800 leading-snug">{n.title || n.message}</p>
-                {n.message && n.title && (
-                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">{n.message}</p>
-                )}
-                <p className="text-[10px] font-bold text-slate-400 mt-2">
-                  {n.createdAt ? new Date(n.createdAt).toLocaleString('vi-VN') : ''}
-                </p>
+          notifications.map((n: {
+            id?: string;
+            type?: string;
+            title?: string;
+            message?: string;
+            desc?: string;
+            time?: string;
+            createdAt?: string;
+            read?: boolean;
+          }) => {
+            const body = getBody(n);
+            const timeLabel = getTime(n);
+            return (
+              <div
+                key={n.id}
+                className={`px-5 py-4 border-b border-slate-50 flex gap-3 ${
+                  n.read ? 'opacity-60' : 'bg-blue-50/30'
+                }`}
+              >
+                <div className="mt-0.5 shrink-0">{getIcon(n.type || 'info')}</div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-slate-800 leading-snug break-words">
+                    {n.title || body || 'Thông báo'}
+                  </p>
+                  {body && n.title && (
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed break-words whitespace-pre-wrap">
+                      {body}
+                    </p>
+                  )}
+                  {timeLabel && (
+                    <p className="text-[10px] font-bold text-slate-400 mt-2">{timeLabel}</p>
+                  )}
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </motion.div>

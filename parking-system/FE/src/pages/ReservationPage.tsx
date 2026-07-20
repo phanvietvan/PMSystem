@@ -26,6 +26,7 @@ const ReservationPage = () => {
     setCurrentSlot,
     userVehicles,
     activePlates,
+    unlockParkingLotSelection,
     handleSubmit,
     getDistance,
   } = useReservation();
@@ -395,11 +396,8 @@ const ReservationPage = () => {
                       </div>
                       <button 
                         type="button"
-                        onClick={() => {
-                          setIsSlotSelected(false);
-                          setCurrentSlot('');
-                        }}
-                        className="text-[10px] font-bold text-slate-500 hover:text-blue-600 underline cursor-pointer"
+                        onClick={unlockParkingLotSelection}
+                        className="text-[10px] font-bold text-blue-600 hover:text-blue-700 underline cursor-pointer"
                       >
                         {'Thay đổi'}
                       </button>

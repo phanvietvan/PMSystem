@@ -19,12 +19,13 @@ export interface AppUser {
   createdAt: string;
 }
 
+export type AdminVehicle = { plate: string; type: string };
+
 export type AdminUserForm = {
   firstName: string;
   lastName: string;
   phoneNumber: string;
-  licensePlate: string;
-  vehicleType: string;
+  vehicles: AdminVehicle[];
   address: string;
   role: string;
   status: string;
@@ -34,12 +35,40 @@ const emptyForm: AdminUserForm = {
   firstName: '',
   lastName: '',
   phoneNumber: '',
-  licensePlate: '',
-  vehicleType: '',
+  vehicles: [{ plate: '', type: 'Car' }],
   address: '',
   role: 'User',
   status: 'Active',
 };
+
+function normalizeVehicleType(type?: string | null): string {
+  const t = (type || 'Car').trim().toLowerCase();
+  if (t === 'moto' || t === 'motorcycle' || t === 'xe máy') return 'Moto';
+  if (t === 'suv') return 'SUV';
+  return 'Car';
+}
+
+function parseVehiclesFromUser(user: AppUser): AdminVehicle[] {
+  const lp = (user.licensePlate || '').trim();
+  if (lp.startsWith('[')) {
+    try {
+      const raw = JSON.parse(lp);
+      if (Array.isArray(raw) && raw.length > 0) {
+        const list = raw
+          .map((v: { plate?: string; PLATE?: string; type?: string; TYPE?: string }) => ({
+            plate: String(v.plate || v.PLATE || '').trim(),
+            type: normalizeVehicleType(v.type || v.TYPE || user.vehicleType),
+          }))
+          .filter((v: AdminVehicle) => v.plate);
+        if (list.length > 0) return list;
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+  if (lp) return [{ plate: lp, type: normalizeVehicleType(user.vehicleType) }];
+  return [{ plate: '', type: normalizeVehicleType(user.vehicleType) }];
+}
 
 export function useAdminUsers() {
   const actor = useAdminUser();
@@ -55,8 +84,10 @@ export function useAdminUsers() {
   const [form, setForm] = useState<AdminUserForm>(emptyForm);
 
   const actorRole = actor?.role ?? 'User';
+  const actorId = actor?.id ?? '';
   const canEdit = actorRole === 'Admin' || actorRole === 'Staff';
   const canAssignAdmin = actorRole === 'Admin';
+  const isEditingSelf = !!editing && !!actorId && editing.id === actorId;
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -110,8 +141,7 @@ export function useAdminUsers() {
       firstName: user.firstName ?? '',
       lastName: user.lastName ?? '',
       phoneNumber: user.phoneNumber ?? '',
-      licensePlate: user.licensePlate ?? '',
-      vehicleType: user.vehicleType ?? '',
+      vehicles: parseVehiclesFromUser(user),
       address: user.address ?? '',
       role: user.role ?? 'User',
       status: user.status ?? 'Active',
@@ -120,16 +150,62 @@ export function useAdminUsers() {
 
   const closeEdit = () => {
     setEditing(null);
+    setForm(emptyForm);
     setError('');
+  };
+
+  const updateVehicle = (index: number, patch: Partial<AdminVehicle>) => {
+    setForm((prev) => ({
+      ...prev,
+      vehicles: prev.vehicles.map((v, i) => (i === index ? { ...v, ...patch } : v)),
+    }));
+  };
+
+  const addVehicle = () => {
+    setForm((prev) => ({
+      ...prev,
+      vehicles: [...prev.vehicles, { plate: '', type: 'Car' }],
+    }));
+  };
+
+  const removeVehicle = (index: number) => {
+    setForm((prev) => {
+      if (prev.vehicles.length <= 1) return prev;
+      return { ...prev, vehicles: prev.vehicles.filter((_, i) => i !== index) };
+    });
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editing) return;
+
+    if (
+      editing.id === actorId &&
+      (form.status === 'Banned' || form.status === 'Inactive' || form.status === 'PendingVerification')
+    ) {
+      setError('Bạn không thể tự khóa hoặc vô hiệu hóa tài khoản của chính mình.');
+      return;
+    }
+
+    const cleanedVehicles = form.vehicles
+      .map((v) => ({ plate: v.plate.trim().toUpperCase(), type: v.type.trim() || 'Car' }))
+      .filter((v) => v.plate);
+
     setSaving(true);
     setError('');
     try {
-      const response = await adminService.updateUser(editing.id, form);
+      const payload = {
+        firstName: form.firstName,
+        lastName: form.lastName,
+        phoneNumber: form.phoneNumber,
+        address: form.address,
+        role: form.role,
+        status: form.status,
+        licensePlate:
+          cleanedVehicles.length > 0 ? JSON.stringify(cleanedVehicles) : '',
+        vehicleType: cleanedVehicles[0]?.type || 'Car',
+      };
+      const response = await adminService.updateUser(editing.id, payload);
       if (response.data.success) {
         const updated = response.data.data as AppUser;
         setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
@@ -184,8 +260,12 @@ export function useAdminUsers() {
     isDeleting,
     form,
     setForm,
+    updateVehicle,
+    addVehicle,
+    removeVehicle,
     canEdit,
     canAssignAdmin,
+    isEditingSelf,
     filtered,
     stats,
     openEdit,

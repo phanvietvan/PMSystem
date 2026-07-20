@@ -4,6 +4,33 @@ import AdminLayout from '../components/admin/AdminLayout';
 import { useIncidents } from '../hooks/useIncidents';
 import { useToast } from '../hooks/useToast';
 
+/** BlacklistReport lưu JSON trong description — chỉ hiện reason, không hiện base64. */
+function getIncidentDisplayDescription(raw?: string | null): string {
+  if (!raw) return 'Không có mô tả';
+  const text = raw.trim();
+  if (text.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed === 'object') {
+        const reason = String(parsed.reason || '').trim();
+        const parts: string[] = [];
+        if (reason) parts.push(reason);
+        if (parsed.customerName) parts.push(`KH: ${parsed.customerName}`);
+        if (parsed.parkingLot) parts.push(`Bãi: ${parsed.parkingLot}`);
+        if (parts.length > 0) return parts.join(' · ');
+        return 'Báo cáo vi phạm (không có lý do)';
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+  // Ẩn chuỗi base64 nếu lỡ dính vào mô tả thường
+  if (text.includes('data:image') || text.length > 400) {
+    return text.slice(0, 180).replace(/\s+/g, ' ') + (text.length > 180 ? '…' : '');
+  }
+  return text;
+}
+
 const AdminIncidents = () => {
   const { incidents, resolveIncident, deleteIncident } = useIncidents();
   const { toastMessage, showToast } = useToast();
@@ -72,17 +99,21 @@ const AdminIncidents = () => {
                              <td className="py-5 text-xs font-black text-slate-500">
                                {inc.id.startsWith('#') ? inc.id : '#INC-' + inc.id.substring(0, 4).toUpperCase()}
                              </td>
-                             <td className="py-5 max-w-xs">
+                             <td className="py-5 max-w-md">
                                <div className="min-w-0">
                                  <span className={`inline-block px-2 py-0.5 rounded-md text-[9px] font-black uppercase mb-1.5 ${
                                    inc.type === 'Thiết bị hỏng' ? 'bg-red-50 text-red-600' :
                                    inc.type === 'Lỗi thanh toán' ? 'bg-amber-50 text-amber-600' :
-                                   inc.type === 'Xe đỗ sai vị trí' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-600'
+                                   inc.type === 'Xe đỗ sai vị trí' ? 'bg-blue-50 text-blue-600' :
+                                   inc.type === 'BlacklistReport' ? 'bg-slate-100 text-slate-600' :
+                                   'bg-slate-100 text-slate-600'
                                  }`}>
-                                   {inc.type}
+                                   {inc.type === 'BlacklistReport' ? 'Báo cáo vi phạm' : inc.type}
                                  </span>
-                                 <p className="text-xs font-bold text-slate-900 leading-snug">{inc.title}</p>
-                                 <p className="text-[10px] text-slate-400 font-medium mt-1 truncate">{inc.description}</p>
+                                 <p className="text-xs font-bold text-slate-900 leading-snug break-words">{inc.title}</p>
+                                 <p className="text-[10px] text-slate-400 font-medium mt-1 whitespace-normal break-words line-clamp-3">
+                                   {getIncidentDisplayDescription(inc.description)}
+                                 </p>
                                </div>
                              </td>
                              <td className="py-5">

@@ -799,17 +799,22 @@ public class ParkingSessionService : IParkingSessionService
 
                 var roleStr = user != null ? user.Role.ToString().ToLower() : "user";
 
-                var notif = new AppNotification
+                if (session.UserId.HasValue)
                 {
-                    Id = Guid.NewGuid(),
-                    Role = roleStr,
-                    Title = "Sắp đến giờ đặt chỗ",
-                    Message = $"Bạn còn khoảng {Math.Ceiling(timeDiff.TotalMinutes)} phút nữa đến giờ hẹn gửi xe tại {session.ParkingLotName} (Vị trí {session.ParkingSlot}). Vui lòng đến đúng giờ.",
-                    Type = "info",
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
-                await _notificationRepository.AddAsync(notif);
+                    var notif = new AppNotification
+                    {
+                        Id = Guid.NewGuid(),
+                        UserId = session.UserId,
+                        IsBroadcast = false,
+                        Role = roleStr,
+                        Title = "Sắp đến giờ đặt chỗ",
+                        Message = $"Bạn còn khoảng {Math.Ceiling(timeDiff.TotalMinutes)} phút nữa đến giờ hẹn gửi xe tại {session.ParkingLotName} (Vị trí {session.ParkingSlot}). Vui lòng đến đúng giờ.",
+                        Type = "info",
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    await _notificationRepository.AddAsync(notif);
+                }
 
                 if (user != null && !string.IsNullOrWhiteSpace(user.Email))
                 {
@@ -843,17 +848,22 @@ public class ParkingSessionService : IParkingSessionService
 
                 var roleStr = user != null ? user.Role.ToString().ToLower() : "user";
 
-                var notif = new AppNotification
+                if (session.UserId.HasValue)
                 {
-                    Id = Guid.NewGuid(),
-                    Role = roleStr,
-                    Title = "Hủy chỗ đặt xe tự động",
-                    Message = $"Lượt đặt chỗ của bạn tại {session.ParkingLotName} đã bị hủy do bạn đến trễ quá 10 phút. Nếu có nhu cầu, bạn vui lòng đặt lại chỗ khác nhé.",
-                    Type = "alert",
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
-                await _notificationRepository.AddAsync(notif);
+                    var notif = new AppNotification
+                    {
+                        Id = Guid.NewGuid(),
+                        UserId = session.UserId,
+                        IsBroadcast = false,
+                        Role = roleStr,
+                        Title = "Hủy chỗ đặt xe tự động",
+                        Message = $"Lượt đặt chỗ của bạn tại {session.ParkingLotName} đã bị hủy do bạn đến trễ quá 10 phút. Nếu có nhu cầu, bạn vui lòng đặt lại chỗ khác nhé.",
+                        Type = "alert",
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    await _notificationRepository.AddAsync(notif);
+                }
 
                 if (user != null && !string.IsNullOrWhiteSpace(user.Email))
                 {
@@ -912,17 +922,22 @@ public class ParkingSessionService : IParkingSessionService
 
                 var roleStr = user != null ? user.Role.ToString().ToLower() : "user";
 
-                var notif = new AppNotification
+                if (session.UserId.HasValue)
                 {
-                    Id = Guid.NewGuid(),
-                    Role = roleStr,
-                    Title = "Thời gian đỗ xe được gia hạn",
-                    Message = $"Phiên đỗ xe của bạn tại {session.ParkingLotName} (Vị trí {session.ParkingSlot}) đã được tự động gia hạn thêm 1 tiếng đến {session.ReservationEndTime} do quá giờ đăng ký.",
-                    Type = "info",
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
-                await _notificationRepository.AddAsync(notif);
+                    var notif = new AppNotification
+                    {
+                        Id = Guid.NewGuid(),
+                        UserId = session.UserId,
+                        IsBroadcast = false,
+                        Role = roleStr,
+                        Title = "Thời gian đỗ xe được gia hạn",
+                        Message = $"Phiên đỗ xe của bạn tại {session.ParkingLotName} (Vị trí {session.ParkingSlot}) đã được tự động gia hạn thêm 1 tiếng đến {session.ReservationEndTime} do quá giờ đăng ký.",
+                        Type = "info",
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    await _notificationRepository.AddAsync(notif);
+                }
 
                 if (user != null && !string.IsNullOrWhiteSpace(user.Email))
                 {

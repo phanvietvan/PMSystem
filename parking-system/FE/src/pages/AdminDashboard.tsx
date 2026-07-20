@@ -21,6 +21,25 @@ import { useParkingLots } from '../hooks/useParkingLots';
 import { useIncidents } from '../hooks/useIncidents';
 import { getUserDisplayName, parseLicensePlate } from '../utils/auth';
 
+function getIncidentDisplayDescription(raw?: string | null): string {
+  if (!raw) return 'Không có mô tả';
+  const text = raw.trim();
+  if (text.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed === 'object') {
+        const reason = String(parsed.reason || '').trim();
+        if (reason) return reason;
+        return 'Báo cáo vi phạm (không có lý do)';
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  if (text.includes('data:image')) return 'Có kèm ảnh báo cáo';
+  return text;
+}
+
 const AdminDashboard = () => {
   const user = useAdminUser();
   const { sessions, loading } = useParkingSessions({ pollIntervalMs: 5000 });
@@ -414,7 +433,9 @@ const AdminDashboard = () => {
                             </div>
                             <div className="flex-1 min-w-0">
                                <p className="text-sm font-bold text-slate-800 truncate">{inc.title || inc.type || ('Sự cố báo cáo')}</p>
-                               <p className="text-[11px] text-slate-500 font-medium mt-0.5 line-clamp-2">{inc.description || ('Không có mô tả')}</p>
+                               <p className="text-[11px] text-slate-500 font-medium mt-0.5 line-clamp-2 break-words">
+                                 {getIncidentDisplayDescription(inc.description)}
+                               </p>
                               <div className="flex items-center gap-3 mt-2">
                                 <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
                                   <Clock className="w-3 h-3" />
