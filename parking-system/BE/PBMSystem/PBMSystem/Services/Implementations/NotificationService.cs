@@ -1,4 +1,4 @@
-﻿using Repositories.DTOs;
+using Repositories.DTOs;
 using Repositories.Entities;
 using Repositories.Interfaces;
 using Services.Interfaces;
@@ -16,22 +16,12 @@ public class NotificationService : INotificationService
 
     public async Task<IEnumerable<object>> GetMyNotificationsAsync(Guid userId, string role)
     {
-        var roleNorm = (role ?? "user").ToLowerInvariant();
-
-        // Personal → only this user.
-        // Broadcast → Role all / matching role (IsBroadcast), or legacy Role == "all".
-        var notifications = await _notificationRepository.FindAsync(n =>
-            n.UserId == userId
-            || (n.IsBroadcast && (n.Role == "all" || n.Role == roleNorm))
-            || (n.UserId == null && !n.IsBroadcast && n.Role == "all"));
+        var notifications = await _notificationRepository.GetMyNotificationsAsync(userId, role);
 
         return notifications
-            .OrderByDescending(n => n.CreatedAt)
-            .Take(30)
             .Select(n =>
             {
-                var isRead = n.ReadByUserIds != null && n.ReadByUserIds.Contains(userId)
-                    || (n.UserId == userId && n.IsRead);
+                var isRead = n.Reads.Any(r => r.UserId == userId);
 
                 return new
                 {
@@ -64,8 +54,6 @@ public class NotificationService : INotificationService
             Title = dto.Title.Trim(),
             Message = dto.Message.Trim(),
             Type = "info",
-            IsRead = false,
-            ReadByUserIds = new List<Guid>(),
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -78,27 +66,7 @@ public class NotificationService : INotificationService
 
     public async Task<ServiceResult<bool>> MarkAllAsReadAsync(Guid userId, string role)
     {
-        var roleNorm = (role ?? "user").ToLowerInvariant();
-
-        var notifications = await _notificationRepository.FindAsync(n =>
-            n.UserId == userId
-            || (n.IsBroadcast && (n.Role == "all" || n.Role == roleNorm))
-            || (n.UserId == null && !n.IsBroadcast && n.Role == "all"));
-
-        foreach (var item in notifications)
-        {
-            item.ReadByUserIds ??= new List<Guid>();
-            if (!item.ReadByUserIds.Contains(userId))
-                item.ReadByUserIds.Add(userId);
-
-            // Personal inbox: also flip legacy IsRead for this user only
-            if (item.UserId == userId)
-                item.IsRead = true;
-
-            item.UpdatedAt = DateTime.UtcNow;
-            _notificationRepository.Update(item);
-        }
-
+        await _notificationRepository.MarkAllAsReadAsync(userId, role);
         await _notificationRepository.SaveChangesAsync();
 
         return ServiceResult<bool>.Ok(true);

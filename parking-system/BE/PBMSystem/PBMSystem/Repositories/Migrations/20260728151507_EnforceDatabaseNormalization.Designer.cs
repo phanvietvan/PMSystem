@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Repositories;
 
@@ -11,9 +12,11 @@ using Repositories;
 namespace Repositories.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260728151507_EnforceDatabaseNormalization")]
+    partial class EnforceDatabaseNormalization
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -121,6 +124,14 @@ namespace Repositories.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<string>("Reporter")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -140,12 +151,7 @@ namespace Repositories.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<Guid?>("UserId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.HasKey("Id");
-
-                    b.HasIndex("UserId");
 
                     b.ToTable("Incidents", (string)null);
                 });
@@ -300,9 +306,6 @@ namespace Repositories.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<Guid?>("ParkingLotId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<string>("ParkingLotName")
                         .HasColumnType("nvarchar(max)");
 
@@ -339,8 +342,6 @@ namespace Repositories.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("ParkingLotId");
 
                     b.HasIndex("UserId");
 
@@ -684,16 +685,6 @@ namespace Repositories.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Repositories.Entities.Incident", b =>
-                {
-                    b.HasOne("Repositories.Entities.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("Repositories.Entities.NotificationRead", b =>
                 {
                     b.HasOne("Repositories.Entities.AppNotification", "Notification")
@@ -726,17 +717,10 @@ namespace Repositories.Migrations
 
             modelBuilder.Entity("Repositories.Entities.ParkingSession", b =>
                 {
-                    b.HasOne("Repositories.Entities.ParkingLot", "ParkingLot")
-                        .WithMany()
-                        .HasForeignKey("ParkingLotId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("Repositories.Entities.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("ParkingLot");
 
                     b.Navigation("User");
                 });

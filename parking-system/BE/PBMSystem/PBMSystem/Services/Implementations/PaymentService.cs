@@ -194,10 +194,6 @@ namespace Services.Implementations
                         {
                             existingPayment.SessionId = session.Id;
                             existingPayment.UserId = session.UserId;
-                            if (string.IsNullOrWhiteSpace(existingPayment.LicensePlate))
-                            {
-                                existingPayment.LicensePlate = session.LicensePlate;
-                            }
                         }
 
                         await _paymentRepository.UpdateAsync(existingPayment);
@@ -210,7 +206,6 @@ namespace Services.Implementations
                             Id = Guid.NewGuid(),
                             SessionId = session.Id,
                             UserId = session.UserId,
-                            LicensePlate = session.LicensePlate,
                             Amount = vnpAmount / 100m,
                             PaymentMethod = "VNPay",
                             Status = "Completed",
@@ -278,7 +273,6 @@ namespace Services.Implementations
                         if (savedPayment != null)
                         {
                             savedPayment.SessionId = session.Id;
-                            savedPayment.LicensePlate = session.LicensePlate;
                             if (session.UserId.HasValue)
                             {
                                 savedPayment.UserId = session.UserId.Value;

@@ -18,6 +18,7 @@ export interface SessionData {
   exitLicensePlate?: string;
   isPlateMatched?: boolean;
   parkingLotName?: string;
+  parkingLotId?: string | null;
   vehicleType?: string;
 }
 
@@ -78,6 +79,7 @@ export function useActiveSessions() {
               const sParkingSlot = s.parkingSlot || s.ParkingSlot;
               const sIsCheckedIn = s.isCheckedIn ?? s.IsCheckedIn;
               const sParkingLotName = s.parkingLotName || s.ParkingLotName;
+              const sParkingLotId = s.parkingLotId || s.ParkingLotId;
               const sLicensePlate = s.licensePlate || s.LicensePlate;
 
               const diffMs =
@@ -108,6 +110,7 @@ export function useActiveSessions() {
                 exitLicensePlate: s.exitLicensePlate || s.ExitLicensePlate,
                 isPlateMatched: s.isPlateMatched ?? s.IsPlateMatched,
                 parkingLotName: sParkingLotName,
+                parkingLotId: sParkingLotId,
                 vehicleType: s.vehicleType || s.VehicleType || 'car',
               });
             }
@@ -132,6 +135,7 @@ export function useActiveSessions() {
                   const sEntryTime = s.entryTime || s.EntryTime;
                   const sIsCheckedIn = s.isCheckedIn ?? s.IsCheckedIn;
                   const sParkingLotName = s.parkingLotName || s.ParkingLotName;
+                  const sParkingLotId = s.parkingLotId || s.ParkingLotId;
 
                   results.push({
                     id: sId,
@@ -145,6 +149,7 @@ export function useActiveSessions() {
                     isCompleted: false,
                     isCancelled: false,
                     parkingLotName: sParkingLotName,
+                    parkingLotId: sParkingLotId,
                     vehicleType: s.vehicleType || s.VehicleType || 'car',
                   });
                 } else {
@@ -177,6 +182,7 @@ export function useActiveSessions() {
                 const sEntryTime = s.entryTime || s.EntryTime;
                 const sIsCheckedIn = s.isCheckedIn ?? s.IsCheckedIn;
                 const sParkingLotName = s.parkingLotName || s.ParkingLotName;
+                const sParkingLotId = s.parkingLotId || s.ParkingLotId;
 
                 results.push({
                   id: sId,
@@ -190,6 +196,7 @@ export function useActiveSessions() {
                   isCompleted: false,
                   isCancelled: false,
                   parkingLotName: sParkingLotName,
+                  parkingLotId: sParkingLotId,
                   vehicleType: s.vehicleType || s.VehicleType || 'car',
                 });
               } else {

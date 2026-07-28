@@ -263,6 +263,6 @@ public class ReportService : Interfaces.IReportService
             Console.WriteLine("Report CalculateFee file failed: " + ex.Message);
         }
 
-        return PricingFeeCalculator.Calculate(entryTime, exitTime, vehicleType, Array.Empty<(string, string, string)>());
+        return PricingFeeCalculator.Calculate(entryTime, exitTime, vehicleType, Array.Empty<(string, decimal, string)>());
     }
 }

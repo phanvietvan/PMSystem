@@ -1,4 +1,4 @@
-﻿using Repositories.Entities;
+using Repositories.Entities;
 
 namespace Repositories.Interfaces;
 
@@ -7,7 +7,7 @@ namespace Repositories.Interfaces;
 /// </summary>
 public interface IAppNotificationRepository : IRepository<AppNotification>
 {
-    Task<List<AppNotification>> GetMyNotificationsAsync(Guid userId);
+    Task<List<AppNotification>> GetMyNotificationsAsync(Guid userId, string role);
 
-    Task MarkAllAsReadAsync(Guid userId);
+    Task MarkAllAsReadAsync(Guid userId, string role);
 }

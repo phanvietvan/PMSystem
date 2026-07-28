@@ -13,40 +13,19 @@ namespace Services.Implementations;
 /// </summary>
 public static class PricingFeeCalculator
 {
-    public static string ResolveVehicleType(string? sessionVehicleType, string? userLicensePlateField, string? sessionPlate)
+    public static string ResolveVehicleType(string? sessionVehicleType, IEnumerable<UserVehicle>? userVehicles, string? sessionPlate)
     {
         if (!string.IsNullOrWhiteSpace(sessionVehicleType))
             return NormalizeCategory(sessionVehicleType);
 
-        // Fallback: match plate in user's vehicle JSON → use that vehicle's type
-        if (!string.IsNullOrWhiteSpace(userLicensePlateField) && !string.IsNullOrWhiteSpace(sessionPlate))
+        if (userVehicles != null && !string.IsNullOrWhiteSpace(sessionPlate))
         {
             var cleanSession = sessionPlate.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpperInvariant();
-            var raw = userLicensePlateField.Trim();
-            if (raw.StartsWith("[") && raw.EndsWith("]"))
+            foreach (var v in userVehicles)
             {
-                try
-                {
-                    using var doc = JsonDocument.Parse(raw);
-                    if (doc.RootElement.ValueKind == JsonValueKind.Array)
-                    {
-                        foreach (var item in doc.RootElement.EnumerateArray())
-                        {
-                             string? plate = null;
-                             string? type = null;
-                             if (item.TryGetProperty("plate", out var p) || item.TryGetProperty("Plate", out p))
-                                 plate = p.GetString();
-                             if (item.TryGetProperty("type", out var t) || item.TryGetProperty("Type", out t))
-                                 type = t.GetString();
-
-                             if (string.IsNullOrEmpty(plate)) continue;
-                             var clean = plate.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpperInvariant();
-                             if (clean == cleanSession && !string.IsNullOrWhiteSpace(type))
-                                 return NormalizeCategory(type);
-                        }
-                    }
-                }
-                catch { /* ignore */ }
+                 var clean = v.LicensePlate.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpperInvariant();
+                 if (clean == cleanSession)
+                     return NormalizeCategory(v.VehicleType);
             }
         }
 
@@ -111,7 +90,7 @@ public static class PricingFeeCalculator
         DateTime entryTime,
         DateTime exitTime,
         string? vehicleType,
-        IEnumerable<(string Type, string Price, string Sub)> pricingRows)
+        IEnumerable<(string Type, decimal Price, string Sub)> pricingRows)
     {
         var elapsed = exitTime - entryTime;
         var elapsedMinutes = (int)Math.Ceiling(Math.Max(0, elapsed.TotalMinutes));
@@ -126,12 +105,11 @@ public static class PricingFeeCalculator
         };
         var isHourly = category != "bike";
 
-        var rows = pricingRows?.ToList() ?? new List<(string, string, string)>();
+        var rows = pricingRows?.ToList() ?? new List<(string, decimal, string)>();
         var matched = rows.FirstOrDefault(r => MatchesCategory(r.Type, category));
         if (!string.IsNullOrWhiteSpace(matched.Type))
         {
-            var parsed = ParsePrice(matched.Price);
-            if (parsed > 0) baseRate = parsed;
+            if (matched.Price > 0) baseRate = matched.Price;
             isHourly = IsHourlyUnit(matched.Sub);
         }
 
@@ -150,7 +128,7 @@ public static class PricingFeeCalculator
         string? vehicleType,
         IEnumerable<PricingConfig> configs)
     {
-        var rows = configs.Select(c => (c.Type ?? "", c.Price ?? "0", c.Sub ?? ""));
+        var rows = configs.Select(c => (c.Type ?? "", c.Price, c.Sub ?? ""));
         return Calculate(entryTime, exitTime, vehicleType, rows);
     }
 
@@ -160,7 +138,7 @@ public static class PricingFeeCalculator
         string? vehicleType,
         string json)
     {
-        var rows = new List<(string, string, string)>();
+        var rows = new List<(string, decimal, string)>();
         try
         {
             using var doc = JsonDocument.Parse(json);
@@ -169,9 +147,9 @@ public static class PricingFeeCalculator
                 foreach (var elem in doc.RootElement.EnumerateArray())
                 {
                     var type = elem.TryGetProperty("type", out var t) ? t.GetString() ?? "" : "";
-                    var price = elem.TryGetProperty("price", out var p) ? p.GetString() ?? "0" : "0";
+                    var priceStr = elem.TryGetProperty("price", out var p) ? p.GetString() ?? "0" : "0";
                     var sub = elem.TryGetProperty("sub", out var s) ? s.GetString() ?? "" : "";
-                    rows.Add((type, price, sub));
+                    rows.Add((type, ParsePrice(priceStr), sub));
                 }
             }
         }

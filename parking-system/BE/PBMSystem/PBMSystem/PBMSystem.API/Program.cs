@@ -245,9 +245,9 @@ using (var scope = app.Services.CreateScope())
     {
         var configs = new List<Repositories.Entities.PricingConfig>
         {
-            new Repositories.Entities.PricingConfig { Type = "Xe máy", Price = "5.000", Sub = "VNĐ / Lượt" },
-            new Repositories.Entities.PricingConfig { Type = "Ô tô 4-7 chỗ", Price = "30.000", Sub = "VNĐ / Giờ" },
-            new Repositories.Entities.PricingConfig { Type = "SUV / Bán tải", Price = "50.000", Sub = "VNĐ / Giờ" }
+            new Repositories.Entities.PricingConfig { Type = "Xe máy", Price = 5000, Sub = "VNĐ / Lượt" },
+            new Repositories.Entities.PricingConfig { Type = "Ô tô 4-7 chỗ", Price = 30000, Sub = "VNĐ / Giờ" },
+            new Repositories.Entities.PricingConfig { Type = "SUV / Bán tải", Price = 50000, Sub = "VNĐ / Giờ" }
         };
         await db.PricingConfigs.AddRangeAsync(configs);
         await db.SaveChangesAsync();
@@ -371,7 +371,6 @@ using (var scope = app.Services.CreateScope())
             {
                 SessionId = completedSession.Id,
                 UserId = completedSession.UserId,
-                LicensePlate = completedSession.LicensePlate,
                 Amount = 45000,
                 PaymentMethod = "MoMo",
                 Status = "Success",
@@ -386,7 +385,6 @@ using (var scope = app.Services.CreateScope())
             {
                 SessionId = activeRes.Id,
                 UserId = activeRes.UserId,
-                LicensePlate = activeRes.LicensePlate,
                 Amount = 50000,
                 PaymentMethod = "Visa",
                 Status = "Success",

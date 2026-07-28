@@ -37,7 +37,7 @@ namespace Services.Implementations
             var newConfigs = items.Select(item => new PricingConfig
             {
                 Type = item.Type,
-                Price = item.Price,
+                Price = PricingFeeCalculator.ParsePrice(item.Price),
                 Sub = item.Sub
             }).ToList();
 

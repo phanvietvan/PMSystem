@@ -1,4 +1,4 @@
-﻿using Repositories.Entities;
+using Repositories.Entities;
 using Repositories.Implementations;
 using Repositories.Interfaces;
 using Services.Interfaces;
@@ -19,9 +19,36 @@ namespace Services.Implementations
             _repository = repository;
         }
 
+        private void PopulateLegacyFields(ParkingLot lot)
+        {
+            if (lot == null) return;
+            lot.Floors = lot.FloorsList.Select(f => f.FloorNumber).OrderBy(f => f).ToList();
+            if (lot.Floors.Count == 0) lot.Floors = new List<int> { 1, 2, 3 };
+
+            var dict = new Dictionary<string, int>();
+            foreach (var f in lot.FloorsList)
+            {
+                dict[$"Tầng {f.FloorNumber}"] = f.Capacity;
+                dict[f.FloorNumber.ToString()] = f.Capacity;
+            }
+            if (dict.Count == 0)
+            {
+                dict["Tầng 1"] = 50; dict["1"] = 50;
+                dict["Tầng 2"] = 50; dict["2"] = 50;
+                dict["Tầng 3"] = 50; dict["3"] = 50;
+            }
+            lot.FloorCapacities = dict;
+            lot.LockedSlots = lot.Slots.Where(s => s.IsLocked).Select(s => s.SlotName).ToList();
+        }
+
         public async Task<List<ParkingLot>> GetAllAsync()
         {
-            return await _repository.GetAllAsync();
+            var list = await _repository.GetAllAsync();
+            foreach (var lot in list)
+            {
+                PopulateLegacyFields(lot);
+            }
+            return list;
         }
 
         public async Task<ParkingLot> CreateAsync(ParkingLot request)
@@ -36,14 +63,43 @@ namespace Services.Implementations
                 Longitude = request.Longitude,
                 Floor = request.Floor,
                 Block = request.Block,
-                Floors = request.Floors ?? new List<int> { 1, 2, 3 },
                 Address = request.Address,
-                Capacity = request.Capacity > 0 ? request.Capacity : 50,
-                FloorCapacities = request.FloorCapacities ?? new Dictionary<string, int>()
+                Capacity = request.Capacity > 0 ? request.Capacity : 50
             };
 
-            await _repository.AddAsync(lot);
+            // Populate FloorsList
+            var requestFloors = request.Floors ?? new List<int> { 1, 2, 3 };
+            foreach (var f in requestFloors)
+            {
+                var cap = 50;
+                if (request.FloorCapacities != null && request.FloorCapacities.TryGetValue($"Tầng {f}", out var c))
+                    cap = c;
+                else if (request.FloorCapacities != null && request.FloorCapacities.TryGetValue(f.ToString(), out c))
+                    cap = c;
 
+                lot.FloorsList.Add(new ParkingLotFloor
+                {
+                    FloorNumber = f,
+                    Capacity = cap
+                });
+            }
+
+            // Populate locked slots
+            if (request.LockedSlots != null)
+            {
+                foreach (var s in request.LockedSlots)
+                {
+                    lot.Slots.Add(new ParkingSlot
+                    {
+                        SlotName = s,
+                        FloorNumber = 1,
+                        IsLocked = true
+                    });
+                }
+            }
+
+            await _repository.AddAsync(lot);
+            PopulateLegacyFields(lot);
             return lot;
         }
 
@@ -59,17 +115,48 @@ namespace Services.Implementations
             lot.Longitude = request.Longitude ?? lot.Longitude;
             lot.Floor = request.Floor ?? lot.Floor;
             lot.Block = request.Block ?? lot.Block;
-            lot.Floors = request.Floors ?? lot.Floors;
             lot.Address = request.Address ?? lot.Address;
 
             if (request.Capacity > 0)
                 lot.Capacity = request.Capacity;
 
-            if (request.FloorCapacities != null)
-                lot.FloorCapacities = request.FloorCapacities;
+            // Sync floors list if updated
+            if (request.Floors != null)
+            {
+                lot.FloorsList.Clear();
+                foreach (var f in request.Floors)
+                {
+                    var cap = 50;
+                    if (request.FloorCapacities != null && request.FloorCapacities.TryGetValue($"Tầng {f}", out var c))
+                        cap = c;
+                    else if (request.FloorCapacities != null && request.FloorCapacities.TryGetValue(f.ToString(), out c))
+                        cap = c;
+
+                    lot.FloorsList.Add(new ParkingLotFloor
+                    {
+                        FloorNumber = f,
+                        Capacity = cap
+                    });
+                }
+            }
+
+            // Sync locked slots if updated
+            if (request.LockedSlots != null)
+            {
+                lot.Slots.Clear();
+                foreach (var s in request.LockedSlots)
+                {
+                    lot.Slots.Add(new ParkingSlot
+                    {
+                        SlotName = s,
+                        FloorNumber = 1,
+                        IsLocked = true
+                    });
+                }
+            }
 
             await _repository.UpdateAsync(lot);
-
+            PopulateLegacyFields(lot);
             return lot;
         }
 
@@ -97,15 +184,24 @@ namespace Services.Implementations
             if (lot == null)
                 throw new Exception("Không tìm thấy bãi xe.");
 
-            if (lot.LockedSlots == null)
-                lot.LockedSlots = new List<string>();
-
-            if (!lot.LockedSlots.Contains(slot))
+            var existingSlot = lot.Slots.FirstOrDefault(s => s.SlotName == slot);
+            if (existingSlot == null)
             {
-                lot.LockedSlots.Add(slot);
-                await _repository.UpdateAsync(lot);
+                lot.Slots.Add(new ParkingSlot
+                {
+                    ParkingLotId = lot.Id,
+                    SlotName = slot,
+                    FloorNumber = 1,
+                    IsLocked = true
+                });
+            }
+            else if (!existingSlot.IsLocked)
+            {
+                existingSlot.IsLocked = true;
             }
 
+            await _repository.UpdateAsync(lot);
+            PopulateLegacyFields(lot);
             return lot;
         }
 
@@ -116,13 +212,14 @@ namespace Services.Implementations
             if (lot == null)
                 throw new Exception("Không tìm thấy bãi xe.");
 
-            if (lot.LockedSlots != null &&
-                lot.LockedSlots.Contains(slot))
+            var existingSlot = lot.Slots.FirstOrDefault(s => s.SlotName == slot);
+            if (existingSlot != null && existingSlot.IsLocked)
             {
-                lot.LockedSlots.Remove(slot);
-                await _repository.UpdateAsync(lot);
+                existingSlot.IsLocked = false;
             }
 
+            await _repository.UpdateAsync(lot);
+            PopulateLegacyFields(lot);
             return lot;
         }
     }

@@ -24,9 +24,5 @@ public class AppNotification : BaseEntity
     public string Message { get; set; } = null!;
     public string Type { get; set; } = "info"; // info, warning, alert, success
 
-    /// <summary>Legacy global flag — prefer <see cref="ReadByUserIds"/>.</summary>
-    public bool IsRead { get; set; }
-
-    /// <summary>User IDs who have marked this notification as read.</summary>
-    public List<Guid> ReadByUserIds { get; set; } = new();
+    public System.Collections.Generic.ICollection<NotificationRead> Reads { get; set; } = new System.Collections.Generic.List<NotificationRead>();
 }

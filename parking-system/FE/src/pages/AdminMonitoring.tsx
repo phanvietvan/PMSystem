@@ -84,7 +84,7 @@ const AdminMonitoring = () => {
                       <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-3 py-3">{'Chọn Tòa nhà để giám sát'}</h3>
                       <div className="max-h-[60vh] overflow-y-auto custom-scrollbar pr-1 space-y-1">
                         {parkingLots.map(lot => {
-                          const stats = getLotStats(lot.name);
+                          const stats = getLotStats(lot.id, lot.name);
                           const isSelected = selectedLot.id === lot.id;
                           
                           return (

@@ -131,9 +131,12 @@ export function usePaymentFlow() {
       } else {
         const storedParking = localStorage.getItem('selectedParking');
         let parkingLotName = 'Landmark 81 - Bãi đỗ A1';
+        let parkingLotId = null;
         if (storedParking) {
           try {
-            parkingLotName = JSON.parse(storedParking).name;
+            const parsed = JSON.parse(storedParking);
+            parkingLotName = parsed.name;
+            parkingLotId = parsed.id;
           } catch {
             /* ignore */
           }
@@ -163,6 +166,7 @@ export function usePaymentFlow() {
           licensePlate: reservationLicensePlate,
           entryPhoto: '',
           parkingLotName,
+          parkingLotId,
           vehicleType: reservationVehicleType,
           reservationDate,
           reservationEndDate,
@@ -244,9 +248,12 @@ export function usePaymentFlow() {
       try {
         const storedParking = localStorage.getItem('selectedParking');
         let parkingLotName = 'Landmark 81 - Bãi đỗ A1';
+        let parkingLotId = null;
         if (storedParking) {
           try {
-            parkingLotName = JSON.parse(storedParking).name;
+            const parsed = JSON.parse(storedParking);
+            parkingLotName = parsed.name;
+            parkingLotId = parsed.id;
           } catch {
             /* ignore */
           }
@@ -276,6 +283,7 @@ export function usePaymentFlow() {
           licensePlate: reservationLicensePlate,
           entryPhoto: '',
           parkingLotName,
+          parkingLotId,
           vehicleType: reservationVehicleType,
           reservationDate,
           reservationEndDate,

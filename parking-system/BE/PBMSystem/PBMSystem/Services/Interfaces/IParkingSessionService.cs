@@ -31,7 +31,7 @@ public interface IParkingSessionService
     
     // Fee calculation logic is shared
     decimal CalculateFee(DateTime entryTime, DateTime exitTime, string? vehicleType);
-    bool UserOwnsPlate(string? userLicensePlateField, string? sessionPlate);
+    bool UserOwnsPlate(User user, string? sessionPlate);
     Task ProcessReservationsAsync();
     Task ProcessCheckedInExtensionsAsync();
 }

@@ -10,6 +10,7 @@ export interface Incident {
   branch: string;
   floor: string;
   urgency: 'Bình thường' | 'Cao' | 'Khẩn cấp';
+  userId?: string;
   reporter: string;
   role: string;
   createdAt: string;
@@ -42,8 +43,13 @@ export function useReportIncident() {
     : 'Khách vãng lai';
 
   const myIncidents = useMemo(() => {
-    return (incidents as Incident[]).filter((inc) => inc.reporter === reporterName);
-  }, [incidents, reporterName]);
+    return (incidents as Incident[]).filter((inc) => {
+      if (user?.id) {
+        return inc.userId === user.id || inc.reporter === reporterName;
+      }
+      return inc.reporter === reporterName;
+    });
+  }, [incidents, user, reporterName]);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -75,8 +81,6 @@ export function useReportIncident() {
     e.preventDefault();
     if (!title.trim() || !description.trim()) return;
 
-    const reporterRole = user ? user.role || 'Khách hàng' : 'Khách hàng';
-
     const newIncidentPayload = {
       type,
       title,
@@ -84,8 +88,7 @@ export function useReportIncident() {
       branch,
       floor,
       urgency,
-      reporter: reporterName,
-      role: reporterRole,
+      userId: user ? user.id : null,
     };
 
     try {

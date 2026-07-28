@@ -15,8 +15,10 @@ export const useGateWorkflow = (
   checkBlacklistForPlate: (plate: string) => Promise<boolean>,
   showAlert: (msg: string) => void,
   setRecentLogs: React.Dispatch<React.SetStateAction<any[]>>,
-  setGeneratedTicket: (ticket: any) => void
+  setGeneratedTicket: (ticket: any) => void,
+  parkingLots?: any[]
 ) => {
+  const selectedLotObj = parkingLots?.find(p => p.name === selectedParkingLot);
   const [gateState, setGateState] = useState<'SCANNING' | 'COMPARING' | 'GATE_OPEN'>('SCANNING');
   const [gateMode, setGateMode] = useState<'ENTRY' | 'EXIT'>('ENTRY');
   const [manualInput, setManualInput] = useState('');
@@ -114,7 +116,12 @@ export const useGateWorkflow = (
             return;
           }
 
-          if (selectedParkingLot && session.parkingLotName && session.parkingLotName !== selectedParkingLot) {
+          const sessionLotId = session.parkingLotId || session.ParkingLotId;
+          const isMismatch = selectedLotObj && sessionLotId
+            ? sessionLotId !== selectedLotObj.id
+            : session.parkingLotName && session.parkingLotName !== selectedParkingLot;
+
+          if (selectedParkingLot && isMismatch) {
             playWarningSound();
             showAlert(
               `⚠️ LỘN TÒA! Khách hàng đặt chỗ tại [${session.parkingLotName}], nhưng đây là cổng của [${selectedParkingLot}]. Yêu cầu khách di chuyển sang đúng tòa!`
@@ -344,6 +351,7 @@ const confirmPass = async () => {
           licensePlate: scannedResult.plate,
           entryPhoto: scannedResult.capturedPhoto,
           parkingLotName: selectedParkingLot || 'Khu Vực A (Vãng lai)',
+          parkingLotId: selectedLotObj?.id,
           vehicleType: 'Car',
         });
         session = (data as any).session || data;

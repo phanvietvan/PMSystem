@@ -19,8 +19,7 @@ export const useReportIncident = (currentUser: User | null, showAlert: (msg: str
             ? `${logData.parkingLotName} • Slot ${logData.parkingSlot || '--'}`
             : '',
         }),
-        reporter: currentUser?.email || 'Nhân viên cổng',
-        role: 'Staff',
+        userId: currentUser?.id || null,
       });
       if (success) {
         showAlert('✅ Đã gửi báo cáo cho Admin xem xét!');

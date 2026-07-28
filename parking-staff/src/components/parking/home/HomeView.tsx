@@ -103,7 +103,8 @@ const HomeView: React.FC<HomeViewProps> = ({
     checkBlacklistForPlate,
     showAlert,
     setRecentLogs,
-    setGeneratedTicket
+    setGeneratedTicket,
+    parkingLots
   );
 
   // QR Frame scan listener

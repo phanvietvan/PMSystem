@@ -92,16 +92,16 @@ export function useAdminMonitoring() {
     return () => clearInterval(interval);
   }, [fetchSessions, fetchParkingLots]);
 
-  const getLotStats = (lotName: string) => {
-    const sessions = activeSessions.filter((s) => s.parkingLotName === lotName);
+  const getLotStats = (lotId: any, lotName: string) => {
+    const sessions = activeSessions.filter((s) => s.parkingLotId === lotId || s.parkingLotName === lotName);
     const occupied = sessions.filter((s) => s.isCheckedIn).length;
     const reserved = sessions.filter((s) => !s.isCheckedIn).length;
     return { occupied, reserved, total: sessions.length };
   };
 
-  const currentLotStats = getLotStats(selectedLot.name);
+  const currentLotStats = getLotStats(selectedLot.id, selectedLot.name);
   const currentLotSessions = activeSessions.filter(
-    (s) => s.parkingLotName === selectedLot.name
+    (s) => s.parkingLotId === selectedLot.id || s.parkingLotName === selectedLot.name
   );
 
   const getSlotStatus = (slotName: string) => {

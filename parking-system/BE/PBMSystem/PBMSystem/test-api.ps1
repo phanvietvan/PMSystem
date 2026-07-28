@@ -107,8 +107,7 @@ $codeUser = (curl.exe -sk -o NUL -w "%{http_code}" -H "Authorization: Bearer $ac
 T "GET /api/users as User" ($codeUser -eq "403") "HTTP $codeUser (expect 403)"
 
 # Promote to Admin
-$promoteTool = Join-Path $PSScriptRoot "tools\PromoteAdmin\PromoteAdmin.csproj"
-$rows = (dotnet run --project $promoteTool -- $dbPath $email 2>&1 | Select-Object -Last 1).ToString().Trim()
+$rows = (& sqlcmd.exe -S ".\SQL2019" -d pbmsystem_dev -Q "SET NOCOUNT ON; UPDATE Users SET Role = 2 WHERE Email = '$email'; SELECT @@ROWCOUNT;" | Select-Object -Last 1).ToString().Trim()
 T "Bootstrap Admin (SQL)" ($rows -eq "1") "updated $rows row(s)"
 
 $r = Invoke-Api POST "/api/auth/login" @{ emailOrUsername = $email; password = $pass }

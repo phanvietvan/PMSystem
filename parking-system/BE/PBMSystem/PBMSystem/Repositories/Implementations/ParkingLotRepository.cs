@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Repositories.Entities;
 using Repositories.Interfaces;
 using System;
@@ -21,13 +21,18 @@ namespace Repositories.Implementations
         public async Task<List<ParkingLot>> GetAllAsync()
         {
             return await _context.ParkingLots
+                .Include(x => x.Slots)
+                .Include(x => x.FloorsList)
                 .OrderBy(x => x.CreatedAt)
                 .ToListAsync();
         }
 
         public async Task<ParkingLot?> GetByIdAsync(Guid id)
         {
-            return await _context.ParkingLots.FindAsync(id);
+            return await _context.ParkingLots
+                .Include(x => x.Slots)
+                .Include(x => x.FloorsList)
+                .FirstOrDefaultAsync(x => x.Id == id);
         }
 
         public async Task AddAsync(ParkingLot parkingLot)
