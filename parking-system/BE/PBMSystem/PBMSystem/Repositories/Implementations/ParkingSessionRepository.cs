@@ -17,9 +17,14 @@ public class ParkingSessionRepository : Repository<ParkingSession>, IParkingSess
 
     public async Task<bool> IsSlotTakenAsync(string parkingLotName, string parkingSlot)
     {
-        return await _dbSet.AnyAsync(ps => (ps.Status == "Active" || ps.Status == "PendingPayment") 
+        var isSessionActive = await _dbSet.AnyAsync(ps => (ps.Status == "Active" || ps.Status == "PendingPayment") 
                                      && ps.ParkingLotName == parkingLotName 
                                      && ps.ParkingSlot == parkingSlot);
+        if (isSessionActive) return true;
+
+        var isLocked = await _context.ParkingSlots
+            .AnyAsync(s => s.IsLocked && s.SlotName == parkingSlot && s.ParkingLot.Name == parkingLotName);
+        return isLocked;
     }
 
     public async Task<List<ParkingSession>> GetActiveSessionsAsync()

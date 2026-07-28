@@ -439,8 +439,17 @@ public class AuthService : IAuthService
         user.LastName = request.LastName.Trim();
         user.PhoneNumber = request.PhoneNumber.Trim();
         user.Address = request.Address.Trim();
-        user.LicensePlate = request.LicensePlate.Trim();
-        user.VehicleType = request.VehicleType.Trim();
+        
+        user.Vehicles.Clear();
+        if (!string.IsNullOrWhiteSpace(request.LicensePlate))
+        {
+            user.Vehicles.Add(new UserVehicle
+            {
+                UserId = user.Id,
+                LicensePlate = request.LicensePlate.Trim().ToUpper(),
+                VehicleType = PricingFeeCalculator.NormalizeCategory(request.VehicleType)
+            });
+        }
         
         if (request.AvatarUrl != null)
         {
@@ -496,8 +505,17 @@ public class AuthService : IAuthService
         user.LastName = request.LastName.Trim();
         user.PhoneNumber = request.PhoneNumber?.Trim();
         user.Address = request.Address?.Trim();
-        user.LicensePlate = request.LicensePlate?.Trim();
-        user.VehicleType = request.VehicleType?.Trim();
+        
+        user.Vehicles.Clear();
+        if (!string.IsNullOrWhiteSpace(request.LicensePlate))
+        {
+            user.Vehicles.Add(new UserVehicle
+            {
+                UserId = user.Id,
+                LicensePlate = request.LicensePlate.Trim().ToUpper(),
+                VehicleType = PricingFeeCalculator.NormalizeCategory(request.VehicleType)
+            });
+        }
         user.Role = newRole;
         user.Status = newStatus;
 
@@ -699,8 +717,8 @@ public class AuthService : IAuthService
         LastName = user.LastName,
         PhoneNumber = user.PhoneNumber,
         Address = user.Address,
-        LicensePlate = user.LicensePlate,
-        VehicleType = user.VehicleType,
+        LicensePlate = user.Vehicles.FirstOrDefault()?.LicensePlate,
+        VehicleType = user.Vehicles.FirstOrDefault()?.VehicleType,
         AvatarUrl = user.AvatarUrl,
         Role = user.Role.ToString(),
         Status = user.Status.ToString(),

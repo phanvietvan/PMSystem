@@ -12,9 +12,6 @@ public class Payment : BaseEntity
     public Guid? UserId { get; set; }
     public User? User { get; set; }
 
-    /// <summary>License plate of the paid vehicle.</summary>
-    public string LicensePlate { get; set; } = string.Empty;
-
     /// <summary>Paid amount in VND.</summary>
     public decimal Amount { get; set; }
 

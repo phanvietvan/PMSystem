@@ -26,6 +26,11 @@ public class AppDbContext : DbContext
     public DbSet<Regulation> Regulations => Set<Regulation>();
     public DbSet<BlacklistEntry> BlacklistEntries => Set<BlacklistEntry>();
     public DbSet<AppNotification> AppNotifications => Set<AppNotification>();
+    public DbSet<UserVehicle> UserVehicles => Set<UserVehicle>();
+    public DbSet<NotificationRead> NotificationReads => Set<NotificationRead>();
+    public DbSet<ParkingLotFloor> ParkingLotFloors => Set<ParkingLotFloor>();
+    public DbSet<ParkingSlot> ParkingSlots => Set<ParkingSlot>();
+    public DbSet<ParkingSessionSurcharge> ParkingSessionSurcharges => Set<ParkingSessionSurcharge>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -42,6 +47,11 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Regulation>().ToTable("Regulations");
         modelBuilder.Entity<BlacklistEntry>().ToTable("BlacklistEntries");
         modelBuilder.Entity<AppNotification>().ToTable("AppNotifications");
+        modelBuilder.Entity<UserVehicle>().ToTable("UserVehicles");
+        modelBuilder.Entity<NotificationRead>().ToTable("NotificationReads");
+        modelBuilder.Entity<ParkingLotFloor>().ToTable("ParkingLotFloors");
+        modelBuilder.Entity<ParkingSlot>().ToTable("ParkingSlots");
+        modelBuilder.Entity<ParkingSessionSurcharge>().ToTable("ParkingSessionSurcharges");
 
         // Relationships & Foreign Keys
         modelBuilder.Entity<RefreshToken>()
@@ -74,34 +84,54 @@ public class AppDbContext : DbContext
             .HasForeignKey(n => n.UserId)
             .OnDelete(DeleteBehavior.SetNull);
 
-        // Property precision & complex/JSON conversions
+        modelBuilder.Entity<UserVehicle>()
+            .HasOne(v => v.User)
+            .WithMany(u => u.Vehicles)
+            .HasForeignKey(v => v.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<NotificationRead>()
+            .HasOne(r => r.Notification)
+            .WithMany(n => n.Reads)
+            .HasForeignKey(r => r.NotificationId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<NotificationRead>()
+            .HasOne(r => r.User)
+            .WithMany()
+            .HasForeignKey(r => r.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ParkingLotFloor>()
+            .HasOne(f => f.ParkingLot)
+            .WithMany(l => l.FloorsList)
+            .HasForeignKey(f => f.ParkingLotId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ParkingSlot>()
+            .HasOne(s => s.ParkingLot)
+            .WithMany(l => l.Slots)
+            .HasForeignKey(s => s.ParkingLotId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ParkingSessionSurcharge>()
+            .HasOne(s => s.Session)
+            .WithMany(sn => sn.Surcharges)
+            .HasForeignKey(s => s.SessionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Property precision & configurations
         modelBuilder.Entity<Payment>()
             .Property(p => p.Amount)
             .HasColumnType("decimal(18,2)");
 
-        modelBuilder.Entity<ParkingLot>()
-            .Property(p => p.Floors)
-            .HasConversion(
-                v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
-                v => JsonSerializer.Deserialize<List<int>>(v, (JsonSerializerOptions?)null) ?? new List<int>());
+        modelBuilder.Entity<ParkingSessionSurcharge>()
+            .Property(s => s.Amount)
+            .HasColumnType("decimal(18,2)");
 
-        modelBuilder.Entity<ParkingLot>()
-            .Property(p => p.FloorCapacities)
-            .HasConversion(
-                v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
-                v => JsonSerializer.Deserialize<Dictionary<string, int>>(v, (JsonSerializerOptions?)null) ?? new Dictionary<string, int>());
-
-        modelBuilder.Entity<ParkingLot>()
-            .Property(p => p.LockedSlots)
-            .HasConversion(
-                v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
-                v => JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions?)null) ?? new List<string>());
-
-        modelBuilder.Entity<AppNotification>()
-            .Property(n => n.ReadByUserIds)
-            .HasConversion(
-                v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
-                v => JsonSerializer.Deserialize<List<Guid>>(v, (JsonSerializerOptions?)null) ?? new List<Guid>());
+        modelBuilder.Entity<PricingConfig>()
+            .Property(c => c.Price)
+            .HasColumnType("decimal(18,2)");
 
         // Global query filters for soft-delete
         modelBuilder.Entity<User>().HasQueryFilter(u => !u.IsDeleted);
@@ -113,6 +143,11 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Regulation>().HasQueryFilter(r => !r.IsDeleted);
         modelBuilder.Entity<BlacklistEntry>().HasQueryFilter(b => !b.IsDeleted);
         modelBuilder.Entity<AppNotification>().HasQueryFilter(n => !n.IsDeleted);
+        modelBuilder.Entity<UserVehicle>().HasQueryFilter(v => !v.IsDeleted);
+        modelBuilder.Entity<NotificationRead>().HasQueryFilter(r => !r.IsDeleted);
+        modelBuilder.Entity<ParkingLotFloor>().HasQueryFilter(f => !f.IsDeleted);
+        modelBuilder.Entity<ParkingSlot>().HasQueryFilter(s => !s.IsDeleted);
+        modelBuilder.Entity<ParkingSessionSurcharge>().HasQueryFilter(s => !s.IsDeleted);
     }
 
     /// <summary>

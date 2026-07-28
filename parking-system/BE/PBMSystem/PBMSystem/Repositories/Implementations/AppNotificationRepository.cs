@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Repositories.Entities;
 using Repositories.Interfaces;
 
@@ -13,31 +13,41 @@ public class AppNotificationRepository : Repository<AppNotification>, IAppNotifi
     {
     }
 
-    public async Task<List<AppNotification>> GetMyNotificationsAsync(Guid userId)
+    public async Task<List<AppNotification>> GetMyNotificationsAsync(Guid userId, string role)
     {
+        var roleNorm = (role ?? "user").ToLowerInvariant();
         return await _dbSet
-            .Where(x => x.UserId == userId || (x.IsBroadcast && x.Role == "all"))
+            .Include(x => x.Reads)
+            .Where(x => x.UserId == userId 
+                || (x.IsBroadcast && (x.Role == "all" || x.Role == roleNorm))
+                || (x.UserId == null && !x.IsBroadcast && x.Role == "all"))
             .OrderByDescending(x => x.CreatedAt)
             .Take(30)
             .ToListAsync();
     }
 
-    public async Task MarkAllAsReadAsync(Guid userId)
+    public async Task MarkAllAsReadAsync(Guid userId, string role)
     {
+        var roleNorm = (role ?? "user").ToLowerInvariant();
         var notifications = await _dbSet
-            .Where(x => x.UserId == userId || x.IsBroadcast || (x.UserId == null && x.Role == "all"))
+            .Include(x => x.Reads)
+            .Where(x => x.UserId == userId 
+                || (x.IsBroadcast && (x.Role == "all" || x.Role == roleNorm))
+                || (x.UserId == null && !x.IsBroadcast && x.Role == "all"))
             .ToListAsync();
 
         foreach (var item in notifications)
         {
-            item.ReadByUserIds ??= new List<Guid>();
-            if (!item.ReadByUserIds.Contains(userId))
-                item.ReadByUserIds.Add(userId);
-
-            if (item.UserId == userId)
-                item.IsRead = true;
-
-            item.UpdatedAt = DateTime.UtcNow;
+            if (!item.Reads.Any(r => r.UserId == userId))
+            {
+                item.Reads.Add(new NotificationRead
+                {
+                    NotificationId = item.Id,
+                    UserId = userId,
+                    ReadAt = DateTime.UtcNow
+                });
+                item.UpdatedAt = DateTime.UtcNow;
+            }
         }
     }
 }

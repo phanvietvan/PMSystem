@@ -49,12 +49,6 @@ public class ParkingSessionService : IParkingSessionService
         // Verify if the parking slot is already locked/reserved in the selected building
         if (!string.IsNullOrWhiteSpace(request.ParkingLotName) && !string.IsNullOrWhiteSpace(request.ParkingSlot))
         {
-            var parkingLot = await _lotRepository.FirstOrDefaultAsync(l => l.Name == request.ParkingLotName);
-            if (parkingLot != null && parkingLot.LockedSlots != null && parkingLot.LockedSlots.Contains(request.ParkingSlot))
-            {
-                return ServiceResult<ParkingSession>.BadRequest($"Vị trí đỗ {request.ParkingSlot} tại {request.ParkingLotName} hiện đang được bảo trì. Vui lòng chọn vị trí khác!");
-            }
-
             var isSlotTaken = await _sessionRepository.IsSlotTakenAsync(request.ParkingLotName, request.ParkingSlot);
             if (isSlotTaken)
             {
@@ -162,7 +156,6 @@ public class ParkingSessionService : IParkingSessionService
             {
                 SessionId = session.Id,
                 UserId = userId,
-                LicensePlate = session.LicensePlate,
                 Amount = request.PrepaidAmount.Value,
                 TransactionTime = DateTime.UtcNow,
                 PaymentMethod = "Online",
@@ -430,14 +423,6 @@ public class ParkingSessionService : IParkingSessionService
         if (session.Status != "Active")
             return ServiceResult<ParkingSession>.BadRequest("Chỉ có thể đổi chỗ cho phiên đang hoạt động.");
 
-        // Check if new slot is locked
-        var parkingLot = await _lotRepository.FirstOrDefaultAsync(l => l.Name == session.ParkingLotName);
-        if (parkingLot != null && parkingLot.LockedSlots != null && parkingLot.LockedSlots.Contains(newSlot))
-        {
-            return ServiceResult<ParkingSession>.BadRequest($"Vị trí {newSlot} đang được bảo trì.");
-        }
-
-        // Check if new slot is occupied/reserved
         var isSlotTaken = await _sessionRepository.IsSlotTakenAsync(session.ParkingLotName ?? "", newSlot);
         if (isSlotTaken)
         {
@@ -496,7 +481,7 @@ public class ParkingSessionService : IParkingSessionService
         var user = await _userRepository.GetByIdAsync(userId);
         var allSessions = await _sessionRepository.GetAllOrderByEntryTimeDescAsync();
         var filteredSessions = allSessions
-            .Where(ps => ps.UserId == userId || (user != null && UserOwnsPlate(user.LicensePlate, ps.LicensePlate)))
+            .Where(ps => ps.UserId == userId || (user != null && UserOwnsPlate(user, ps.LicensePlate)))
             .ToList();
 
         return ServiceResult<List<ParkingSession>>.Ok(filteredSessions);
@@ -518,7 +503,7 @@ public class ParkingSessionService : IParkingSessionService
         if (user == null && !string.IsNullOrEmpty(session.LicensePlate))
         {
             var allUsers = await _userRepository.GetAllAsync();
-            user = allUsers.FirstOrDefault(u => UserOwnsPlate(u.LicensePlate, session.LicensePlate));
+            user = allUsers.FirstOrDefault(u => UserOwnsPlate(u, session.LicensePlate));
         }
 
         var exitTime = DateTime.UtcNow;
@@ -526,7 +511,7 @@ public class ParkingSessionService : IParkingSessionService
         User? feeUser = user;
         var vehicleForFee = PricingFeeCalculator.ResolveVehicleType(
             session.VehicleType,
-            feeUser?.LicensePlate,
+            feeUser?.Vehicles,
             session.LicensePlate);
         if (string.IsNullOrWhiteSpace(session.VehicleType) ||
             PricingFeeCalculator.NormalizeCategory(session.VehicleType) != vehicleForFee)
@@ -551,8 +536,8 @@ public class ParkingSessionService : IParkingSessionService
             LastName = user.LastName,
             PhoneNumber = user.PhoneNumber,
             Address = user.Address,
-            LicensePlate = user.LicensePlate,
-            VehicleType = user.VehicleType,
+            LicensePlate = user.Vehicles.FirstOrDefault()?.LicensePlate,
+            VehicleType = user.Vehicles.FirstOrDefault()?.VehicleType,
             AvatarUrl = user.AvatarUrl
         } : null;
 
@@ -588,7 +573,11 @@ public class ParkingSessionService : IParkingSessionService
         decimal totalSurcharge = 0;
         if (request.ExtraFees != null && request.ExtraFees.Any())
         {
-            session.SurchargesJson = System.Text.Json.JsonSerializer.Serialize(request.ExtraFees);
+            session.Surcharges = request.ExtraFees.Select(f => new ParkingSessionSurcharge
+            {
+                Name = f.Name,
+                Amount = f.Amount
+            }).ToList();
             totalSurcharge = request.ExtraFees.Sum(f => f.Amount);
         }
 
@@ -601,7 +590,7 @@ public class ParkingSessionService : IParkingSessionService
 
         var vehicleForFee = PricingFeeCalculator.ResolveVehicleType(
             session.VehicleType,
-            checkoutUser?.LicensePlate,
+            checkoutUser?.Vehicles,
             session.LicensePlate);
         session.VehicleType = vehicleForFee;
 
@@ -615,7 +604,6 @@ public class ParkingSessionService : IParkingSessionService
         {
             SessionId = session.Id,
             UserId = session.UserId,
-            LicensePlate = session.LicensePlate,
             Amount = checkoutAmount,
             TransactionTime = DateTime.UtcNow,
             PaymentMethod = "Online",
@@ -825,7 +813,11 @@ public class ParkingSessionService : IParkingSessionService
             var configs = await _pricingConfigRepository.GetAllAsync();
             if (configs != null && configs.Count > 0)
             {
-                var payload = configs.Select(c => new { type = c.Type, price = c.Price, sub = c.Sub });
+                var payload = configs.Select(c => new { 
+                    type = c.Type, 
+                    price = c.Price.ToString("N0", new System.Globalization.CultureInfo("vi-VN")).Replace(",", "."), 
+                    sub = c.Sub 
+                });
                 return ServiceResult<string>.Ok(System.Text.Json.JsonSerializer.Serialize(payload));
             }
         }
@@ -867,7 +859,7 @@ public class ParkingSessionService : IParkingSessionService
                     items.Add(new PricingConfig
                     {
                         Type = elem.TryGetProperty("type", out var t) ? t.GetString() ?? "" : "",
-                        Price = elem.TryGetProperty("price", out var p) ? p.GetString() ?? "0" : "0",
+                        Price = PricingFeeCalculator.ParsePrice(elem.TryGetProperty("price", out var p) ? p.GetString() ?? "0" : "0"),
                         Sub = elem.TryGetProperty("sub", out var s) ? s.GetString() ?? "VNĐ / Giờ" : "VNĐ / Giờ"
                     });
                 }
@@ -916,49 +908,16 @@ public class ParkingSessionService : IParkingSessionService
             Console.WriteLine("CalculateFee file pricing failed: " + ex.Message);
         }
 
-        return PricingFeeCalculator.Calculate(entryTime, exitTime, vehicleType, Array.Empty<(string, string, string)>());
+        return PricingFeeCalculator.Calculate(entryTime, exitTime, vehicleType, Array.Empty<(string, decimal, string)>());
     }
 
-    public bool UserOwnsPlate(string? userLicensePlateField, string? sessionPlate)
+    public bool UserOwnsPlate(User user, string? sessionPlate)
     {
-        if (string.IsNullOrWhiteSpace(userLicensePlateField) || string.IsNullOrWhiteSpace(sessionPlate))
+        if (user == null || string.IsNullOrWhiteSpace(sessionPlate) || user.Vehicles == null)
             return false;
 
         var cleanSessionPlate = sessionPlate.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper();
-
-        var rawLp = userLicensePlateField.Trim();
-        if (rawLp.StartsWith("[") && rawLp.EndsWith("]"))
-        {
-            try
-            {
-                using var doc = System.Text.Json.JsonDocument.Parse(rawLp);
-                if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
-                {
-                    foreach (var item in doc.RootElement.EnumerateArray())
-                    {
-                        if (item.TryGetProperty("plate", out var plateProp) || 
-                            item.TryGetProperty("Plate", out plateProp) || 
-                            item.TryGetProperty("PLATE", out plateProp))
-                        {
-                            var val = plateProp.GetString();
-                            if (!string.IsNullOrEmpty(val))
-                            {
-                                var cleanVal = val.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper();
-                                if (cleanVal == cleanSessionPlate) return true;
-                            }
-                        }
-                    }
-                }
-            }
-            catch {}
-        }
-        else
-        {
-            var cleanVal = rawLp.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper();
-            if (cleanVal == cleanSessionPlate) return true;
-        }
-
-        return false;
+        return user.Vehicles.Any(v => v.LicensePlate.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper() == cleanSessionPlate);
     }
 
     public async Task ProcessReservationsAsync()

@@ -30,5 +30,5 @@ public class ParkingSession : BaseEntity
 
     public bool? IsReminderSent { get; set; } = false;
 
-    public string? SurchargesJson { get; set; }
+    public System.Collections.Generic.ICollection<ParkingSessionSurcharge> Surcharges { get; set; } = new System.Collections.Generic.List<ParkingSessionSurcharge>();
 }
