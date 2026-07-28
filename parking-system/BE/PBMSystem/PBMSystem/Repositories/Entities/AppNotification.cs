@@ -6,6 +6,7 @@ public class AppNotification : BaseEntity
     /// Target user for personal notifications. Null = role/broadcast notification.
     /// </summary>
     public Guid? UserId { get; set; }
+    public User? User { get; set; }
 
     /// <summary>
     /// Role audience for broadcasts: all, user, admin, staff.

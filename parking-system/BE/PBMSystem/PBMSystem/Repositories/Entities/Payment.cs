@@ -6,9 +6,11 @@ public class Payment : BaseEntity
 {
     /// <summary>Associated Parking Session ID.</summary>
     public Guid SessionId { get; set; }
+    public ParkingSession? Session { get; set; }
 
     /// <summary>The user who performed the payment. Null for walk-in/anonymous payments.</summary>
     public Guid? UserId { get; set; }
+    public User? User { get; set; }
 
     /// <summary>License plate of the paid vehicle.</summary>
     public string LicensePlate { get; set; } = string.Empty;

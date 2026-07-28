@@ -47,6 +47,8 @@ export const parkingService = {
 
   cancelSession: (id: string) => api.post(`/ParkingSessions/${id}/cancel`),
 
+  getCancelPreview: (id: string) => api.get(`/ParkingSessions/${id}/cancel-preview`),
+
   changeSlot: (id: string, body: { newSlot: string }) =>
     api.post(`/ParkingSessions/${id}/change-slot`, body),
 

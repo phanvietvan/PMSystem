@@ -39,6 +39,29 @@ const getEndTimeDefault = (startTimeStr: string) => {
   }
 };
 
+/** Map profile/UI vehicle type → canonical fee category used by BE pricing. */
+export const mapReservationVehicleType = (type?: string | null): string => {
+  const t = (type || 'car').trim().toLowerCase();
+  if (
+    t === 'motorbike' ||
+    t === 'motorcycle' ||
+    t === 'bicycle' ||
+    t.includes('bike') ||
+    t.includes('máy') ||
+    t.includes('đạp') ||
+    t.includes('điện')
+  ) {
+    return 'bike';
+  }
+  if (t.includes('suv') || t.includes('bán') || t.includes('tai') || t.includes('pickup')) {
+    return 'suv';
+  }
+  if (t.includes('car') || t.includes('ô tô') || t.includes('oto') || t.includes('4-7') || t.includes('sedan')) {
+    return 'car';
+  }
+  return 'car';
+};
+
 export function useReservation() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -99,7 +122,8 @@ export function useReservation() {
       }
     }
     return {
-      date: today,
+      startDate: today,
+      endDate: today,
       startTime: currentTime,
       endTime: defaultEndTime,
       licensePlate: '',
@@ -231,12 +255,7 @@ export function useReservation() {
             setFormData((prev) => ({
               ...prev,
               licensePlate: firstAvailable.plate,
-              vehicleType:
-                firstAvailable.type.toLowerCase() === 'motorbike'
-                  ? 'bike'
-                  : firstAvailable.type.toLowerCase() === 'bicycle'
-                    ? 'bike'
-                    : firstAvailable.type.toLowerCase(),
+              vehicleType: mapReservationVehicleType(firstAvailable.type),
             }));
           } else if (parsedVehicles.length > 0) {
             setFormData((prev) => ({ ...prev, licensePlate: 'CUSTOM', vehicleType: 'car' }));
@@ -246,12 +265,7 @@ export function useReservation() {
             setFormData((prev) => ({
               ...prev,
               licensePlate: parsedVehicles[0].plate,
-              vehicleType:
-                parsedVehicles[0].type.toLowerCase() === 'motorbike'
-                  ? 'bike'
-                  : parsedVehicles[0].type.toLowerCase() === 'bicycle'
-                    ? 'bike'
-                    : parsedVehicles[0].type.toLowerCase(),
+              vehicleType: mapReservationVehicleType(parsedVehicles[0].type),
             }));
           }
         }
@@ -267,20 +281,29 @@ export function useReservation() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const timeToMinutes = (timeStr: string) => {
-      if (!timeStr) return 0;
-      const [h, m] = timeStr.split(':').map(Number);
-      return (h || 0) * 60 + (m || 0);
-    };
+    if (!formData.startDate || !formData.endDate) {
+      setErrorToast('Vui lòng chọn ngày bắt đầu và ngày kết thúc!');
+      setTimeout(() => setErrorToast(null), 3000);
+      return;
+    }
 
-    if (timeToMinutes(formData.endTime) <= timeToMinutes(formData.startTime)) {
-      setErrorToast('Giờ kết thúc phải sau giờ bắt đầu!');
+    if (formData.endDate < formData.startDate) {
+      setErrorToast('Ngày kết thúc phải sau hoặc bằng ngày bắt đầu!');
+      setTimeout(() => setErrorToast(null), 3000);
+      return;
+    }
+
+    const startAt = new Date(`${formData.startDate}T${formData.startTime || '00:00'}`);
+    const endAt = new Date(`${formData.endDate}T${formData.endTime || '00:00'}`);
+    if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime()) || endAt <= startAt) {
+      setErrorToast('Thời điểm kết thúc phải sau thời điểm bắt đầu!');
       setTimeout(() => setErrorToast(null), 3000);
       return;
     }
 
     localStorage.setItem('selectedParking', JSON.stringify(selectedParking));
-    localStorage.setItem('reservationDate', formData.date);
+    localStorage.setItem('reservationDate', formData.startDate);
+    localStorage.setItem('reservationEndDate', formData.endDate);
     localStorage.setItem('reservationStartTime', formData.startTime);
     localStorage.setItem('reservationEndTime', formData.endTime);
     localStorage.setItem('reservationVehicleType', formData.vehicleType);

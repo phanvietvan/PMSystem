@@ -42,8 +42,17 @@ const RoutingMachine = ({ userLocation, destination }: RoutingMachineProps) => {
         draggableWaypoints: false,
         fitSelectedRoutes: true,
         show: false // Ẩn bảng chỉ dẫn chi tiết
-      }).addTo(map);
+      });
 
+      // Monkey-patch _clearLines to prevent async race condition crashes when map unmounts
+      const originalClearLines = control._clearLines;
+      control._clearLines = function () {
+        if (this._map) {
+          originalClearLines.call(this);
+        }
+      };
+
+      control.addTo(map);
       routingRef.current = control;
     } catch (error) {
       console.error("Lỗi khi tạo lộ trình:", error);

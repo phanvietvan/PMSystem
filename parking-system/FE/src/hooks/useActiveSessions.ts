@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { parseLicensePlate, getActiveQrs, removeActiveQr, addActiveQr } from '../utils/auth';
 import { parkingService } from '../services/parking.service';
+import { useToast } from './useToast';
 
 export interface SessionData {
+  id?: string;
   qr: string;
   licensePlate: string;
   slot: string;
@@ -19,6 +21,19 @@ export interface SessionData {
   vehicleType?: string;
 }
 
+export interface CancelRefundPreview {
+  sessionId: string;
+  paidAmount: number;
+  refundAmount: number;
+  nonRefundableAmount: number;
+  refundPercent: number;
+  isEligibleForRefund: boolean;
+  hoursUntilStart: number;
+  reservationStartAt?: string | null;
+  policyMessage: string;
+  timeRemainingLabel: string;
+}
+
 const getLevelFromSlot = (slot: string | null | undefined): string => {
   if (!slot) return '1';
   const prefix = slot.charAt(0).toUpperCase();
@@ -31,6 +46,12 @@ export function useActiveSessions() {
   const [sessions, setSessions] = useState<SessionData[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [cancelPreview, setCancelPreview] = useState<CancelRefundPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [pendingCancelSession, setPendingCancelSession] = useState<SessionData | null>(null);
+  const { toastMessage, showToast } = useToast();
 
   useEffect(() => {
     let isMounted = true;
@@ -49,6 +70,7 @@ export function useActiveSessions() {
             const mySessions = allResp.data;
 
             for (const s of mySessions) {
+              const sId = s.id || s.Id;
               const sExitTime = s.exitTime || s.ExitTime;
               const sEntryTime = s.entryTime || s.EntryTime;
               const sStatus = s.status || s.Status;
@@ -72,6 +94,7 @@ export function useActiveSessions() {
               }
 
               results.push({
+                id: sId,
                 qr: sQrCode,
                 licensePlate: parseLicensePlate(sLicensePlate),
                 slot: sParkingSlot || 'A3',
@@ -103,6 +126,7 @@ export function useActiveSessions() {
                     continue;
                   }
 
+                  const sId = s.id || s.Id;
                   const sLicensePlate = s.licensePlate || s.LicensePlate;
                   const sParkingSlot = s.parkingSlot || s.ParkingSlot;
                   const sEntryTime = s.entryTime || s.EntryTime;
@@ -110,6 +134,7 @@ export function useActiveSessions() {
                   const sParkingLotName = s.parkingLotName || s.ParkingLotName;
 
                   results.push({
+                    id: sId,
                     qr,
                     licensePlate: parseLicensePlate(sLicensePlate),
                     slot: sParkingSlot || 'A3',
@@ -146,6 +171,7 @@ export function useActiveSessions() {
                   continue;
                 }
 
+                const sId = s.id || s.Id;
                 const sLicensePlate = s.licensePlate || s.LicensePlate;
                 const sParkingSlot = s.parkingSlot || s.ParkingSlot;
                 const sEntryTime = s.entryTime || s.EntryTime;
@@ -153,6 +179,7 @@ export function useActiveSessions() {
                 const sParkingLotName = s.parkingLotName || s.ParkingLotName;
 
                 results.push({
+                  id: sId,
                   qr,
                   licensePlate: parseLicensePlate(sLicensePlate),
                   slot: sParkingSlot || 'A3',
@@ -212,7 +239,7 @@ export function useActiveSessions() {
       isMounted = false;
       clearInterval(syncId);
     };
-  }, []);
+  }, [refreshKey]);
 
   useEffect(() => {
     if (sessions.length === 0) return;
@@ -230,6 +257,84 @@ export function useActiveSessions() {
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [sessions.length]);
+
+  const normalizeCancelPreview = (data: any): CancelRefundPreview => ({
+    sessionId: data.sessionId || data.SessionId,
+    paidAmount: Number(data.paidAmount ?? data.PaidAmount ?? 0),
+    refundAmount: Number(data.refundAmount ?? data.RefundAmount ?? 0),
+    nonRefundableAmount: Number(data.nonRefundableAmount ?? data.NonRefundableAmount ?? 0),
+    refundPercent: Number(data.refundPercent ?? data.RefundPercent ?? 0),
+    isEligibleForRefund: Boolean(data.isEligibleForRefund ?? data.IsEligibleForRefund),
+    hoursUntilStart: Number(data.hoursUntilStart ?? data.HoursUntilStart ?? 0),
+    reservationStartAt: data.reservationStartAt ?? data.ReservationStartAt ?? null,
+    policyMessage: data.policyMessage || data.PolicyMessage || '',
+    timeRemainingLabel: data.timeRemainingLabel || data.TimeRemainingLabel || '',
+  });
+
+  const openCancelModal = useCallback(
+    async (session: SessionData) => {
+      if (!session.id) {
+        showToast('Không tìm thấy mã phiên để hủy.', 'error');
+        return;
+      }
+      if (session.isCheckedIn) {
+        showToast('Không thể hủy vì xe đã vào bãi.', 'error');
+        return;
+      }
+
+      setPendingCancelSession(session);
+      setPreviewLoading(true);
+      setCancelPreview(null);
+      try {
+        const resp = await parkingService.getCancelPreview(session.id);
+        setCancelPreview(normalizeCancelPreview(resp.data));
+      } catch (err: any) {
+        const msg =
+          err?.response?.data?.message || err?.message || 'Không tải được thông tin hoàn tiền.';
+        showToast(msg, 'error');
+        setPendingCancelSession(null);
+      } finally {
+        setPreviewLoading(false);
+      }
+    },
+    [showToast],
+  );
+
+  const closeCancelModal = useCallback(() => {
+    if (cancellingId) return;
+    setPendingCancelSession(null);
+    setCancelPreview(null);
+  }, [cancellingId]);
+
+  const confirmCancelSession = useCallback(async () => {
+    const session = pendingCancelSession;
+    if (!session?.id) return;
+
+    setCancellingId(session.id);
+    try {
+      const resp = await parkingService.cancelSession(session.id);
+      const payload = resp.data;
+      const message =
+        payload?.message ||
+        payload?.Message ||
+        (payload?.refund?.isEligibleForRefund || payload?.Refund?.IsEligibleForRefund
+          ? 'Đã hủy đặt chỗ. Tiền hoàn sẽ về phương thức thanh toán ban đầu trong 3–7 ngày làm việc.'
+          : 'Đã hủy đặt chỗ. Theo chính sách, số tiền đã thanh toán không được hoàn.');
+
+      if (session.qr) removeActiveQr(session.qr);
+      showToast(message);
+      setPendingCancelSession(null);
+      setCancelPreview(null);
+      setActiveTab('history');
+      setRefreshKey((k) => k + 1);
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message || err?.message || 'Không thể hủy đặt chỗ. Vui lòng thử lại.';
+      showToast(msg, 'error');
+    } finally {
+      setCancellingId(null);
+    }
+  }, [pendingCancelSession, showToast]);
 
   const formatTime = (totalSeconds: number) => {
     const hrs = Math.floor(totalSeconds / 3600);
@@ -316,5 +421,13 @@ export function useActiveSessions() {
     formatDateTime,
     calculateFee,
     formatCurrency,
+    openCancelModal,
+    closeCancelModal,
+    confirmCancelSession,
+    cancellingId,
+    cancelPreview,
+    previewLoading,
+    pendingCancelSession,
+    toastMessage,
   };
 }

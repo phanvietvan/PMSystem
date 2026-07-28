@@ -3,7 +3,7 @@ import ParkingMap from '../components/parking/map/ParkingMap';
 import { ArrowRight, Calendar, Clock, MapPin, Info, Map, Layers, Compass, Cpu, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CustomTimePicker } from '../components/common/CustomTimePicker';
-import { useReservation } from '../hooks/useReservation';
+import { useReservation, mapReservationVehicleType } from '../hooks/useReservation';
 
 const ReservationPage = () => {
   const {
@@ -80,37 +80,60 @@ const ReservationPage = () => {
                   <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                     <div className="space-y-4">
     
-                    {/* Date Picker */}
+                    {/* Start: date + time (vertical) */}
                     <div className="space-y-1.5">
                       <label className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-slate-400/90 ml-1 flex items-center gap-1.5">
-                        <Calendar size={12} className="text-blue-500" /> {'Ngày gửi xe'}
+                        <Calendar size={12} className="text-blue-500" /> {'Ngày bắt đầu (vào)'}
                       </label>
                       <div className="relative group">
                         <input
                           className="premium-input block w-full pl-4 pr-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/60 transition-all text-xs font-semibold cursor-pointer shadow-sm bg-white"
                           type="date"
-                          value={formData.date}
-                          onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                          value={formData.startDate}
+                          min={new Date().toISOString().split('T')[0]}
+                          onChange={(e) => {
+                            const startDate = e.target.value;
+                            setFormData((prev) => ({
+                              ...prev,
+                              startDate,
+                              endDate: prev.endDate < startDate ? startDate : prev.endDate,
+                            }));
+                          }}
                           required
                         />
                       </div>
                     </div>
-    
-                    {/* Start Time */}
+
                     <div className="space-y-1.5">
                       <label className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-slate-400/90 ml-1 flex items-center gap-1.5">
-                        <Clock size={12} className="text-blue-500" /> {'Giờ bắt đầu'}
+                        <Clock size={12} className="text-blue-500" /> {'Giờ bắt đầu (vào)'}
                       </label>
                       <CustomTimePicker
                         value={formData.startTime}
                         onChange={handleStartTimeChange}
                       />
                     </div>
-    
-                    {/* End Time */}
+
+                    {/* End: date + time (vertical) */}
                     <div className="space-y-1.5">
                       <label className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-slate-400/90 ml-1 flex items-center gap-1.5">
-                        <Clock size={12} className="text-blue-500" /> Giờ kết thúc
+                        <Calendar size={12} className="text-blue-500" /> {'Ngày kết thúc (ra)'}
+                      </label>
+                      <div className="relative group">
+                        <input
+                          className="premium-input block w-full pl-4 pr-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/60 transition-all text-xs font-semibold cursor-pointer shadow-sm bg-white"
+                          type="date"
+                          value={formData.endDate}
+                          min={formData.startDate}
+                          onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-slate-400/90 ml-1 flex items-center gap-1.5">
+                        <Clock size={12} className="text-blue-500" /> {'Giờ kết thúc (ra)'}
                       </label>
                       <CustomTimePicker
                         value={formData.endTime}
@@ -162,7 +185,7 @@ const ReservationPage = () => {
                                     setFormData(prev => ({
                                       ...prev,
                                       licensePlate: veh.plate,
-                                      vehicleType: veh.type.toLowerCase() === 'motorbike' ? 'bike' : veh.type.toLowerCase() === 'bicycle' ? 'bike' : veh.type.toLowerCase()
+                                      vehicleType: mapReservationVehicleType(veh.type),
                                     }));
                                     setIsVehicleDropdownOpen(false);
                                   }}

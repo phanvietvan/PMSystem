@@ -139,6 +139,8 @@ export function usePaymentFlow() {
           }
         }
         const reservationDate = localStorage.getItem('reservationDate') || '';
+        const reservationEndDate =
+          localStorage.getItem('reservationEndDate') || reservationDate;
         const reservationStartTime = localStorage.getItem('reservationStartTime') || '';
         const reservationEndTime = localStorage.getItem('reservationEndTime') || '';
         const reservationVehicleType = localStorage.getItem('reservationVehicleType') || 'car';
@@ -163,6 +165,7 @@ export function usePaymentFlow() {
           parkingLotName,
           vehicleType: reservationVehicleType,
           reservationDate,
+          reservationEndDate,
           reservationStartTime,
           reservationEndTime,
           parkingSlot: selectedSlot,
@@ -177,6 +180,7 @@ export function usePaymentFlow() {
         }
 
         localStorage.removeItem('reservationDate');
+        localStorage.removeItem('reservationEndDate');
         localStorage.removeItem('reservationStartTime');
         localStorage.removeItem('reservationEndTime');
         localStorage.removeItem('reservationVehicleType');
@@ -248,6 +252,8 @@ export function usePaymentFlow() {
           }
         }
         const reservationDate = localStorage.getItem('reservationDate') || '';
+        const reservationEndDate =
+          localStorage.getItem('reservationEndDate') || reservationDate;
         const reservationStartTime = localStorage.getItem('reservationStartTime') || '';
         const reservationEndTime = localStorage.getItem('reservationEndTime') || '';
         const reservationVehicleType = localStorage.getItem('reservationVehicleType') || 'car';
@@ -272,6 +278,7 @@ export function usePaymentFlow() {
           parkingLotName,
           vehicleType: reservationVehicleType,
           reservationDate,
+          reservationEndDate,
           reservationStartTime,
           reservationEndTime,
           parkingSlot: selectedSlot,
@@ -283,6 +290,7 @@ export function usePaymentFlow() {
           addActiveQr(response.data.qrCode);
         }
         localStorage.removeItem('reservationDate');
+        localStorage.removeItem('reservationEndDate');
         localStorage.removeItem('reservationStartTime');
         localStorage.removeItem('reservationEndTime');
         localStorage.removeItem('reservationVehicleType');
@@ -322,9 +330,16 @@ export function usePaymentFlow() {
     date:
       mode === 'checkout' && checkoutSession
         ? new Date(checkoutSession.entryTime || checkoutSession.EntryTime).toLocaleDateString('vi-VN')
-        : localStorage.getItem('reservationDate')
-          ? new Date(localStorage.getItem('reservationDate')!).toLocaleDateString('vi-VN')
-          : new Date().toLocaleDateString('vi-VN'),
+        : (() => {
+            const start = localStorage.getItem('reservationDate');
+            const end = localStorage.getItem('reservationEndDate') || start;
+            if (!start) return new Date().toLocaleDateString('vi-VN');
+            const startLabel = new Date(start).toLocaleDateString('vi-VN');
+            if (end && end !== start) {
+              return `${startLabel} → ${new Date(end).toLocaleDateString('vi-VN')}`;
+            }
+            return startLabel;
+          })(),
     time:
       mode === 'checkout' && checkoutSession
         ? new Date(checkoutSession.entryTime || checkoutSession.EntryTime).toLocaleTimeString('vi-VN', {

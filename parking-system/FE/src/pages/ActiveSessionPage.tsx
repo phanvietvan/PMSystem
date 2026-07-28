@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ShieldCheck, Info, Zap, History } from 'lucide-react';
+import { ShieldCheck, Info, Zap, History, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 import { parseLicensePlate } from '../utils/auth';
@@ -51,6 +51,14 @@ const ActiveSessionPage = () => {
     formatDateTime,
     calculateFee,
     formatCurrency,
+    openCancelModal,
+    closeCancelModal,
+    confirmCancelSession,
+    cancellingId,
+    cancelPreview,
+    previewLoading,
+    pendingCancelSession,
+    toastMessage,
   } = useActiveSessions();
 
   if (loading) {
@@ -68,6 +76,20 @@ const ActiveSessionPage = () => {
   return (
     <div className="min-h-screen bg-mesh-gradient selection:bg-primary/10 relative">
           <Navbar />
+
+          {toastMessage && (
+            <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] max-w-md w-[90%]">
+              <div
+                className={`px-5 py-3 rounded-2xl shadow-lg border text-sm font-semibold text-center ${
+                  toastMessage.type === 'error'
+                    ? 'bg-red-50 border-red-200 text-red-700'
+                    : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                }`}
+              >
+                {toastMessage.text}
+              </div>
+            </div>
+          )}
     
           <main className="max-w-2xl mx-auto px-6 pt-32 pb-20 relative z-10">
     
@@ -226,6 +248,25 @@ const ActiveSessionPage = () => {
                             {'MÃ SỐ PHIÊN'}: {session.qr}
                           </p>
                         </div>
+
+                        {!session.isCheckedIn && session.id && (
+                          <div className="space-y-3">
+                            <button
+                              type="button"
+                              disabled={previewLoading && pendingCancelSession?.id === session.id}
+                              onClick={() => openCancelModal(session)}
+                              className="w-full py-4 rounded-2xl border-2 border-red-200 bg-red-50 hover:bg-red-100 text-red-700 font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                            >
+                              <XCircle className="w-4 h-4" />
+                              {previewLoading && pendingCancelSession?.id === session.id
+                                ? 'Đang kiểm tra...'
+                                : 'Hủy đặt chỗ'}
+                            </button>
+                            <p className="text-[10px] text-center text-slate-500 font-medium leading-relaxed">
+                              {'Hủy trước giờ nhận chỗ ≥ 24 giờ: hoàn 100%. Trong vòng 24 giờ: không hoàn tiền.'}
+                            </p>
+                          </div>
+                        )}
     
                         <div className="flex items-center gap-4">
                            <div className="w-12 h-12 rounded-2xl bg-surface-container flex items-center justify-center">
@@ -403,6 +444,91 @@ const ActiveSessionPage = () => {
               </div>
             </div>
           </main>
+
+          {pendingCancelSession && (
+            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+              <div className="w-full max-w-md bg-white rounded-[2rem] shadow-2xl border border-slate-100 overflow-hidden">
+                <div className="px-6 pt-6 pb-4 border-b border-slate-100">
+                  <h3 className="text-lg font-black text-slate-800 tracking-tight">Xác nhận hủy đặt chỗ</h3>
+                  <p className="text-xs text-slate-500 mt-1 font-medium">
+                    Vé QR sẽ hết hiệu lực ngay sau khi xác nhận. Không thể khôi phục.
+                  </p>
+                </div>
+
+                <div className="px-6 py-5 space-y-4">
+                  {previewLoading || !cancelPreview ? (
+                    <div className="py-8 flex flex-col items-center gap-3">
+                      <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                      <p className="text-xs font-semibold text-slate-500">Đang tính chính sách hoàn tiền...</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-2 gap-3 text-left">
+                        <div className="bg-slate-50 rounded-2xl p-3">
+                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Còn lại trước giờ nhận</p>
+                          <p className="text-sm font-bold text-slate-800 mt-1">{cancelPreview.timeRemainingLabel}</p>
+                        </div>
+                        <div className="bg-slate-50 rounded-2xl p-3">
+                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Giờ nhận chỗ</p>
+                          <p className="text-sm font-bold text-slate-800 mt-1">{cancelPreview.reservationStartAt || '—'}</p>
+                        </div>
+                        <div className="bg-slate-50 rounded-2xl p-3">
+                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Đã thanh toán</p>
+                          <p className="text-sm font-bold text-slate-800 mt-1">{formatCurrency(cancelPreview.paidAmount)}</p>
+                        </div>
+                        <div className={`rounded-2xl p-3 ${cancelPreview.isEligibleForRefund ? 'bg-emerald-50' : 'bg-red-50'}`}>
+                          <p className={`text-[9px] font-black uppercase tracking-widest ${cancelPreview.isEligibleForRefund ? 'text-emerald-600' : 'text-red-600'}`}>
+                            Tỷ lệ hoàn
+                          </p>
+                          <p className={`text-sm font-black mt-1 ${cancelPreview.isEligibleForRefund ? 'text-emerald-700' : 'text-red-700'}`}>
+                            {cancelPreview.refundPercent}%
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-slate-100 p-4 space-y-2">
+                        <div className="flex justify-between text-xs font-semibold">
+                          <span className="text-slate-500">Số tiền được hoàn</span>
+                          <span className="text-emerald-600 font-black">{formatCurrency(cancelPreview.refundAmount)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs font-semibold">
+                          <span className="text-slate-500">Phí hủy / không hoàn</span>
+                          <span className="text-red-600 font-black">{formatCurrency(cancelPreview.nonRefundableAmount)}</span>
+                        </div>
+                        <p className="text-[11px] text-slate-600 font-medium leading-relaxed pt-2 border-t border-slate-100">
+                          {cancelPreview.policyMessage}
+                        </p>
+                        {cancelPreview.isEligibleForRefund && (
+                          <p className="text-[10px] text-slate-400 font-medium">
+                            Tiền hoàn về phương thức thanh toán ban đầu trong khoảng 3–7 ngày làm việc.
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <div className="px-6 pb-6 flex flex-col sm:flex-row gap-3">
+                  <button
+                    type="button"
+                    disabled={!!cancellingId}
+                    onClick={closeCancelModal}
+                    className="flex-1 py-3.5 rounded-2xl border border-slate-200 text-slate-600 font-black text-xs uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
+                  >
+                    Giữ đặt chỗ
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!!cancellingId || previewLoading || !cancelPreview}
+                    onClick={confirmCancelSession}
+                    className="flex-1 py-3.5 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-widest disabled:opacity-50 cursor-pointer"
+                  >
+                    {cancellingId ? 'Đang hủy...' : 'Xác nhận hủy đặt chỗ'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
   );
 };

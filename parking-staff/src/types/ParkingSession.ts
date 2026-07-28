@@ -46,6 +46,7 @@ export interface ParkingSessionRaw {
   parkingLotName?: string;
   parkingSlot?: string;
   vehicleType?: string;
+  VehicleType?: string;
   reservationDate?: string;
   reservationStartTime?: string;
 }
@@ -71,14 +72,18 @@ export interface CheckoutPayload {
 
 export interface VerifyQrResponse {
   session: ParkingSessionRaw;
+  Session?: any;
   user?: {
     firstName?: string;
     lastName?: string;
     email?: string;
     phoneNumber?: string;
   };
+  User?: any;
   fee?: number;
+  Fee?: number;
   prepaidAmount?: number;
+  PrepaidAmount?: number;
 }
 
 export interface BlacklistEntry {

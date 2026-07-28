@@ -165,7 +165,7 @@ export function useAdminMonitoring() {
       const sessions = await fetchSessions();
       applyActiveSessions(sessions);
     } catch (err: any) {
-      showToast('Lỗi khi hủy: ' + err.message, 'error');
+      showToast('Lỗi khi hủy: ' + (err.response?.data?.message || err.message), 'error');
     }
   };
 

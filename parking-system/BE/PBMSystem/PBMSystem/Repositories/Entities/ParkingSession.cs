@@ -6,6 +6,7 @@ public class ParkingSession : BaseEntity
 {
     /// <summary>The authenticated user who owns this session. Null for walk-in/anonymous sessions.</summary>
     public Guid? UserId { get; set; }
+    public User? User { get; set; }
 
     public string LicensePlate { get; set; } = string.Empty;
     public string QrCode { get; set; } = string.Empty;
@@ -24,6 +25,7 @@ public class ParkingSession : BaseEntity
     public string? ReservationDate { get; set; }
     public string? ReservationStartTime { get; set; }
     public string? ReservationEndTime { get; set; }
+    public string? ReservationEndDate { get; set; }
     public string? ParkingSlot { get; set; }
 
     public bool? IsReminderSent { get; set; } = false;

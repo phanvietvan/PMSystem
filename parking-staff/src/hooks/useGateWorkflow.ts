@@ -20,7 +20,7 @@ export const useGateWorkflow = (
   const [gateState, setGateState] = useState<'SCANNING' | 'COMPARING' | 'GATE_OPEN'>('SCANNING');
   const [gateMode, setGateMode] = useState<'ENTRY' | 'EXIT'>('ENTRY');
   const [manualInput, setManualInput] = useState('');
-  const [autoApprove, setAutoApprove] = useState(false);
+  const autoApprove = false;
   const [scannedResult, setScannedResult] = useState<any>(null);
   const [countdown, setCountdown] = useState<number>(0);
   const [isCountdownActive, setIsCountdownActive] = useState(false);
@@ -89,6 +89,7 @@ export const useGateWorkflow = (
     let parkingSlot: string | undefined = undefined;
     let parkingLotName: string | undefined = undefined;
     let depositFee: number = 0;
+    let vehicleType: string | undefined = undefined;
 
     if (gateMode === 'ENTRY') {
       if (isQrScan && inputClean) {
@@ -195,11 +196,19 @@ export const useGateWorkflow = (
 
             try {
               const checkData = await parkingService.verifyQr(session.qrCode);
-              computedFee = checkData.fee || 10000;
-              depositFee = checkData.prepaidAmount || 0;
-              if (checkData.user) {
-                owner = `${checkData.user.lastName || ''} ${checkData.user.firstName || ''}`.trim();
-                userInfo = checkData.user;
+              computedFee = checkData.fee ?? checkData.Fee ?? 10000;
+              depositFee = checkData.prepaidAmount ?? checkData.PrepaidAmount ?? 0;
+              vehicleType =
+                checkData.session?.vehicleType ||
+                checkData.session?.VehicleType ||
+                checkData.Session?.vehicleType ||
+                checkData.Session?.VehicleType ||
+                session.vehicleType ||
+                session.VehicleType;
+              if (checkData.user || checkData.User) {
+                const u = checkData.user || checkData.User;
+                owner = `${u.lastName || u.LastName || ''} ${u.firstName || u.FirstName || ''}`.trim();
+                userInfo = u;
                 ticketLabel = `Đặt trước • Slot ${session.parkingSlot} (${session.parkingLotName})`;
                 parkingSlot = session.parkingSlot;
                 parkingLotName = session.parkingLotName;
@@ -236,8 +245,9 @@ export const useGateWorkflow = (
             year: 'numeric',
           });
           entryPlate = session.licensePlate;
-          computedFee = data.fee || 0;
-          depositFee = data.prepaidAmount || 0;
+          computedFee = data.fee ?? data.Fee ?? 0;
+          depositFee = data.prepaidAmount ?? data.PrepaidAmount ?? 0;
+          vehicleType = session.vehicleType || session.VehicleType;
           ticketLabel = session.userId
             ? `Đặt trước • Slot ${session.parkingSlot} (${session.parkingLotName})`
             : 'Vé vãng lai (Máy tự động)';
@@ -292,6 +302,7 @@ export const useGateWorkflow = (
       parkingSlot: parkingSlot,
       parkingLotName: parkingLotName,
       depositFee: depositFee,
+      vehicleType: vehicleType,
     };
 
     setScannedResult(payload);
@@ -421,7 +432,6 @@ return {
   manualInput,
   setManualInput,
   autoApprove,
-  setAutoApprove,
   scannedResult,
   setScannedResult,
   countdown,

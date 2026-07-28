@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Repositories;
 using System.Text.Json;
 
@@ -238,110 +238,31 @@ public class ReportService : Interfaces.IReportService
 
     private decimal CalculateFee(DateTime entryTime, DateTime exitTime, string? vehicleType)
     {
-        var elapsed = exitTime - entryTime;
-        var elapsedMinutes = (int)Math.Ceiling(elapsed.TotalMinutes);
-
-        decimal baseRate = 10000;
-        bool isHourly = true;
+        try
+        {
+            var configs = _context.PricingConfigs.Where(p => !p.IsDeleted).ToList();
+            if (configs.Count > 0)
+                return PricingFeeCalculator.CalculateFromConfigs(entryTime, exitTime, vehicleType, configs);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Report CalculateFee DB failed: " + ex.Message);
+        }
 
         try
         {
             var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "pricing.json");
-
             if (File.Exists(path))
             {
                 var json = File.ReadAllText(path);
-                var doc = JsonDocument.Parse(json);
-                var root = doc.RootElement;
-
-                if (root.ValueKind == JsonValueKind.Array)
-                {
-                    string targetType = (vehicleType ?? "car").ToLower();
-
-                    JsonElement matchedElement = default;
-                    bool found = false;
-
-                    foreach (var elem in root.EnumerateArray())
-                    {
-                        var typeProp = elem.GetProperty("type").GetString() ?? "";
-                        var typeLower = typeProp.ToLower();
-
-                        if (targetType == "bike" &&
-                            (typeLower.Contains("xe máy") || typeLower.Contains("bike")))
-                        {
-                            matchedElement = elem;
-                            found = true;
-                            break;
-                        }
-
-                        if (targetType == "car" &&
-                            (typeLower.Contains("ô tô") ||
-                             typeLower.Contains("car") ||
-                             typeLower.Contains("4-7")))
-                        {
-                            matchedElement = elem;
-                            found = true;
-                            break;
-                        }
-
-                        if (targetType == "suv" &&
-                            (typeLower.Contains("suv") || typeLower.Contains("bán tải")))
-                        {
-                            matchedElement = elem;
-                            found = true;
-                            break;
-                        }
-                    }
-
-                    if (found)
-                    {
-                        var priceStr = matchedElement.GetProperty("price").GetString() ?? "10000";
-                        var subStr = matchedElement.GetProperty("sub").GetString() ?? "Giờ";
-
-                        var cleanPrice = priceStr.Replace(".", "").Replace(",", "").Trim();
-
-                        if (decimal.TryParse(cleanPrice, out var parsedPrice))
-                        {
-                            baseRate = parsedPrice;
-                        }
-
-                        isHourly = subStr.ToLower().Contains("giờ") ||
-                                   subStr.ToLower().Contains("hour");
-                    }
-                }
-            }
-            else
-            {
-                string targetType = (vehicleType ?? "car").ToLower();
-
-                if (targetType == "bike")
-                {
-                    baseRate = 10000;
-                    isHourly = false;
-                }
-                else if (targetType == "car")
-                {
-                    baseRate = 20000;
-                    isHourly = true;
-                }
-                else if (targetType == "suv")
-                {
-                    baseRate = 30000;
-                    isHourly = true;
-                }
+                return PricingFeeCalculator.CalculateFromJsonArray(entryTime, exitTime, vehicleType, json);
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Error calculating dynamic fee in ReportService: " + ex.Message);
+            Console.WriteLine("Report CalculateFee file failed: " + ex.Message);
         }
 
-        if (isHourly)
-        {
-            var hours = (int)Math.Max(1, Math.Ceiling(elapsedMinutes / 60.0));
-            return baseRate * hours;
-        }
-
-        return baseRate;
+        return PricingFeeCalculator.Calculate(entryTime, exitTime, vehicleType, Array.Empty<(string, string, string)>());
     }
 }
