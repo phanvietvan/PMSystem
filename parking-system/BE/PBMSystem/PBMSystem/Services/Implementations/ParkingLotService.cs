@@ -25,7 +25,19 @@ namespace Services.Implementations
             lot.Floors = lot.FloorsList.Select(f => f.FloorNumber).OrderBy(f => f).ToList();
             if (lot.Floors.Count == 0) lot.Floors = new List<int> { 1, 2, 3 };
 
-            lot.FloorCapacities = lot.FloorsList.ToDictionary(f => $"Tầng {f.FloorNumber}", f => f.Capacity);
+            var dict = new Dictionary<string, int>();
+            foreach (var f in lot.FloorsList)
+            {
+                dict[$"Tầng {f.FloorNumber}"] = f.Capacity;
+                dict[f.FloorNumber.ToString()] = f.Capacity;
+            }
+            if (dict.Count == 0)
+            {
+                dict["Tầng 1"] = 50; dict["1"] = 50;
+                dict["Tầng 2"] = 50; dict["2"] = 50;
+                dict["Tầng 3"] = 50; dict["3"] = 50;
+            }
+            lot.FloorCapacities = dict;
             lot.LockedSlots = lot.Slots.Where(s => s.IsLocked).Select(s => s.SlotName).ToList();
         }
 
