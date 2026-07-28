@@ -324,7 +324,9 @@ const AdminBlacklist = () => {
                               </td>
                               <td className="py-5 px-2 text-sm text-slate-600 font-semibold">{item.reason}</td>
                               <td className="py-5 px-2 text-sm text-slate-500 font-medium">
-                                {item.date?.includes('T') ? new Date(item.date).toISOString().split('T')[0] : item.date}
+                                {item.date?.includes('T')
+                                  ? new Date(item.date).toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })
+                                  : item.date}
                               </td>
                               <td className="py-5 px-2 text-sm font-bold text-slate-700">{item.addedBy}</td>
                               <td className="py-5 px-2 text-right">

@@ -6,6 +6,8 @@ using PBMSystem.API.Extensions;
 using PBMSystem.API.Middleware;
 using Repositories;
 using Repositories.Configuration;
+using Repositories.Entities;
+using Repositories.Helpers;
 using Repositories.Implementations;
 using Repositories.Interfaces;
 using Services;
@@ -76,7 +78,11 @@ builder.Services
 builder.Services.AddAuthorization();
 
 // ── Controllers & Swagger ─────────────────────────────────────────────────────
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerWithJwt();
 
@@ -148,7 +154,7 @@ using (var scope = app.Services.CreateScope())
                 Address = "1 Dev Seed Street",
                 Role = Repositories.Enums.UserRole.User,
                 Status = Repositories.Enums.UserStatus.Active,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = VietnamTime.Now
             },
             new Repositories.Entities.User
             {
@@ -162,7 +168,7 @@ using (var scope = app.Services.CreateScope())
                 Address = "1 Dev Seed Street",
                 Role = Repositories.Enums.UserRole.Staff,
                 Status = Repositories.Enums.UserStatus.Active,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = VietnamTime.Now
             },
             new Repositories.Entities.User
             {
@@ -176,7 +182,7 @@ using (var scope = app.Services.CreateScope())
                 Address = "1 Dev Seed Street",
                 Role = Repositories.Enums.UserRole.Admin,
                 Status = Repositories.Enums.UserStatus.Active,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = VietnamTime.Now
             }
         };
 
@@ -214,7 +220,7 @@ using (var scope = app.Services.CreateScope())
                 Address = "Dev Street",
                 Role = Repositories.Enums.UserRole.Admin,
                 Status = Repositories.Enums.UserStatus.Active,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = VietnamTime.Now
             };
             await db.Users.AddAsync(newAdmin);
             await db.SaveChangesAsync();
@@ -289,8 +295,8 @@ using (var scope = app.Services.CreateScope())
                 QrCode = "QR-51G88888-COMPLETED",
                 EntryPhoto = "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&q=80&w=400",
                 ExitPhoto = "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&q=80&w=400",
-                EntryTime = DateTime.UtcNow.AddHours(-6),
-                ExitTime = DateTime.UtcNow.AddHours(-1),
+                EntryTime = VietnamTime.Now.AddHours(-6),
+                ExitTime = VietnamTime.Now.AddHours(-1),
                 Status = "Completed",
                 ExitLicensePlate = "51G-888.88",
                 IsPlateMatched = true,
@@ -307,14 +313,14 @@ using (var scope = app.Services.CreateScope())
                 QrCode = "QR-30A99999-RESERVED",
                 EntryPhoto = null,
                 ExitPhoto = null,
-                EntryTime = DateTime.UtcNow,
+                EntryTime = VietnamTime.Now,
                 ExitTime = null,
                 Status = "Pending",
                 IsCheckedIn = false,
                 ParkingLotName = "Landmark 81 - Bãi đỗ A1",
                 VehicleType = "Car",
                 ParkingSlot = "102",
-                ReservationDate = DateTime.UtcNow.AddDays(1).ToString("yyyy-MM-dd"),
+                ReservationDate = VietnamTime.Now.AddDays(1).ToString("yyyy-MM-dd"),
                 ReservationStartTime = "15:00"
             },
             // Another active reservation for devUser
@@ -325,14 +331,14 @@ using (var scope = app.Services.CreateScope())
                 QrCode = "QR-51F11111-RESERVED",
                 EntryPhoto = null,
                 ExitPhoto = null,
-                EntryTime = DateTime.UtcNow,
+                EntryTime = VietnamTime.Now,
                 ExitTime = null,
                 Status = "Pending",
                 IsCheckedIn = false,
                 ParkingLotName = "Bitexco Financial - Bãi đỗ B2",
                 VehicleType = "Car",
                 ParkingSlot = "B102",
-                ReservationDate = DateTime.UtcNow.AddDays(1).ToString("yyyy-MM-dd"),
+                ReservationDate = VietnamTime.Now.AddDays(1).ToString("yyyy-MM-dd"),
                 ReservationStartTime = "09:00"
             },
             // Active parked car
@@ -343,7 +349,7 @@ using (var scope = app.Services.CreateScope())
                 QrCode = "QR-29D11122-ACTIVE",
                 EntryPhoto = "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&q=80&w=400",
                 ExitPhoto = null,
-                EntryTime = DateTime.UtcNow.AddHours(-2),
+                EntryTime = VietnamTime.Now.AddHours(-2),
                 ExitTime = null,
                 Status = "Active",
                 IsCheckedIn = true,
@@ -375,7 +381,7 @@ using (var scope = app.Services.CreateScope())
                 PaymentMethod = "MoMo",
                 Status = "Success",
                 TransactionId = "TXN-MOMO-88888",
-                TransactionTime = completedSession.ExitTime ?? DateTime.UtcNow
+                TransactionTime = completedSession.ExitTime ?? VietnamTime.Now
             });
         }
 
@@ -404,6 +410,8 @@ using (var scope = app.Services.CreateScope())
     // Seed default incidents if none exist in the database
     if (!await db.Incidents.AnyAsync())
     {
+        var staffId = Guid.Parse("11111111-1111-1111-1111-111111111102");
+        var userId = Guid.Parse("11111111-1111-1111-1111-111111111101");
         var defaultIncidents = new List<Repositories.Entities.Incident>
         {
             new Repositories.Entities.Incident
@@ -414,8 +422,7 @@ using (var scope = app.Services.CreateScope())
                 Branch = "Landmark 81 - Bãi đỗ A1",
                 Floor = "Tầng 1",
                 Urgency = "Khẩn cấp",
-                Reporter = "Lê Minh Quốc (Staff)",
-                Role = "Nhân viên",
+                UserId = staffId,
                 Status = "Chờ xử lý"
             },
             new Repositories.Entities.Incident
@@ -426,8 +433,7 @@ using (var scope = app.Services.CreateScope())
                 Branch = "Bitexco Financial - Bãi đỗ B2",
                 Floor = "Tầng 2",
                 Urgency = "Cao",
-                Reporter = "Trần Thị Mỹ Linh (Customer)",
-                Role = "Khách hàng",
+                UserId = userId,
                 Status = "Chờ xử lý"
             },
             new Repositories.Entities.Incident
@@ -438,8 +444,7 @@ using (var scope = app.Services.CreateScope())
                 Branch = "Vincom Center - Bãi đỗ V3",
                 Floor = "Hầm B3",
                 Urgency = "Bình thường",
-                Reporter = "Nguyễn Văn Hùng (Staff)",
-                Role = "Nhân viên",
+                UserId = staffId,
                 Status = "Chờ xử lý"
             }
         };
@@ -447,19 +452,125 @@ using (var scope = app.Services.CreateScope())
         await db.SaveChangesAsync();
         Console.WriteLine("Seeded default incidents.");
     }
+
+    // ── Data integrity repair (safe to re-run) ────────────────────────────────
+    await RepairParkingDataAsync(db);
+}
+
+static string NormalizeLotKey(string? name)
+{
+    if (string.IsNullOrWhiteSpace(name)) return string.Empty;
+    var formD = name.Trim().ToLowerInvariant().Normalize(System.Text.NormalizationForm.FormD);
+    var sb = new System.Text.StringBuilder(formD.Length);
+    foreach (var ch in formD)
+    {
+        var uc = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(ch);
+        if (uc == System.Globalization.UnicodeCategory.NonSpacingMark) continue;
+        if (char.IsLetterOrDigit(ch)) sb.Append(ch);
+    }
+    return sb.ToString().Normalize(System.Text.NormalizationForm.FormC)
+        .Replace('đ', 'd').Replace('Đ', 'd');
+}
+
+static bool LotKeysLooselyMatch(string a, string b)
+{
+    if (string.IsNullOrEmpty(a) || string.IsNullOrEmpty(b)) return false;
+    if (a == b || a.Contains(b) || b.Contains(a)) return true;
+    const int prefix = 10;
+    return a.Length >= prefix && b.Length >= prefix && a.Substring(0, prefix) == b.Substring(0, prefix);
+}
+
+static async Task RepairParkingDataAsync(AppDbContext db)
+{
+    var lots = await db.ParkingLots.IgnoreQueryFilters().Where(l => !l.IsDeleted).ToListAsync();
+    var sessions = await db.ParkingSessions.IgnoreQueryFilters().Where(s => !s.IsDeleted).ToListAsync();
+    var changed = false;
+
+    // 1) Normalize legacy "Pending" → PendingPayment (reserved) or Active (walk-in)
+    foreach (var s in sessions.Where(s => s.Status == "Pending"))
+    {
+        s.Status = string.IsNullOrWhiteSpace(s.ReservationDate) ? "Active" : "PendingPayment";
+        s.UpdatedAt = VietnamTime.Now;
+        changed = true;
+    }
+
+    // 2) Backfill ParkingLotId + sync canonical ParkingLotName
+    foreach (var s in sessions)
+    {
+        ParkingLot? lot = null;
+        if (s.ParkingLotId.HasValue)
+            lot = lots.FirstOrDefault(l => l.Id == s.ParkingLotId.Value);
+
+        if (lot == null && !string.IsNullOrWhiteSpace(s.ParkingLotName))
+        {
+            var needle = NormalizeLotKey(s.ParkingLotName);
+            lot = lots.FirstOrDefault(l => l.Name == s.ParkingLotName)
+                ?? lots.FirstOrDefault(l => NormalizeLotKey(l.Name) == needle)
+                ?? lots.FirstOrDefault(l => LotKeysLooselyMatch(NormalizeLotKey(l.Name), needle));
+        }
+
+        if (lot == null) continue;
+
+        if (s.ParkingLotId != lot.Id || s.ParkingLotName != lot.Name)
+        {
+            s.ParkingLotId = lot.Id;
+            s.ParkingLotName = lot.Name;
+            s.UpdatedAt = VietnamTime.Now;
+            changed = true;
+        }
+    }
+
+    // 3) Ensure every lot has default floors (1,2,3)
+    foreach (var lot in lots)
+    {
+        var hasFloors = await db.ParkingLotFloors.IgnoreQueryFilters()
+            .AnyAsync(f => f.ParkingLotId == lot.Id && !f.IsDeleted);
+        if (hasFloors) continue;
+
+        db.ParkingLotFloors.AddRange(
+            new ParkingLotFloor { ParkingLotId = lot.Id, FloorNumber = 1, Capacity = 50 },
+            new ParkingLotFloor { ParkingLotId = lot.Id, FloorNumber = 2, Capacity = 50 },
+            new ParkingLotFloor { ParkingLotId = lot.Id, FloorNumber = 3, Capacity = 50 }
+        );
+        changed = true;
+    }
+
+    // 4) Backfill Incident.UserId when missing
+    var staffUser = await db.Users.FirstOrDefaultAsync(u => u.Email == "staff@pbm.dev");
+    if (staffUser != null)
+    {
+        var orphanIncidents = await db.Incidents.Where(i => i.UserId == null).ToListAsync();
+        foreach (var inc in orphanIncidents)
+        {
+            inc.UserId = staffUser.Id;
+            inc.UpdatedAt = VietnamTime.Now;
+            changed = true;
+        }
+    }
+
+    if (changed)
+    {
+        await db.SaveChangesAsync();
+        Console.WriteLine("Repaired parking data: LotId backfill, Pending→PendingPayment, floors, incident UserId.");
+    }
 }
 
 // ── Middleware Pipeline ───────────────────────────────────────────────────────
 app.UseMiddleware<ExceptionMiddleware>();
+
+// CORS before redirect/auth — otherwise OPTIONS preflight gets 307 and browsers fail.
+app.UseCors("DefaultPolicy");
 
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+else
+{
+    app.UseHttpsRedirection();
+}
 
-app.UseHttpsRedirection();
-app.UseCors("DefaultPolicy");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

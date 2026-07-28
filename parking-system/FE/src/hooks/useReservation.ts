@@ -4,6 +4,8 @@ import { useMySession } from './useMySession';
 import { useParkingLots } from './useParkingLots';
 import { parkingService } from '../services/parking.service';
 
+import { vnDateISO, vnTimeHM } from '../utils/datetime';
+
 const DEFAULT_LOTS = [
   { id: 1, name: 'Landmark 81 - Bãi đỗ A1', latitude: '10.7949', longitude: '106.7218', floor: 'Tầng 1', block: 'Block A' },
   { id: 2, name: 'Bitexco Financial - Bãi đỗ B2', latitude: '10.7717', longitude: '106.7044', floor: 'Tầng 2', block: 'Block B' },
@@ -39,6 +41,9 @@ const getEndTimeDefault = (startTimeStr: string) => {
   }
 };
 
+/** Local calendar date YYYY-MM-DD in Vietnam (UTC+7). */
+const localDateISO = (d = new Date()) => vnDateISO(d);
+
 /** Map profile/UI vehicle type → canonical fee category used by BE pricing. */
 export const mapReservationVehicleType = (type?: string | null): string => {
   const t = (type || 'car').trim().toLowerCase();
@@ -60,6 +65,33 @@ export const mapReservationVehicleType = (type?: string | null): string => {
     return 'car';
   }
   return 'car';
+};
+
+/** UI label — case-insensitive; never treat unknown/`car` as bicycle. */
+export const getVehicleTypeLabel = (type?: string | null): string => {
+  const t = (type || '').trim().toLowerCase();
+  if (!t) return 'Ô tô';
+  if (t === 'car' || t.includes('ô tô') || t.includes('oto') || t.includes('sedan') || t.includes('4-7')) {
+    return 'Ô tô';
+  }
+  if (t === 'suv' || t.includes('suv') || t.includes('bán tải') || t.includes('pickup')) {
+    return 'SUV / Bán tải';
+  }
+  if (
+    t === 'motorbike' ||
+    t === 'motorcycle' ||
+    t === 'moto' ||
+    t.includes('xe máy') ||
+    (t.includes('máy') && !t.includes('đạp'))
+  ) {
+    return 'Xe máy';
+  }
+  if (t === 'bicycle' || t.includes('đạp') || (t.includes('điện') && !t.includes('ô'))) {
+    return 'Xe đạp/Xe điện';
+  }
+  // BE fee category "bike" (máy + đạp gộp) — show Xe máy as default label
+  if (t === 'bike') return 'Xe máy';
+  return 'Ô tô';
 };
 
 export function useReservation() {
@@ -101,8 +133,8 @@ export function useReservation() {
     void loadLots();
   }, [fetchParkingLots]);
 
-  const today = new Date().toISOString().split('T')[0];
-  const currentTime = new Date().toTimeString().slice(0, 5);
+  const today = localDateISO();
+  const currentTime = vnTimeHM();
   const defaultEndTime = getEndTimeDefault(currentTime);
 
   const [formData, setFormData] = useState(() => {
@@ -346,6 +378,7 @@ export function useReservation() {
     fromStatus,
     errorToast,
     parkingLots,
+    today,
     formData,
     setFormData,
     handleStartTimeChange,

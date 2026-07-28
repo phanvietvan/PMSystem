@@ -4,6 +4,7 @@ using Repositories.Configuration;
 using Repositories.DTOs;
 using Repositories.Entities;
 using Repositories.Enums;
+using Repositories.Helpers;
 using Repositories.Interfaces;
 using Services.Interfaces;
 using Google.Apis.Auth;
@@ -79,8 +80,8 @@ public class AuthService : IAuthService
         // ── Generate and send ─────────────────────────────────────────────────
         var otp = GenerateOtp();
         pending.OtpCode = otp;
-        pending.OtpExpiry = DateTime.UtcNow.AddMinutes(1);
-        pending.OtpLastSentAt = DateTime.UtcNow;
+        pending.OtpExpiry = VietnamTime.Now.AddMinutes(1);
+        pending.OtpLastSentAt = VietnamTime.Now;
         _userRepo.Update(pending);
         await _userRepo.SaveChangesAsync();
 
@@ -109,7 +110,7 @@ public class AuthService : IAuthService
             return ApiResponse<AuthResponse>.Fail("Invalid OTP.");
         }
 
-        if (pending.OtpExpiry < DateTime.UtcNow)
+        if (pending.OtpExpiry < VietnamTime.Now)
             return ApiResponse<AuthResponse>.Fail("OTP has expired. Please request a new one.");
 
         if (await _userRepo.UsernameExistsAsync(request.Username))
@@ -155,8 +156,8 @@ public class AuthService : IAuthService
         // ── Generate and send ─────────────────────────────────────────────────
         var otp = GenerateOtp();
         user.OtpCode = otp;
-        user.OtpExpiry = DateTime.UtcNow.AddMinutes(1);
-        user.OtpLastSentAt = DateTime.UtcNow;
+        user.OtpExpiry = VietnamTime.Now.AddMinutes(1);
+        user.OtpLastSentAt = VietnamTime.Now;
         _userRepo.Update(user);
         await _userRepo.SaveChangesAsync();
 
@@ -188,7 +189,7 @@ public class AuthService : IAuthService
             return ApiResponse<bool>.Fail("Invalid OTP.");
         }
 
-        if (user.OtpExpiry < DateTime.UtcNow)
+        if (user.OtpExpiry < VietnamTime.Now)
             return ApiResponse<bool>.Fail("OTP has expired. Please request a new one.");
 
         return ApiResponse<bool>.Ok(true, "OTP verified successfully.");
@@ -211,7 +212,7 @@ public class AuthService : IAuthService
             return ApiResponse<bool>.Fail("Invalid OTP.");
         }
 
-        if (user.OtpExpiry < DateTime.UtcNow)
+        if (user.OtpExpiry < VietnamTime.Now)
             return ApiResponse<bool>.Fail("OTP has expired. Please request a new one.");
 
         if (!IsStrongPassword(request.NewPassword, out var pwdError))
@@ -249,7 +250,7 @@ public class AuthService : IAuthService
         if (user.Status == UserStatus.PendingVerification)
             return ApiResponse<AuthResponse>.Fail("Please complete email verification before logging in.");
 
-        user.LastLoginAt = DateTime.UtcNow;
+        user.LastLoginAt = VietnamTime.Now;
         _userRepo.Update(user);
         await _userRepo.SaveChangesAsync();
 
@@ -270,7 +271,7 @@ public class AuthService : IAuthService
             return ApiResponse<AuthResponse>.Fail("Refresh token has expired or been revoked.");
 
         stored.IsRevoked = true;
-        stored.RevokedAt = DateTime.UtcNow;
+        stored.RevokedAt = VietnamTime.Now;
         stored.RevokedReason = "Replaced by rotation";
         _tokenRepo.Update(stored);
 
@@ -288,7 +289,7 @@ public class AuthService : IAuthService
             return ApiResponse<bool>.Fail("Token not found or already inactive.");
 
         stored.IsRevoked = true;
-        stored.RevokedAt = DateTime.UtcNow;
+        stored.RevokedAt = VietnamTime.Now;
         stored.RevokedReason = "Manual revocation";
         _tokenRepo.Update(stored);
         await _tokenRepo.SaveChangesAsync();
@@ -410,7 +411,7 @@ public class AuthService : IAuthService
                 }
                 else
                 {
-                    user.LastLoginAt = DateTime.UtcNow;
+                    user.LastLoginAt = VietnamTime.Now;
                     _userRepo.Update(user);
                     await _userRepo.SaveChangesAsync();
                     _logger.LogInformation("User logged in via Google: {UserId}", user.Id);
@@ -436,23 +437,27 @@ public class AuthService : IAuthService
         user.LastName = request.LastName.Trim();
         user.PhoneNumber = request.PhoneNumber.Trim();
         user.Address = request.Address.Trim();
-        
-        user.Vehicles.Clear();
-        if (!TryParseAndValidatePlates(request.LicensePlate, request.VehicleType, user.Id, user.Vehicles, out var errorMsg))
+
+        var newVehicles = new List<UserVehicle>();
+        if (!TryParseAndValidatePlates(request.LicensePlate, request.VehicleType, user.Id, newVehicles, out var errorMsg))
         {
-            return ApiResponse<UserResponse>.Fail(errorMsg);
+            return ApiResponse<UserResponse>.Fail(errorMsg!);
         }
-        
+
+        // Clear()+Update() marks new plates Modified under soft-delete filters → concurrency 500.
+        await _userRepo.ReplaceVehiclesAsync(user.Id, newVehicles);
+
         if (request.AvatarUrl != null)
         {
             user.AvatarUrl = request.AvatarUrl;
         }
 
-        _userRepo.Update(user);
+        user.UpdatedAt = VietnamTime.Now;
         await _userRepo.SaveChangesAsync();
 
+        var refreshed = await _userRepo.GetByIdAsync(userId);
         _logger.LogInformation("Profile updated for user: {UserId}", userId);
-        return ApiResponse<UserResponse>.Ok(MapToResponse(user), "Profile updated successfully.");
+        return ApiResponse<UserResponse>.Ok(MapToResponse(refreshed ?? user), "Profile updated successfully.");
     }
 
     public async Task<ApiResponse<IEnumerable<UserResponse>>> GetAllUsersAsync()
@@ -494,21 +499,25 @@ public class AuthService : IAuthService
         user.LastName = request.LastName.Trim();
         user.PhoneNumber = request.PhoneNumber?.Trim();
         user.Address = request.Address?.Trim();
-        
-        user.Vehicles.Clear();
-        if (!TryParseAndValidatePlates(request.LicensePlate, request.VehicleType, user.Id, user.Vehicles, out var errorMsg))
+
+        var newVehicles = new List<UserVehicle>();
+        if (!TryParseAndValidatePlates(request.LicensePlate, request.VehicleType, user.Id, newVehicles, out var errorMsg))
         {
-            return ApiResponse<UserResponse>.Fail(errorMsg);
+            return ApiResponse<UserResponse>.Fail(errorMsg!);
         }
+
+        await _userRepo.ReplaceVehiclesAsync(user.Id, newVehicles);
+
         user.Role = newRole;
         user.Status = newStatus;
 
-        _userRepo.Update(user);
+        user.UpdatedAt = VietnamTime.Now;
         await _userRepo.SaveChangesAsync();
 
+        var refreshed = await _userRepo.GetByIdAsync(targetUserId);
         _logger.LogInformation(
             "User {TargetId} updated by {ActorId} ({ActorRole})", targetUserId, actorId, actorRole);
-        return ApiResponse<UserResponse>.Ok(MapToResponse(user), "User updated successfully.");
+        return ApiResponse<UserResponse>.Ok(MapToResponse(refreshed ?? user), "User updated successfully.");
     }
 
     public async Task<ApiResponse<bool>> DeleteUserAsync(Guid actorId, string actorRole, Guid targetUserId)
@@ -622,7 +631,7 @@ public class AuthService : IAuthService
         user.OtpCode = null;
         user.OtpExpiry = null;
         user.OtpLastSentAt = null;
-        user.LastLoginAt = DateTime.UtcNow;
+        user.LastLoginAt = VietnamTime.Now;
         _userRepo.Update(user);
         await _userRepo.SaveChangesAsync();
     }
@@ -647,7 +656,7 @@ public class AuthService : IAuthService
         if (otpLastSentAt is null)
             return null; // first send — no cooldown
 
-        var elapsed = DateTime.UtcNow - otpLastSentAt.Value;
+        var elapsed = VietnamTime.Now - otpLastSentAt.Value;
         if (elapsed >= OtpCooldown)
             return null; // cooldown has passed — allow send
 

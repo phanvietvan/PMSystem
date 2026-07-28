@@ -30,8 +30,31 @@ export const authService = {
     return localStorage.getItem(TOKEN_KEY);
   },
 
+  /** True when JWT `exp` is missing/unreadable or already past. */
+  isTokenExpired(token?: string | null): boolean {
+    const raw = token === undefined ? this.getToken() : token;
+    if (!raw) return true;
+    try {
+      const payloadPart = raw.split('.')[1];
+      if (!payloadPart) return true;
+      const json = atob(payloadPart.replace(/-/g, '+').replace(/_/g, '/'));
+      const payload = JSON.parse(json) as { exp?: number };
+      if (!payload.exp) return false;
+      // 30s skew so we don't race the exact second of expiry
+      return Date.now() >= payload.exp * 1000 - 30_000;
+    } catch {
+      return true;
+    }
+  },
+
   isAuthenticated(): boolean {
-    return Boolean(this.getToken() && this.getCurrentUser());
+    const token = this.getToken();
+    if (!token || !this.getCurrentUser()) return false;
+    if (this.isTokenExpired(token)) {
+      this.clearSession();
+      return false;
+    }
+    return true;
   },
 
   /** Staff app: only Staff or Admin may enter the gate console. */

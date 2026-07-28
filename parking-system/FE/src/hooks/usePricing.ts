@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import { adminService } from '../services/admin.service';
-import { parkingService } from '../services/parking.service';
 
 const DEFAULT_PRICES = [
   { type: 'Xe máy', price: '5.000', sub: 'VNĐ / Lượt' },
@@ -9,6 +8,20 @@ const DEFAULT_PRICES = [
 ];
 
 type Options = { autoFetch?: boolean; storageKey?: string };
+
+/** Format số / chuỗi giá → "30.000" (vi-VN) để input + ParsePrice BE khớp. */
+export function formatPriceDisplay(value: unknown): string {
+  if (value == null || value === '') return '0';
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.round(value).toLocaleString('vi-VN').replace(/,/g, '.');
+  }
+  const raw = String(value).trim();
+  const digits = raw.replace(/[^\d]/g, '');
+  if (!digits) return raw || '0';
+  const n = Number.parseInt(digits, 10);
+  if (!Number.isFinite(n)) return raw;
+  return n.toLocaleString('vi-VN').replace(/,/g, '.');
+}
 
 export function usePricing(options: Options = {}) {
   const { autoFetch = true, storageKey = 'parking_pricing' } = options;
@@ -22,26 +35,16 @@ export function usePricing(options: Options = {}) {
   const fetchPricing = useCallback(async () => {
     setLoading(true);
     try {
-      try {
-        const response = await adminService.getPricingConfigs();
-        if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-          const mapped = response.data.map((c: any) => ({
-            type: c.type,
-            price: c.price,
-            sub: c.sub,
-          }));
-          setPrices(mapped);
-          localStorage.setItem(storageKey, JSON.stringify(mapped));
-          return mapped;
-        }
-      } catch {
-        /* fallback */
-      }
-      const response = await parkingService.getPricing();
-      if (response.data && Array.isArray(response.data)) {
-        setPrices(response.data);
-        localStorage.setItem(storageKey, JSON.stringify(response.data));
-        return response.data;
+      const response = await adminService.getPricingConfigs();
+      if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+        const mapped = response.data.map((c: any) => ({
+          type: c.type ?? c.Type ?? '',
+          price: formatPriceDisplay(c.price ?? c.Price),
+          sub: c.sub ?? c.Sub ?? 'VNĐ / Giờ',
+        }));
+        setPrices(mapped);
+        localStorage.setItem(storageKey, JSON.stringify(mapped));
+        return mapped;
       }
     } catch (err) {
       console.error('Failed to fetch pricing', err);
@@ -51,19 +54,35 @@ export function usePricing(options: Options = {}) {
     return null;
   }, [storageKey]);
 
-  const savePricing = async (next: any[] = prices) => {
+  const savePricing = async (next: any[] = prices): Promise<boolean> => {
+    const payload = (next || []).map((p) => ({
+      type: String(p.type || '').trim(),
+      price: formatPriceDisplay(p.price),
+      sub: String(p.sub || 'VNĐ / Giờ').trim(),
+    }));
+
     try {
-      await adminService.savePricingConfigs(next);
+      // Chỉ ghi qua PricingConfigs (DB). Không gọi /ParkingSessions/pricing —
+      // endpoint đó từng đọc price bằng GetString() → số JSON thành 0 và ghi đè bảng giá.
+      const response = await adminService.savePricingConfigs(payload);
+      const saved = response.data;
+      if (Array.isArray(saved) && saved.length > 0) {
+        const mapped = saved.map((c: any) => ({
+          type: c.type ?? c.Type ?? '',
+          price: formatPriceDisplay(c.price ?? c.Price),
+          sub: c.sub ?? c.Sub ?? 'VNĐ / Giờ',
+        }));
+        setPrices(mapped);
+        localStorage.setItem(storageKey, JSON.stringify(mapped));
+      } else {
+        setPrices(payload);
+        localStorage.setItem(storageKey, JSON.stringify(payload));
+      }
+      return true;
     } catch (e) {
       console.error('Error saving pricing to backend', e);
+      return false;
     }
-    try {
-      await parkingService.setPricing(next);
-    } catch {
-      /* optional */
-    }
-    setPrices(next);
-    localStorage.setItem(storageKey, JSON.stringify(next));
   };
 
   useEffect(() => {

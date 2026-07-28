@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Repositories.DTOs;
 using Repositories.Entities;
+using Repositories.Helpers;
 using Repositories.Interfaces;
 using Services.Interfaces;
 using System;
@@ -46,27 +47,24 @@ public class ParkingSessionService : IParkingSessionService
         if (string.IsNullOrWhiteSpace(request.LicensePlate))
             return ServiceResult<ParkingSession>.BadRequest("Biển số xe không được trống.");
 
-        ParkingLot? lot = null;
-        if (request.ParkingLotId.HasValue)
+        var lot = await ResolveParkingLotAsync(request.ParkingLotId, request.ParkingLotName);
+        if (lot == null)
         {
-            lot = await _lotRepository.GetByIdAsync(request.ParkingLotId.Value);
+            return ServiceResult<ParkingSession>.BadRequest(
+                "Không xác định được bãi xe. Vui lòng chọn lại chi nhánh từ danh sách hệ thống (cần ParkingLotId hợp lệ).");
         }
 
-        if (lot == null && !string.IsNullOrWhiteSpace(request.ParkingLotName))
-        {
-            lot = (await _lotRepository.FindAsync(l => l.Name == request.ParkingLotName)).FirstOrDefault();
-        }
+        // Canonical values — never trust client name alone after resolve.
+        var lotName = lot.Name;
+        var lotId = lot.Id;
 
-        var lotName = lot?.Name ?? request.ParkingLotName;
-        var lotId = lot?.Id ?? request.ParkingLotId;
-
-        // Verify if the parking slot is already locked/reserved in the selected building
-        if (!string.IsNullOrWhiteSpace(lotName) && !string.IsNullOrWhiteSpace(request.ParkingSlot))
+        if (!string.IsNullOrWhiteSpace(request.ParkingSlot))
         {
-            var isSlotTaken = await _sessionRepository.IsSlotTakenAsync(lotName, request.ParkingSlot);
+            var isSlotTaken = await _sessionRepository.IsSlotTakenAsync(lotId, lotName, request.ParkingSlot);
             if (isSlotTaken)
             {
-                return ServiceResult<ParkingSession>.BadRequest($"Vị trí đỗ {request.ParkingSlot} tại {lotName} hiện đã bị khóa hoặc đang bận. Vui lòng chọn vị trí khác!");
+                return ServiceResult<ParkingSession>.BadRequest(
+                    $"Vị trí đỗ {request.ParkingSlot} tại {lotName} hiện đã bị khóa hoặc đang bận. Vui lòng chọn vị trí khác!");
             }
         }
 
@@ -89,9 +87,8 @@ public class ParkingSessionService : IParkingSessionService
                     return ServiceResult<ParkingSession>.BadRequest("Thời điểm kết thúc phải sau thời điểm bắt đầu.");
                 }
 
-                // Overlap: same lot + slot, active reservations (any day that may overlap)
                 var existingSessions = await _sessionRepository.FindAsync(ps =>
-                    (ps.Status == "Active" || ps.Status == "PendingPayment") &&
+                    (ps.Status == "Active" || ps.Status == "PendingPayment" || ps.Status == "Pending") &&
                     (ps.ParkingLotId == lotId || (ps.ParkingLotId == null && ps.ParkingLotName == lotName)) &&
                     ps.ParkingSlot == request.ParkingSlot &&
                     !string.IsNullOrEmpty(ps.ReservationDate));
@@ -118,22 +115,24 @@ public class ParkingSessionService : IParkingSessionService
             }
         }
 
+        // Only bind a customer UserId for app reservations.
+        // Staff walk-in (vé vãng lai) must stay anonymous — never attach the staff JWT identity.
         Guid? userId = request.UserId;
-        if (!userId.HasValue && authenticatedUserId.HasValue)
+        var isReservation = !string.IsNullOrWhiteSpace(request.ReservationDate);
+        if (!userId.HasValue && authenticatedUserId.HasValue && isReservation)
         {
             userId = authenticatedUserId;
         }
 
-        // Prevent duplicate active sessions for the same vehicle (license plate)
         var cleanLicensePlate = request.LicensePlate.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper();
         var allSessions = await _sessionRepository.GetActiveSessionsAsync();
-        var existingActive = allSessions.FirstOrDefault(ps => 
-            ps.LicensePlate.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper() == cleanLicensePlate &&
-            (ps.ParkingLotId == lotId || (ps.ParkingLotId == null && ps.ParkingLotName == lotName)));
+        var existingActive = allSessions.FirstOrDefault(ps =>
+            ps.LicensePlate.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper() == cleanLicensePlate);
 
         if (existingActive != null)
         {
-            return ServiceResult<ParkingSession>.BadRequest($"Xe với biển số {request.LicensePlate} đang có phiên đỗ xe hoạt động tại {existingActive.ParkingLotName}. Vui lòng thanh toán phiên hiện tại trước khi đặt chỗ mới.");
+            return ServiceResult<ParkingSession>.BadRequest(
+                $"Xe với biển số {request.LicensePlate} đang có phiên đỗ xe hoạt động tại {existingActive.ParkingLotName}. Vui lòng thanh toán/hoàn tất phiên hiện tại trước khi đặt chỗ mới.");
         }
 
         var qrCode = $"QR_{Guid.NewGuid().ToString("N").Substring(0, 12).ToUpper()}";
@@ -145,11 +144,11 @@ public class ParkingSessionService : IParkingSessionService
             LicensePlate = request.LicensePlate.Trim().ToUpper(),
             QrCode = qrCode,
             EntryPhoto = request.EntryPhoto,
-            EntryTime = DateTime.UtcNow,
+            EntryTime = VietnamTime.Now,
             Status = (!string.IsNullOrEmpty(request.ReservationDate) && (request.PrepaidAmount ?? 0) == 0)
                 ? "PendingPayment"
                 : "Active",
-            CreatedAt = DateTime.UtcNow,
+            CreatedAt = VietnamTime.Now,
             ParkingLotId = lotId,
             ParkingLotName = lotName,
             VehicleType = PricingFeeCalculator.NormalizeCategory(request.VehicleType),
@@ -172,7 +171,7 @@ public class ParkingSessionService : IParkingSessionService
                 SessionId = session.Id,
                 UserId = userId,
                 Amount = request.PrepaidAmount.Value,
-                TransactionTime = DateTime.UtcNow,
+                TransactionTime = VietnamTime.Now,
                 PaymentMethod = "Online",
                 Status = "Completed",
                 TransactionId = "TXN-" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper()
@@ -244,7 +243,7 @@ public class ParkingSessionService : IParkingSessionService
         var refund = await BuildCancelRefundInfoAsync(session, isStaffOrAdmin);
 
         session.Status = "Cancelled";
-        session.UpdatedAt = DateTime.UtcNow;
+        session.UpdatedAt = VietnamTime.Now;
         _sessionRepository.Update(session);
 
         if (refund.IsEligibleForRefund && refund.RefundAmount > 0)
@@ -254,7 +253,7 @@ public class ParkingSessionService : IParkingSessionService
             foreach (var payment in payments)
             {
                 payment.Status = "Refunded";
-                payment.UpdatedAt = DateTime.UtcNow;
+                payment.UpdatedAt = VietnamTime.Now;
                 _paymentRepository.Update(payment);
             }
         }
@@ -309,8 +308,8 @@ public class ParkingSessionService : IParkingSessionService
                 Title = notifTitle,
                 Message = notifMessage,
                 Type = notifType,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                CreatedAt = VietnamTime.Now,
+                UpdatedAt = VietnamTime.Now
             });
             await _notificationRepository.SaveChangesAsync();
         }
@@ -353,7 +352,7 @@ public class ParkingSessionService : IParkingSessionService
             p => p.SessionId == session.Id && (p.Status == "Completed" || p.Status == "Success"));
         var paidAmount = payments.Sum(p => p.Amount);
 
-        var localNow = DateTime.UtcNow.AddHours(7);
+        var localNow = VietnamTime.Now;
         double hoursUntilStart = 0;
         string? reservationStartAt = null;
         var hasStart = TryGetReservationStart(session, out var reservationStart);
@@ -438,7 +437,7 @@ public class ParkingSessionService : IParkingSessionService
         if (session.Status != "Active")
             return ServiceResult<ParkingSession>.BadRequest("Chỉ có thể đổi chỗ cho phiên đang hoạt động.");
 
-        var isSlotTaken = await _sessionRepository.IsSlotTakenAsync(session.ParkingLotName ?? "", newSlot);
+        var isSlotTaken = await _sessionRepository.IsSlotTakenAsync(session.ParkingLotId, session.ParkingLotName, newSlot);
         if (isSlotTaken)
         {
             return ServiceResult<ParkingSession>.BadRequest($"Vị trí {newSlot} đã có người đặt hoặc đang bận.");
@@ -446,7 +445,7 @@ public class ParkingSessionService : IParkingSessionService
 
         var oldSlot = session.ParkingSlot ?? "Không xác định";
         session.ParkingSlot = newSlot;
-        session.UpdatedAt = DateTime.UtcNow;
+        session.UpdatedAt = VietnamTime.Now;
         
         _sessionRepository.Update(session);
         await _sessionRepository.SaveChangesAsync();
@@ -478,7 +477,7 @@ public class ParkingSessionService : IParkingSessionService
             return ServiceResult<MySessionResponse>.Ok(new MySessionResponse { HasActiveSession = false, Session = null });
         }
 
-        var now = DateTime.UtcNow;
+        var now = VietnamTime.Now;
         var fee = CalculateFee(session.EntryTime, now, session.VehicleType);
         var durationMinutes = (int)Math.Ceiling((now - session.EntryTime).TotalMinutes);
 
@@ -506,22 +505,42 @@ public class ParkingSessionService : IParkingSessionService
     {
         var session = await _sessionRepository.GetActiveByQrCodeAsync(qrCode);
         if (session == null)
-            return ServiceResult<VerifySessionResponse>.NotFound("Không tìm thấy phiên gửi xe hoặc mã QR không hợp lệ/đã thanh toán.");
+        {
+            var any = await _sessionRepository.GetByQrCodeAsync(qrCode);
+            if (any != null)
+            {
+                var statusLabel = any.Status switch
+                {
+                    "Cancelled" => "đã hủy",
+                    "Completed" => "đã hoàn tất / đã thanh toán ra bãi",
+                    _ => $"ở trạng thái {any.Status}"
+                };
+                return ServiceResult<VerifySessionResponse>.BadRequest(
+                    $"Mã QR thuộc phiên {statusLabel} — không thể quét vào/ra. Cần vé Active hoặc PendingPayment.");
+            }
+
+            return ServiceResult<VerifySessionResponse>.NotFound(
+                "Không tìm thấy phiên gửi xe hoặc mã QR không hợp lệ.");
+        }
 
         User? user = null;
-        if (session.UserId.HasValue)
+        // Chỉ trả thông tin chủ xe cho đặt trước. Vé vãng lai không gắn / không đoán user theo biển số.
+        var isReservation = !string.IsNullOrWhiteSpace(session.ReservationDate);
+        if (isReservation)
         {
-            user = await _userRepository.GetByIdAsync(session.UserId.Value);
+            if (session.UserId.HasValue)
+            {
+                user = await _userRepository.GetByIdAsync(session.UserId.Value);
+            }
+
+            if (user == null && !string.IsNullOrEmpty(session.LicensePlate))
+            {
+                var allUsers = await _userRepository.GetAllAsync();
+                user = allUsers.FirstOrDefault(u => UserOwnsPlate(u, session.LicensePlate));
+            }
         }
 
-        // Fallback: If UserId is missing in session, try to match by License Plate robustly!
-        if (user == null && !string.IsNullOrEmpty(session.LicensePlate))
-        {
-            var allUsers = await _userRepository.GetAllAsync();
-            user = allUsers.FirstOrDefault(u => UserOwnsPlate(u, session.LicensePlate));
-        }
-
-        var exitTime = DateTime.UtcNow;
+        var exitTime = VietnamTime.Now;
         // Fee MUST use the reserved session vehicle (not profile default)
         User? feeUser = user;
         var vehicleForFee = PricingFeeCalculator.ResolveVehicleType(
@@ -532,7 +551,7 @@ public class ParkingSessionService : IParkingSessionService
             PricingFeeCalculator.NormalizeCategory(session.VehicleType) != vehicleForFee)
         {
             session.VehicleType = vehicleForFee;
-            session.UpdatedAt = DateTime.UtcNow;
+            session.UpdatedAt = VietnamTime.Now;
             _sessionRepository.Update(session);
             await _sessionRepository.SaveChangesAsync();
         }
@@ -582,10 +601,10 @@ public class ParkingSessionService : IParkingSessionService
 
         session.ExitLicensePlate = request.ExitLicensePlate.Trim().ToUpper();
         session.ExitPhoto = request.ExitPhoto;
-        session.ExitTime = DateTime.UtcNow;
+        session.ExitTime = VietnamTime.Now;
         session.Status = "Completed";
         session.IsPlateMatched = entryPlateNormalized == exitPlateNormalized;
-        session.UpdatedAt = DateTime.UtcNow;
+        session.UpdatedAt = VietnamTime.Now;
 
         decimal totalSurcharge = 0;
         if (request.ExtraFees != null && request.ExtraFees.Any())
@@ -622,7 +641,7 @@ public class ParkingSessionService : IParkingSessionService
             SessionId = session.Id,
             UserId = session.UserId,
             Amount = checkoutAmount,
-            TransactionTime = DateTime.UtcNow,
+            TransactionTime = VietnamTime.Now,
             PaymentMethod = "Online",
             Status = "Completed",
             TransactionId = "TXN-" + Guid.NewGuid().ToString().Substring(0, 8).ToUpper()
@@ -643,7 +662,7 @@ public class ParkingSessionService : IParkingSessionService
             plannedEndTimeStr = $"{endDate} {session.ReservationEndTime}";
             if (DateTime.TryParse(plannedEndTimeStr, out var plannedEndDateTime))
             {
-                var localExitTime = session.ExitTime.Value.AddHours(7);
+                var localExitTime = session.ExitTime.Value;
                 if (plannedEndDateTime - localExitTime > TimeSpan.FromMinutes(15))
                 {
                     if (prepaidAmount > 0 && fee < prepaidAmount)
@@ -666,8 +685,8 @@ public class ParkingSessionService : IParkingSessionService
                 ? $"{user.FirstName} {user.LastName}".Trim()
                 : (user.Username ?? "Khách hàng");
 
-            var entryTimeStr = session.EntryTime.AddHours(7).ToString("dd-MM-yyyy HH:mm");
-            var exitTimeStr = session.ExitTime.Value.AddHours(7).ToString("dd-MM-yyyy HH:mm");
+            var entryTimeStr = session.EntryTime.ToString("dd-MM-yyyy HH:mm");
+            var exitTimeStr = session.ExitTime.Value.ToString("dd-MM-yyyy HH:mm");
 
             await _emailService.SendCheckoutInvoiceEmailAsync(
                 user.Email,
@@ -744,10 +763,15 @@ public class ParkingSessionService : IParkingSessionService
         if (string.IsNullOrEmpty(parkingLotName))
             return ServiceResult<Dictionary<string, string>>.BadRequest("Tên bãi đỗ không được để trống.");
 
-        var activeSessions = await _sessionRepository.FindAsync(ps => 
-            (ps.Status == "Active" || ps.Status == "PendingPayment") && 
-            ps.ParkingLotName == parkingLotName && 
-            !string.IsNullOrEmpty(ps.ParkingSlot));
+        var lot = await ResolveParkingLotAsync(null, parkingLotName);
+        var activeSessions = await _sessionRepository.FindAsync(ps =>
+            (ps.Status == "Active" || ps.Status == "PendingPayment" || ps.Status == "Pending") &&
+            !string.IsNullOrEmpty(ps.ParkingSlot) &&
+            (
+                (lot != null && ps.ParkingLotId == lot.Id)
+                || ps.ParkingLotName == parkingLotName
+                || (lot != null && ps.ParkingLotName == lot.Name)
+            ));
 
         var slotStatusMap = activeSessions
             .GroupBy(ps => ps.ParkingSlot!)
@@ -769,8 +793,8 @@ public class ParkingSessionService : IParkingSessionService
             return ServiceResult<ParkingSession>.NotFound("Không tìm thấy phiên gửi xe hoặc mã QR không hợp lệ/đã thanh toán.");
 
         session.IsCheckedIn = true;
-        session.EntryTime = DateTime.UtcNow;
-        session.UpdatedAt = DateTime.UtcNow;
+        session.EntryTime = VietnamTime.Now;
+        session.UpdatedAt = VietnamTime.Now;
 
         if (!string.IsNullOrEmpty(request.EntryPhoto))
         {
@@ -873,11 +897,24 @@ public class ParkingSessionService : IParkingSessionService
                 var items = new List<PricingConfig>();
                 foreach (var elem in pricing.EnumerateArray())
                 {
+                    var type = elem.TryGetProperty("type", out var t) ? t.GetString() ?? "" : "";
+                    var sub = elem.TryGetProperty("sub", out var s) ? s.GetString() ?? "VNĐ / Giờ" : "VNĐ / Giờ";
+                    decimal priceVal = 0;
+                    if (elem.TryGetProperty("price", out var p))
+                    {
+                        priceVal = p.ValueKind switch
+                        {
+                            System.Text.Json.JsonValueKind.Number => p.GetDecimal(),
+                            System.Text.Json.JsonValueKind.String => PricingFeeCalculator.ParsePrice(p.GetString()),
+                            _ => 0
+                        };
+                    }
+
                     items.Add(new PricingConfig
                     {
-                        Type = elem.TryGetProperty("type", out var t) ? t.GetString() ?? "" : "",
-                        Price = PricingFeeCalculator.ParsePrice(elem.TryGetProperty("price", out var p) ? p.GetString() ?? "0" : "0"),
-                        Sub = elem.TryGetProperty("sub", out var s) ? s.GetString() ?? "VNĐ / Giờ" : "VNĐ / Giờ"
+                        Type = type,
+                        Price = priceVal,
+                        Sub = sub
                     });
                 }
 
@@ -939,7 +976,7 @@ public class ParkingSessionService : IParkingSessionService
 
     public async Task ProcessReservationsAsync()
     {
-        var localNow = DateTime.UtcNow.AddHours(7);
+        var localNow = VietnamTime.Now;
 
         var pendingSessions = await _sessionRepository.FindAsync(ps => 
             (ps.Status == "Active" || ps.Status == "Pending" || ps.Status == "PendingPayment")
@@ -951,10 +988,10 @@ public class ParkingSessionService : IParkingSessionService
         {
             if (session.Status == "PendingPayment")
             {
-                if (DateTime.UtcNow - session.CreatedAt > TimeSpan.FromMinutes(15))
+                if (VietnamTime.Now - session.CreatedAt > TimeSpan.FromMinutes(15))
                 {
                     session.Status = "Cancelled";
-                    session.UpdatedAt = DateTime.UtcNow;
+                    session.UpdatedAt = VietnamTime.Now;
                     _sessionRepository.Update(session);
                     await _sessionRepository.SaveChangesAsync();
                 }
@@ -996,8 +1033,8 @@ public class ParkingSessionService : IParkingSessionService
                         Title = "Sắp đến giờ đặt chỗ",
                         Message = $"Bạn còn khoảng {Math.Ceiling(timeDiff.TotalMinutes)} phút nữa đến giờ hẹn gửi xe tại {session.ParkingLotName} (Vị trí {session.ParkingSlot}). Vui lòng đến đúng giờ.",
                         Type = "info",
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
+                        CreatedAt = VietnamTime.Now,
+                        UpdatedAt = VietnamTime.Now
                     };
                     await _notificationRepository.AddAsync(notif);
                 }
@@ -1018,8 +1055,14 @@ public class ParkingSessionService : IParkingSessionService
 
             if (timeDiff.TotalMinutes <= -10)
             {
+                // Skip "no-show" cancel when slot was already past at booking time
+                // (FE used to send UTC date + local time → looks ~1 day late immediately).
+                var createdVn = VietnamTime.AsVietnam(session.CreatedAt);
+                if (reservationTime <= createdVn.AddMinutes(-2))
+                    continue;
+
                 session.Status = "Cancelled";
-                session.UpdatedAt = DateTime.UtcNow;
+                session.UpdatedAt = VietnamTime.Now;
                 _sessionRepository.Update(session);
 
                 User? user = null;
@@ -1045,8 +1088,8 @@ public class ParkingSessionService : IParkingSessionService
                         Title = "Hủy chỗ đặt xe tự động",
                         Message = $"Lượt đặt chỗ của bạn tại {session.ParkingLotName} đã bị hủy do bạn đến trễ quá 10 phút. Nếu có nhu cầu, bạn vui lòng đặt lại chỗ khác nhé.",
                         Type = "alert",
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
+                        CreatedAt = VietnamTime.Now,
+                        UpdatedAt = VietnamTime.Now
                     };
                     await _notificationRepository.AddAsync(notif);
                 }
@@ -1069,7 +1112,7 @@ public class ParkingSessionService : IParkingSessionService
 
     public async Task ProcessCheckedInExtensionsAsync()
     {
-        var localNow = DateTime.UtcNow.AddHours(7);
+        var localNow = VietnamTime.Now;
 
         var activeCheckedInSessions = await _sessionRepository.FindAsync(ps => 
             ps.Status == "Active"
@@ -1092,7 +1135,7 @@ public class ParkingSessionService : IParkingSessionService
 
                 session.ReservationDate = newEndTime.ToString("yyyy-MM-dd");
                 session.ReservationEndTime = newEndTime.ToString("HH:mm");
-                session.UpdatedAt = DateTime.UtcNow;
+                session.UpdatedAt = VietnamTime.Now;
 
                 _sessionRepository.Update(session);
 
@@ -1119,8 +1162,8 @@ public class ParkingSessionService : IParkingSessionService
                         Title = "Thời gian đỗ xe được gia hạn",
                         Message = $"Phiên đỗ xe của bạn tại {session.ParkingLotName} (Vị trí {session.ParkingSlot}) đã được tự động gia hạn thêm 1 tiếng đến {session.ReservationEndTime} do quá giờ đăng ký.",
                         Type = "info",
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
+                        CreatedAt = VietnamTime.Now,
+                        UpdatedAt = VietnamTime.Now
                     };
                     await _notificationRepository.AddAsync(notif);
                 }
@@ -1186,9 +1229,55 @@ public class ParkingSessionService : IParkingSessionService
         }
 
         session.ReservationEndTime = newEndTime;
-        session.UpdatedAt = DateTime.UtcNow;
+        session.UpdatedAt = VietnamTime.Now;
         await _sessionRepository.SaveChangesAsync();
 
         return ServiceResult<ParkingSession>.Ok(session);
+    }
+
+    /// <summary>
+    /// Resolve lot by Guid first, then exact name, then accent-insensitive name match.
+    /// </summary>
+    private async Task<ParkingLot?> ResolveParkingLotAsync(Guid? parkingLotId, string? parkingLotName)
+    {
+        if (parkingLotId.HasValue)
+        {
+            var byId = await _lotRepository.GetByIdAsync(parkingLotId.Value);
+            if (byId != null) return byId;
+        }
+
+        if (string.IsNullOrWhiteSpace(parkingLotName))
+            return null;
+
+        var exact = await _lotRepository.FirstOrDefaultAsync(l => l.Name == parkingLotName);
+        if (exact != null) return exact;
+
+        var allLots = await _lotRepository.GetAllAsync();
+        var needle = NormalizeLotKey(parkingLotName);
+        return allLots.FirstOrDefault(l => NormalizeLotKey(l.Name) == needle)
+            ?? allLots.FirstOrDefault(l => LotKeysLooselyMatch(NormalizeLotKey(l.Name), needle));
+    }
+
+    private static string NormalizeLotKey(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return string.Empty;
+        var formD = name.Trim().ToLowerInvariant().Normalize(System.Text.NormalizationForm.FormD);
+        var sb = new System.Text.StringBuilder(formD.Length);
+        foreach (var ch in formD)
+        {
+            var uc = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(ch);
+            if (uc == System.Globalization.UnicodeCategory.NonSpacingMark) continue;
+            if (char.IsLetterOrDigit(ch)) sb.Append(ch);
+        }
+        return sb.ToString().Normalize(System.Text.NormalizationForm.FormC)
+            .Replace('đ', 'd').Replace('Đ', 'd');
+    }
+
+    private static bool LotKeysLooselyMatch(string a, string b)
+    {
+        if (string.IsNullOrEmpty(a) || string.IsNullOrEmpty(b)) return false;
+        if (a.Contains(b) || b.Contains(a)) return true;
+        const int prefix = 10;
+        return a.Length >= prefix && b.Length >= prefix && a.Substring(0, prefix) == b.Substring(0, prefix);
     }
 }

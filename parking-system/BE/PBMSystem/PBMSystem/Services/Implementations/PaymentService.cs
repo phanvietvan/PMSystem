@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using Repositories.Configuration;
 using Repositories.DTOs;
 using Repositories.Entities;
+using Repositories.Helpers;
 using Repositories.Interfaces;
 using Services.Interfaces;
 using System;
@@ -72,7 +73,7 @@ namespace Services.Implementations
                     "Số tiền thanh toán không hợp lệ.");
             }
 
-            var now = DateTime.UtcNow.AddHours(7);
+            var now = VietnamTime.Now;
 
             var txnRef =
                 request.OrderId ??
@@ -188,7 +189,7 @@ namespace Services.Implementations
                         existingPayment.Status = "Completed";
                         existingPayment.VnPayTransactionNo = vnpTransactionNo;
                         existingPayment.VnPayResponseCode = vnpResponseCode;
-                        existingPayment.TransactionTime = DateTime.UtcNow;
+                        existingPayment.TransactionTime = VietnamTime.Now;
 
                         if (session != null)
                         {
@@ -212,7 +213,7 @@ namespace Services.Implementations
                             TransactionId = vnpTxnRef,
                             VnPayTransactionNo = vnpTransactionNo,
                             VnPayResponseCode = vnpResponseCode,
-                            TransactionTime = DateTime.UtcNow
+                            TransactionTime = VietnamTime.Now
                         };
 
                         await _paymentRepository.AddAsync(payment);
@@ -229,7 +230,7 @@ namespace Services.Implementations
                         if (session.Status == "PendingPayment")
                         {
                             session.Status = "Active";
-                            session.UpdatedAt = DateTime.UtcNow;
+                            session.UpdatedAt = VietnamTime.Now;
                             _sessionRepository.Update(session);
                             await _sessionRepository.SaveChangesAsync();
 

@@ -1,17 +1,13 @@
 import { useState, useEffect } from 'react';
 import { parkingService } from '../services/parking.service';
 import { playChimeSound } from '../utils/audio';
-
-const FALLBACK_CAR_CAPTURES = [
-  'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&q=80&w=600',
-  'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&q=80&w=600',
-  'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&q=80&w=600',
-];
+import { formatVnDateTime } from '../utils/datetime';
 
 export const useVisitorTicket = (
   selectedParkingLot: string,
   fetchRecentSessions: () => Promise<void>,
-  captureFrame: () => string | null
+  captureFrame: () => string | null,
+  parkingLots?: { id?: string; name?: string }[]
 ) => {
   const [showVisitorModal, setShowVisitorModal] = useState(false);
   const [visitorSnapshot, setVisitorSnapshot] = useState<string | null>(null);
@@ -43,30 +39,27 @@ export const useVisitorTicket = (
     playChimeSound();
 
     const plateNormalized = visitorPlate.trim().toUpperCase();
-    const livePhoto =
-      visitorSnapshot ||
-      captureFrame() ||
-      FALLBACK_CAR_CAPTURES[Math.floor(Math.random() * FALLBACK_CAR_CAPTURES.length)];
+    const livePhoto = visitorSnapshot || captureFrame();
+    if (!livePhoto || String(livePhoto).startsWith('http')) {
+      setIsGeneratingTicket(false);
+      alert('Không chụp được ảnh camera. Cho phép quyền camera rồi thử lại.');
+      return;
+    }
 
     try {
+      const selectedLot = parkingLots?.find((p) => p.name === selectedParkingLot);
       const data = await parkingService.checkin({
         licensePlate: plateNormalized,
         entryPhoto: livePhoto,
         parkingLotName: selectedParkingLot || 'Khu Vực A (Vãng lai)',
+        parkingLotId: selectedLot?.id,
         vehicleType: visitorVehicleType,
       });
 
       setGeneratedTicket({
         qrCode: data.qrCode,
         plate: data.licensePlate,
-        time: new Date(data.entryTime).toLocaleString('vi-VN', {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-        }),
+        time: formatVnDateTime(data.entryTime),
         photo: data.entryPhoto || livePhoto,
         vehicleType: data.vehicleType,
         parkingLotName: data.parkingLotName || selectedParkingLot || 'Khu Vực A (Vãng lai)',
@@ -78,14 +71,7 @@ export const useVisitorTicket = (
       setGeneratedTicket({
         qrCode: mockQrCode,
         plate: plateNormalized,
-        time: new Date().toLocaleString('vi-VN', {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-        }),
+        time: formatVnDateTime(new Date()),
         photo: livePhoto,
         vehicleType: visitorVehicleType,
         parkingLotName: selectedParkingLot || 'Khu Vực A (Vãng lai)',

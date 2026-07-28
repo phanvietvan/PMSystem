@@ -1,5 +1,6 @@
 using Repositories.DTOs;
 using Repositories.Entities;
+using Repositories.Helpers;
 using Repositories.Interfaces;
 using Services.Interfaces;
 
@@ -54,8 +55,8 @@ public class NotificationService : INotificationService
             Title = dto.Title.Trim(),
             Message = dto.Message.Trim(),
             Type = "info",
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
+            CreatedAt = VietnamTime.Now,
+            UpdatedAt = VietnamTime.Now
         };
 
         await _notificationRepository.AddAsync(notification);
@@ -74,7 +75,7 @@ public class NotificationService : INotificationService
 
     private static string GetTimeAgo(DateTime dt)
     {
-        var span = DateTime.UtcNow - dt;
+        var span = VietnamTime.Now - dt;
 
         if (span.TotalMinutes < 1)
             return "Vừa xong";

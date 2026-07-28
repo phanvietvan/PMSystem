@@ -1,5 +1,6 @@
 using Repositories.DTOs;
 using Repositories.Entities;
+using Repositories.Helpers;
 using Repositories.Interfaces;
 using Services.Interfaces;
 using System;
@@ -48,8 +49,8 @@ namespace Services.Implementations
                 PlateNumber = dto.PlateNumber.Trim().ToUpper(),
                 Reason = dto.Reason,
                 AddedBy = addedBy,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                CreatedAt = VietnamTime.Now,
+                UpdatedAt = VietnamTime.Now
             };
 
             await _blacklistRepository.AddAsync(entry);

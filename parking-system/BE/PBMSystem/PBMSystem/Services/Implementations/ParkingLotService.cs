@@ -28,17 +28,19 @@ namespace Services.Implementations
             var dict = new Dictionary<string, int>();
             foreach (var f in lot.FloorsList)
             {
-                dict[$"Tầng {f.FloorNumber}"] = f.Capacity;
                 dict[f.FloorNumber.ToString()] = f.Capacity;
+                f.ParkingLot = null!; // break JSON cycle FloorsList <-> ParkingLot
             }
             if (dict.Count == 0)
             {
-                dict["Tầng 1"] = 50; dict["1"] = 50;
-                dict["Tầng 2"] = 50; dict["2"] = 50;
-                dict["Tầng 3"] = 50; dict["3"] = 50;
+                dict["1"] = 50;
+                dict["2"] = 50;
+                dict["3"] = 50;
             }
             lot.FloorCapacities = dict;
             lot.LockedSlots = lot.Slots.Where(s => s.IsLocked).Select(s => s.SlotName).ToList();
+            foreach (var s in lot.Slots)
+                s.ParkingLot = null!;
         }
 
         public async Task<List<ParkingLot>> GetAllAsync()
@@ -72,9 +74,9 @@ namespace Services.Implementations
             foreach (var f in requestFloors)
             {
                 var cap = 50;
-                if (request.FloorCapacities != null && request.FloorCapacities.TryGetValue($"Tầng {f}", out var c))
+                if (request.FloorCapacities != null && request.FloorCapacities.TryGetValue(f.ToString(), out var c))
                     cap = c;
-                else if (request.FloorCapacities != null && request.FloorCapacities.TryGetValue(f.ToString(), out c))
+                else if (request.FloorCapacities != null && request.FloorCapacities.TryGetValue($"Tầng {f}", out c))
                     cap = c;
 
                 lot.FloorsList.Add(new ParkingLotFloor
@@ -83,6 +85,9 @@ namespace Services.Implementations
                     Capacity = cap
                 });
             }
+
+            if (lot.FloorsList.Count > 0)
+                lot.Capacity = lot.FloorsList.Sum(x => x.Capacity);
 
             // Populate locked slots
             if (request.LockedSlots != null)
@@ -120,44 +125,55 @@ namespace Services.Implementations
             if (request.Capacity > 0)
                 lot.Capacity = request.Capacity;
 
-            // Sync floors list if updated
-            if (request.Floors != null)
+            // Sync floors when floors list OR capacities are provided
+            if (request.Floors != null || request.FloorCapacities != null)
             {
-                lot.FloorsList.Clear();
-                foreach (var f in request.Floors)
+                var floorNumbers = request.Floors
+                    ?? lot.FloorsList.Select(f => f.FloorNumber).OrderBy(f => f).ToList();
+                if (floorNumbers.Count == 0)
+                    floorNumbers = new List<int> { 1, 2, 3 };
+
+                var floors = new List<ParkingLotFloor>();
+                foreach (var f in floorNumbers)
                 {
                     var cap = 50;
-                    if (request.FloorCapacities != null && request.FloorCapacities.TryGetValue($"Tầng {f}", out var c))
+                    // Prefer numeric keys from FE ("1") over legacy "Tầng 1" labels.
+                    if (request.FloorCapacities != null && request.FloorCapacities.TryGetValue(f.ToString(), out var c))
                         cap = c;
-                    else if (request.FloorCapacities != null && request.FloorCapacities.TryGetValue(f.ToString(), out c))
+                    else if (request.FloorCapacities != null && request.FloorCapacities.TryGetValue($"Tầng {f}", out c))
                         cap = c;
+                    else
+                    {
+                        var existing = lot.FloorsList.FirstOrDefault(x => x.FloorNumber == f);
+                        if (existing != null) cap = existing.Capacity;
+                    }
 
-                    lot.FloorsList.Add(new ParkingLotFloor
+                    floors.Add(new ParkingLotFloor
                     {
                         FloorNumber = f,
                         Capacity = cap
                     });
                 }
+                await _repository.ReplaceFloorsAsync(lot.Id, floors);
+                lot.Capacity = floors.Sum(x => x.Capacity);
             }
 
             // Sync locked slots if updated
             if (request.LockedSlots != null)
             {
-                lot.Slots.Clear();
-                foreach (var s in request.LockedSlots)
+                var slots = request.LockedSlots.Select(s => new ParkingSlot
                 {
-                    lot.Slots.Add(new ParkingSlot
-                    {
-                        SlotName = s,
-                        FloorNumber = 1,
-                        IsLocked = true
-                    });
-                }
+                    SlotName = s,
+                    FloorNumber = 1,
+                    IsLocked = true
+                }).ToList();
+                await _repository.ReplaceSlotsAsync(lot.Id, slots);
             }
 
             await _repository.UpdateAsync(lot);
-            PopulateLegacyFields(lot);
-            return lot;
+            var refreshed = await _repository.GetByIdAsync(id) ?? lot;
+            PopulateLegacyFields(refreshed);
+            return refreshed;
         }
 
         public async Task<object> DeleteAsync(Guid id)

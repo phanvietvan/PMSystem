@@ -1,10 +1,9 @@
 import { Bell, AlertTriangle, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { API_BASE_URL } from '../../utils/api';
-import { authService } from '../../services/auth.service';
+import { apiFetch } from '../../utils/api';
 
-export interface NotificationPanelProps {
+interface NotificationPanelProps {
   role: 'user' | 'admin' | 'staff';
   onClose?: () => void;
 }
@@ -15,12 +14,7 @@ const NotificationPanel = ({ role, onClose }: NotificationPanelProps) => {
 
   const fetchNotifs = async () => {
     try {
-      const token = authService.getToken();
-      const res = await fetch(`${API_BASE_URL}/Notifications`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const res = await apiFetch('/Notifications');
       if (res.ok) {
         const data = await res.json();
         setNotifications(data);
@@ -42,13 +36,7 @@ const NotificationPanel = ({ role, onClose }: NotificationPanelProps) => {
 
   const handleMarkAllAsRead = async () => {
     try {
-      const token = authService.getToken();
-      await fetch(`${API_BASE_URL}/Notifications/mark-read`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      await apiFetch('/Notifications/mark-read', { method: 'POST' });
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     } catch (err) {
       console.error(err);

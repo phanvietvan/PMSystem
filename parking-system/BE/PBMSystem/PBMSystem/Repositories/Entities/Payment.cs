@@ -1,4 +1,5 @@
 using System;
+using Repositories.Helpers;
 
 namespace Repositories.Entities;
 
@@ -25,7 +26,7 @@ public class Payment : BaseEntity
     public string TransactionId { get; set; } = string.Empty;
 
     /// <summary>Time when the transaction was completed.</summary>
-    public DateTime TransactionTime { get; set; } = DateTime.UtcNow;
+    public DateTime TransactionTime { get; set; } = VietnamTime.Now;
 
     /// <summary>Mã giao dịch từ VNPay (vnp_TransactionNo).</summary>
     public string? VnPayTransactionNo { get; set; }

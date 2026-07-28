@@ -248,11 +248,23 @@ const ComparisonPanel: React.FC<ComparisonPanelProps> = ({
                 </span>
               </div>
               <div className="relative group aspect-video w-full bg-slate-100">
-                <img
-                  src={scannedResult.capturedPhoto}
-                  alt="Gate Capture"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                />
+                {scannedResult.capturedPhoto ? (
+                  <img
+                    src={scannedResult.capturedPhoto}
+                    alt="Gate Capture"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 gap-1.5 p-4 text-center">
+                    <span className="material-symbols-outlined text-[32px] text-slate-300">videocam_off</span>
+                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider">
+                      Không chụp được camera
+                    </span>
+                  </div>
+                )}
                 <div className="absolute bottom-3 left-3 bg-white/50 backdrop-blur-md border border-white/70 px-3 py-1 rounded-xl text-[9px] text-slate-800 font-semibold tracking-widest shadow-sm">
                   GATE-OUT
                 </div>
@@ -280,7 +292,10 @@ const ComparisonPanel: React.FC<ComparisonPanelProps> = ({
                   <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 text-slate-400 gap-1.5 p-4 text-center">
                     <span className="material-symbols-outlined text-[32px] text-slate-300">image_not_supported</span>
                     <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider block">
-                      ẢNH VÀO LỖI
+                      Không có ảnh lúc vào
+                    </span>
+                    <span className="text-[8px] text-slate-400 font-medium">
+                      Phiên chưa lưu EntryPhoto khi check-in
                     </span>
                   </div>
                 )}
@@ -371,7 +386,7 @@ const ComparisonPanel: React.FC<ComparisonPanelProps> = ({
                       <div className="flex items-center gap-2 bg-white border border-slate-200/80 rounded-[1.25rem] px-3.5 py-2 min-w-0">
                         <span className="material-symbols-outlined text-slate-400 text-[16px] shrink-0">login</span>
                         <span className="text-[12px] font-semibold text-slate-700">
-                          {scannedResult.entryTime?.split(' ')[0] || 'N/A'}
+                          {scannedResult.entryTime || 'N/A'}
                         </span>
                       </div>
                     </div>

@@ -16,9 +16,8 @@ export default defineConfig({
     host: true, // Listen on all network interfaces including 192.168.16.1
     proxy: {
       '/api': {
-        target: 'https://localhost:53568',
+        target: 'http://localhost:53569',
         changeOrigin: true,
-        secure: false, // Bypasses self-signed SSL verification for backend connection
       }
     }
   }

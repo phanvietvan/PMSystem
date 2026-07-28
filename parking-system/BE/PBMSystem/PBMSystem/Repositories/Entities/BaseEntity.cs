@@ -1,3 +1,5 @@
+using Repositories.Helpers;
+
 namespace Repositories.Entities;
 
 /// <summary>
@@ -7,7 +9,7 @@ namespace Repositories.Entities;
 public abstract class BaseEntity
 {
     public Guid Id { get; set; } = Guid.NewGuid();
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; set; } = VietnamTime.Now;
     public DateTime? UpdatedAt { get; set; }
     public bool IsDeleted { get; set; } = false;
 }

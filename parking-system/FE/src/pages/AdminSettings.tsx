@@ -70,8 +70,8 @@ const AdminSettings = () => {
       return;
     }
 
-    await savePricing(cleaned);
-    flashToast('Đã lưu chính sách giá');
+    const ok = await savePricing(cleaned);
+    flashToast(ok ? 'Đã lưu chính sách giá vào hệ thống' : 'Lưu bảng giá thất bại — kiểm tra API / đăng nhập lại');
   };
 
   const handleRegulationChange = (index: number, newValue: string) => {
@@ -357,49 +357,6 @@ const AdminSettings = () => {
                         <span className="material-symbols-outlined text-[14px]">save</span>
                         {'Lưu quy định'}
                       </button>
-                    </div>
-                  </div>
-
-                  <div className="bg-white rounded-[2rem] border border-slate-200/80 shadow-xl shadow-slate-200/40 p-8 md:p-10">
-                    <h3 className="text-lg font-black text-slate-900 tracking-tight mb-8">
-                      {'Vận hành & Đặt chỗ'}
-                    </h3>
-                    <div className="space-y-5">
-                      {[
-                        {
-                          label: 'Cho phép đặt chỗ trước',
-                          sub: 'Người dùng có thể giữ chỗ qua mobile app.',
-                        },
-                        {
-                          label: 'Tự động mở Barrier',
-                          sub: 'Mở barrier tự động khi nhận diện biển số hợp lệ.',
-                        },
-                        {
-                          label: 'Thanh toán không tiền mặt',
-                          sub: 'Bắt buộc thanh toán qua QR/E-wallet.',
-                        },
-                      ].map((opt, i) => (
-                        <div
-                          key={i}
-                          className="flex items-center justify-between p-6 bg-slate-50/80 rounded-[1.5rem] border border-slate-200/80 hover:border-blue-300 hover:shadow-md transition-all"
-                        >
-                          <div>
-                            <p className="text-[15px] font-bold text-slate-900">{opt.label}</p>
-                            <p className="text-[12px] text-slate-500 font-medium mt-1">{opt.sub}</p>
-                          </div>
-                          <div
-                            className={`w-14 h-7 rounded-full relative cursor-pointer transition-colors shadow-inner ${
-                              i === 0 || i === 2 ? 'bg-blue-600' : 'bg-slate-300'
-                            }`}
-                          >
-                            <div
-                              className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all shadow-sm ${
-                                i === 0 || i === 2 ? 'right-1' : 'left-1'
-                              }`}
-                            />
-                          </div>
-                        </div>
-                      ))}
                     </div>
                   </div>
                 </motion.div>

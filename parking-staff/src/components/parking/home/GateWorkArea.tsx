@@ -9,6 +9,7 @@ interface GateWorkAreaProps {
   videoRef: React.RefObject<HTMLVideoElement | null>;
   hasCameraAccess: boolean;
   startCamera: () => Promise<void>;
+  reattachStream?: () => void;
   isOcrLoading: boolean;
   gateMode: 'ENTRY' | 'EXIT';
   manualInput: string;
@@ -44,6 +45,7 @@ const GateWorkArea: React.FC<GateWorkAreaProps> = ({
   videoRef,
   hasCameraAccess,
   startCamera,
+  reattachStream,
   isOcrLoading,
   gateMode,
   manualInput,
@@ -82,6 +84,7 @@ const GateWorkArea: React.FC<GateWorkAreaProps> = ({
         videoRef={videoRef}
         hasCameraAccess={hasCameraAccess}
         startCamera={startCamera}
+        reattachStream={reattachStream}
         isOcrLoading={isOcrLoading}
         gateMode={gateMode}
         manualInput={manualInput}
