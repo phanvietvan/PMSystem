@@ -432,23 +432,15 @@ public class AuthService : IAuthService
         if (user is null)
             return ApiResponse<UserResponse>.Fail("User not found.");
 
-        if (!IsValidLicensePlate(request.LicensePlate))
-            return ApiResponse<UserResponse>.Fail("Biển số xe không đúng định dạng. Ký tự thứ 3 bắt buộc là chữ cái (Ví dụ: 29A-123.45 hoặc 59G1-12345).");
-
         user.FirstName = request.FirstName.Trim();
         user.LastName = request.LastName.Trim();
         user.PhoneNumber = request.PhoneNumber.Trim();
         user.Address = request.Address.Trim();
         
         user.Vehicles.Clear();
-        if (!string.IsNullOrWhiteSpace(request.LicensePlate))
+        if (!TryParseAndValidatePlates(request.LicensePlate, request.VehicleType, user.Id, user.Vehicles, out var errorMsg))
         {
-            user.Vehicles.Add(new UserVehicle
-            {
-                UserId = user.Id,
-                LicensePlate = request.LicensePlate.Trim().ToUpper(),
-                VehicleType = PricingFeeCalculator.NormalizeCategory(request.VehicleType)
-            });
+            return ApiResponse<UserResponse>.Fail(errorMsg);
         }
         
         if (request.AvatarUrl != null)
@@ -498,23 +490,15 @@ public class AuthService : IAuthService
                 || newStatus == UserStatus.PendingVerification))
             return ApiResponse<UserResponse>.Fail("Bạn không thể tự khóa hoặc vô hiệu hóa tài khoản của chính mình.");
 
-        if (!string.IsNullOrWhiteSpace(request.LicensePlate) && !IsValidLicensePlate(request.LicensePlate))
-            return ApiResponse<UserResponse>.Fail("Biển số xe không đúng định dạng. Ký tự thứ 3 bắt buộc là chữ cái (Ví dụ: 29A-123.45 hoặc 59G1-12345).");
-
         user.FirstName = request.FirstName.Trim();
         user.LastName = request.LastName.Trim();
         user.PhoneNumber = request.PhoneNumber?.Trim();
         user.Address = request.Address?.Trim();
         
         user.Vehicles.Clear();
-        if (!string.IsNullOrWhiteSpace(request.LicensePlate))
+        if (!TryParseAndValidatePlates(request.LicensePlate, request.VehicleType, user.Id, user.Vehicles, out var errorMsg))
         {
-            user.Vehicles.Add(new UserVehicle
-            {
-                UserId = user.Id,
-                LicensePlate = request.LicensePlate.Trim().ToUpper(),
-                VehicleType = PricingFeeCalculator.NormalizeCategory(request.VehicleType)
-            });
+            return ApiResponse<UserResponse>.Fail(errorMsg);
         }
         user.Role = newRole;
         user.Status = newStatus;
@@ -708,23 +692,119 @@ public class AuthService : IAuthService
         return value.ToString("D6");
     }
 
-    private static UserResponse MapToResponse(User user) => new()
+    private static UserResponse MapToResponse(User user)
     {
-        Id = user.Id,
-        Email = user.Email,
-        Username = user.Username,
-        FirstName = user.FirstName,
-        LastName = user.LastName,
-        PhoneNumber = user.PhoneNumber,
-        Address = user.Address,
-        LicensePlate = user.Vehicles.FirstOrDefault()?.LicensePlate,
-        VehicleType = user.Vehicles.FirstOrDefault()?.VehicleType,
-        AvatarUrl = user.AvatarUrl,
-        Role = user.Role.ToString(),
-        Status = user.Status.ToString(),
-        LastLoginAt = user.LastLoginAt,
-        CreatedAt = user.CreatedAt
-    };
+        string? licensePlateVal = null;
+        string? vehicleTypeVal = null;
+
+        if (user.Vehicles != null && user.Vehicles.Any())
+        {
+            if (user.Vehicles.Count == 1)
+            {
+                licensePlateVal = user.Vehicles.First().LicensePlate;
+                vehicleTypeVal = user.Vehicles.First().VehicleType;
+            }
+            else
+            {
+                var list = user.Vehicles.Select(v => new { plate = v.LicensePlate, type = v.VehicleType });
+                licensePlateVal = System.Text.Json.JsonSerializer.Serialize(list);
+                vehicleTypeVal = user.Vehicles.First().VehicleType;
+            }
+        }
+
+        return new UserResponse
+        {
+            Id = user.Id,
+            Email = user.Email,
+            Username = user.Username,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            PhoneNumber = user.PhoneNumber,
+            Address = user.Address,
+            LicensePlate = licensePlateVal,
+            VehicleType = vehicleTypeVal,
+            AvatarUrl = user.AvatarUrl,
+            Role = user.Role.ToString(),
+            Status = user.Status.ToString(),
+            LastLoginAt = user.LastLoginAt,
+            CreatedAt = user.CreatedAt
+        };
+    }
+
+    private bool TryParseAndValidatePlates(string rawLp, string requestVehicleType, Guid userId, ICollection<UserVehicle> targetCollection, out string? errorMessage)
+    {
+        errorMessage = null;
+        var plates = new List<UserVehicle>();
+        var cleanInput = (rawLp ?? "").Trim();
+
+        if (string.IsNullOrWhiteSpace(cleanInput))
+        {
+            return true;
+        }
+
+        if (cleanInput.StartsWith("[") && cleanInput.EndsWith("]"))
+        {
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(cleanInput);
+                if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+                {
+                    foreach (var item in doc.RootElement.EnumerateArray())
+                    {
+                        string? plate = null;
+                        string? type = null;
+                        if (item.TryGetProperty("plate", out var p) || item.TryGetProperty("Plate", out p))
+                            plate = p.GetString();
+                        if (item.TryGetProperty("type", out var t) || item.TryGetProperty("Type", out t))
+                            type = t.GetString();
+
+                        if (!string.IsNullOrEmpty(plate))
+                        {
+                            var cleanPlate = plate.Trim();
+                            if (!IsValidLicensePlate(cleanPlate))
+                            {
+                                errorMessage = $"Biển số xe '{cleanPlate}' không đúng định dạng. Ký tự thứ 3 bắt buộc là chữ cái (Ví dụ: 29A-123.45 hoặc 59G1-12345).";
+                                return false;
+                            }
+
+                            plates.Add(new UserVehicle
+                            {
+                                UserId = userId,
+                                LicensePlate = cleanPlate.ToUpper(),
+                                VehicleType = PricingFeeCalculator.NormalizeCategory(type ?? requestVehicleType)
+                            });
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                errorMessage = "Dữ liệu danh sách xe không hợp lệ.";
+                return false;
+            }
+        }
+        else
+        {
+            if (!IsValidLicensePlate(cleanInput))
+            {
+                errorMessage = "Biển số xe không đúng định dạng. Ký tự thứ 3 bắt buộc là chữ cái (Ví dụ: 29A-123.45 hoặc 59G1-12345).";
+                return false;
+            }
+
+            plates.Add(new UserVehicle
+            {
+                UserId = userId,
+                LicensePlate = cleanInput.ToUpper(),
+                VehicleType = PricingFeeCalculator.NormalizeCategory(requestVehicleType)
+            });
+        }
+
+        foreach (var v in plates)
+        {
+            targetCollection.Add(v);
+        }
+        return true;
+    }
 
     public async Task<ApiResponse<bool>> CheckEmailRegisteredAsync(string email)
     {

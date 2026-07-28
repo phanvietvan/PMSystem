@@ -84,6 +84,12 @@ public class AppDbContext : DbContext
             .HasForeignKey(n => n.UserId)
             .OnDelete(DeleteBehavior.SetNull);
 
+        modelBuilder.Entity<Incident>()
+            .HasOne(i => i.User)
+            .WithMany()
+            .HasForeignKey(i => i.UserId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         modelBuilder.Entity<UserVehicle>()
             .HasOne(v => v.User)
             .WithMany(u => u.Vehicles)

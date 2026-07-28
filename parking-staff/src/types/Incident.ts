@@ -3,7 +3,8 @@ export interface Incident {
   type: string;
   title: string;
   description: string;
-  reporter: string;
-  role: string;
+  userId?: string | null;
+  reporter?: string;
+  role?: string;
   createdAt?: string;
 }

@@ -536,7 +536,9 @@ public class ParkingSessionService : IParkingSessionService
             LastName = user.LastName,
             PhoneNumber = user.PhoneNumber,
             Address = user.Address,
-            LicensePlate = user.Vehicles.FirstOrDefault()?.LicensePlate,
+            LicensePlate = user.Vehicles.Count == 1 
+                ? user.Vehicles.First().LicensePlate 
+                : System.Text.Json.JsonSerializer.Serialize(user.Vehicles.Select(v => new { plate = v.LicensePlate, type = v.VehicleType })),
             VehicleType = user.Vehicles.FirstOrDefault()?.VehicleType,
             AvatarUrl = user.AvatarUrl
         } : null;

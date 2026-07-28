@@ -1,4 +1,4 @@
-﻿using Repositories.DTOs;
+using Repositories.DTOs;
 using Repositories.Entities;
 using Repositories.Interfaces;
 using Services.Interfaces;
@@ -17,9 +17,29 @@ public class IncidentService : IIncidentService
         _incidentRepository = incidentRepository;
     }
 
+    private void PopulateLegacyFields(Incident incident)
+    {
+        if (incident == null) return;
+        if (incident.User != null)
+        {
+            incident.Reporter = $"{incident.User.FirstName} {incident.User.LastName}".Trim();
+            if (string.IsNullOrEmpty(incident.Reporter)) incident.Reporter = incident.User.Username;
+            incident.Role = incident.User.Role.ToString();
+        }
+        else
+        {
+            incident.Reporter = "Khách vãng lai";
+            incident.Role = "Khách hàng";
+        }
+    }
+
     public async Task<ServiceResult<List<Incident>>> GetAllAsync()
     {
         var incidents = await _incidentRepository.GetAllOrderByCreatedAtDescAsync();
+        foreach (var inc in incidents)
+        {
+            PopulateLegacyFields(inc);
+        }
 
         return ServiceResult<List<Incident>>.Ok(incidents);
     }
@@ -41,15 +61,17 @@ public class IncidentService : IIncidentService
             Branch = request.Branch,
             Floor = request.Floor,
             Urgency = request.Urgency,
-            Reporter = request.Reporter,
-            Role = request.Role,
+            UserId = request.UserId,
             Status = "Chờ xử lý"
         };
 
         await _incidentRepository.AddAsync(incident);
         await _incidentRepository.SaveChangesAsync();
 
-        return ServiceResult<Incident>.Ok(incident);
+        var loaded = await _incidentRepository.GetByIdAsync(incident.Id);
+        if (loaded != null) PopulateLegacyFields(loaded);
+
+        return ServiceResult<Incident>.Ok(loaded ?? incident);
     }
 
     public async Task<ServiceResult<Incident>> ResolveAsync(Guid id)
@@ -66,6 +88,8 @@ public class IncidentService : IIncidentService
 
         _incidentRepository.Update(incident);
         await _incidentRepository.SaveChangesAsync();
+
+        PopulateLegacyFields(incident);
 
         return ServiceResult<Incident>.Ok(incident);
     }
