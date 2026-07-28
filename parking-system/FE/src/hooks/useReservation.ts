@@ -223,9 +223,19 @@ export function useReservation() {
         const parsed = JSON.parse(storedUser);
         const lp = parsed.licensePlate || '';
         let parsedVehicles: Array<{ plate: string; type: string }> = [];
-        if (lp.startsWith('[')) {
+
+        // Support new BE format after 3NF normalization: vehicles[] array
+        // BE AuthService may now return a `vehicles` field with normalized data
+        if (Array.isArray(parsed.vehicles) && parsed.vehicles.length > 0) {
+          parsedVehicles = parsed.vehicles.map((v: any) => ({
+            plate: v.plate || v.licensePlate || v.LicensePlate || '',
+            type: v.type || v.vehicleType || v.VehicleType || 'Car',
+          }));
+        } else if (lp.startsWith('[')) {
+          // Old format: JSON array packed as string in licensePlate field
           parsedVehicles = JSON.parse(lp);
         } else if (lp) {
+          // Old format: single plate string
           parsedVehicles = [{ plate: lp, type: parsed.vehicleType || 'Car' }];
         }
 

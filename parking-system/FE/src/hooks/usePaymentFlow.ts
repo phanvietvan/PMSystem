@@ -131,12 +131,19 @@ export function usePaymentFlow() {
       } else {
         const storedParking = localStorage.getItem('selectedParking');
         let parkingLotName = 'Landmark 81 - Bãi đỗ A1';
-        let parkingLotId = null;
+        // Only send parkingLotId if it is a valid Guid string (from the real API).
+        // DEFAULT_LOTS uses integer IDs (1, 2, 3...) which are incompatible with the
+        // SQL Server uniqueidentifier column ParkingLotId added in 3NF normalization.
+        let parkingLotId: string | null = null;
         if (storedParking) {
           try {
             const parsed = JSON.parse(storedParking);
             parkingLotName = parsed.name;
-            parkingLotId = parsed.id;
+            const rawId = parsed.id;
+            const isValidGuid =
+              typeof rawId === 'string' &&
+              /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawId);
+            parkingLotId = isValidGuid ? rawId : null;
           } catch {
             /* ignore */
           }
