@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { 
   CalendarDays, 
   TrendingUp, 
@@ -40,11 +40,58 @@ function getIncidentDisplayDescription(raw?: string | null): string {
   return text;
 }
 
+type RevenuePeriod = '1d' | '7d' | '30d' | 'all';
+
+const REVENUE_PERIODS: { id: RevenuePeriod; label: string }[] = [
+  { id: '1d', label: 'Hôm nay' },
+  { id: '7d', label: '7 ngày qua' },
+  { id: '30d', label: '1 tháng' },
+  { id: 'all', label: 'Toàn thời gian' },
+];
+
+function getSessionRefTime(s: { exitTime?: string; endTime?: string; startTime?: string; createdAt?: string }): Date | null {
+  const raw = s.exitTime || s.endTime || s.startTime || s.createdAt;
+  if (!raw) return null;
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function isInRevenuePeriod(date: Date, period: RevenuePeriod): boolean {
+  if (period === 'all') return true;
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  if (period === '1d') return date >= start;
+  if (period === '7d') {
+    start.setDate(start.getDate() - 6);
+    return date >= start;
+  }
+  // 30d ≈ 1 tháng
+  start.setDate(start.getDate() - 29);
+  return date >= start;
+}
+
 const AdminDashboard = () => {
   const user = useAdminUser();
   const { sessions, loading } = useParkingSessions({ pollIntervalMs: 5000 });
   const { parkingLots } = useParkingLots();
   const { incidents } = useIncidents();
+  const [revenuePeriod, setRevenuePeriod] = useState<RevenuePeriod>('all');
+  const [revenueMenuOpen, setRevenueMenuOpen] = useState(false);
+  const revenueMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!revenueMenuOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (revenueMenuRef.current && !revenueMenuRef.current.contains(e.target as Node)) {
+        setRevenueMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, [revenueMenuOpen]);
+
+  const revenuePeriodLabel =
+    REVENUE_PERIODS.find((p) => p.id === revenuePeriod)?.label ?? 'Toàn thời gian';
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -53,7 +100,12 @@ const AdminDashboard = () => {
     return '🌙 Chào buổi tối';
   };
 
-  const totalRevenue = sessions.reduce((sum, s) => sum + (s.totalFee || 0), 0);
+  const totalRevenue = sessions.reduce((sum, s) => {
+    if (!s.totalFee) return sum;
+    const ref = getSessionRefTime(s);
+    if (!ref || !isInRevenuePeriod(ref, revenuePeriod)) return sum;
+    return sum + s.totalFee;
+  }, 0);
   const activeBookings = sessions.filter(s => s.status === 'Active' || s.status === 'Pending').length;
   const occupancyRate = sessions.length ? ((activeBookings / 174) * 100).toFixed(1) + '%' : '0%';
 
@@ -89,15 +141,12 @@ const AdminDashboard = () => {
     // Accumulate revenue from sessions
     sessions.forEach(s => {
       if (s.totalFee && s.totalFee > 0) {
-        const refTime = s.exitTime || s.endTime || s.startTime || s.createdAt;
-        if (refTime) {
-          const sessionDate = new Date(refTime);
-          const dateKey = sessionDate.toDateString();
-          
-          const dayObj = days.find(d => d.dateKey === dateKey);
-          if (dayObj) {
-            dayObj.revenue += s.totalFee;
-          }
+        const sessionDate = getSessionRefTime(s);
+        if (!sessionDate) return;
+        const dateKey = sessionDate.toDateString();
+        const dayObj = days.find(d => d.dateKey === dateKey);
+        if (dayObj) {
+          dayObj.revenue += s.totalFee;
         }
       }
     });
@@ -115,7 +164,7 @@ const AdminDashboard = () => {
   };
 
   const metrics = [
-    { label: 'Tổng doanh thu', value: loading ? '...' : formatRevenue(totalRevenue), unit: 'VND', trend: '+12%', icon: TrendingUp, color: 'text-blue-600', sub: 'Toàn thời gian' },
+    { label: 'Tổng doanh thu', value: loading ? '...' : formatRevenue(totalRevenue), unit: 'VND', trend: '+12%', icon: TrendingUp, color: 'text-blue-600', sub: 'Toàn thời gian', isRevenue: true },
     { label: 'TỶ LỆ LẤP ĐẦY', value: loading ? '...' : occupancyRate, trend: 'Hiện tại', icon: Car, color: 'text-emerald-600', sub: 'Công suất tối ưu' },
     { label: 'Phiên đang hoạt động', value: loading ? '...' : activeBookings.toString(), trend: 'Mới', icon: CalendarDays, color: 'text-blue-500', sub: 'Đang gửi & chờ' },
     { label: 'BÁO CÁO SỰ CỐ', value: incidents.filter(inc => inc.status === 'Chờ xử lý').length.toString().padStart(2, '0'), unit: '', trend: 'KHẨN CẤP', icon: AlertCircle, color: 'text-red-600', sub: `${incidents.filter(inc => inc.status === 'Chờ xử lý').length} ${'sự cố chưa xử lý'}`, urgent: true },
@@ -154,7 +203,7 @@ const AdminDashboard = () => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.1 }}
-                    className={`bg-white p-8 rounded-[2rem] border border-slate-200/80 shadow-xl shadow-slate-200/40 hover:-translate-y-1 hover:shadow-2xl hover:shadow-slate-200/50 transition-all duration-300 flex flex-col relative overflow-hidden group ${m.urgent ? 'ring-2 ring-red-500/20 border-red-100' : ''}`}
+                    className={`bg-white p-8 rounded-[2rem] border border-slate-200/80 shadow-xl shadow-slate-200/40 hover:-translate-y-1 hover:shadow-2xl hover:shadow-slate-200/50 transition-all duration-300 flex flex-col relative group ${m.isRevenue ? 'overflow-visible z-[1]' : 'overflow-hidden'} ${m.urgent ? 'ring-2 ring-red-500/20 border-red-100' : ''}`}
                   >
                     <div className="flex justify-between items-start mb-6">
                       <div className={`p-3 rounded-2xl ${m.urgent ? 'bg-red-50 text-red-600' : 'bg-slate-50 text-slate-900'} group-hover:scale-110 transition-transform`}>
@@ -169,7 +218,50 @@ const AdminDashboard = () => {
                       <span className="text-3xl font-black text-slate-900">{m.value}</span>
                       {m.unit && <span className="text-xs font-bold text-slate-400">{m.unit}</span>}
                     </div>
-                    <p className="text-[11px] font-bold text-slate-400">{m.sub}</p>
+                    {m.isRevenue ? (
+                      <div className="relative z-20 mt-auto" ref={revenueMenuRef}>
+                        <button
+                          type="button"
+                          aria-haspopup="listbox"
+                          aria-expanded={revenueMenuOpen}
+                          onClick={() => setRevenueMenuOpen((o) => !o)}
+                          className="inline-flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-100 hover:border-blue-200 text-[11px] font-bold text-blue-600 rounded-full pl-3 pr-2.5 py-1.5 outline-none focus:ring-2 focus:ring-blue-500/20 transition-colors"
+                        >
+                          {revenuePeriodLabel}
+                          <ChevronDown className={`w-3.5 h-3.5 opacity-70 transition-transform ${revenueMenuOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        {revenueMenuOpen && (
+                          <ul
+                            role="listbox"
+                            className="absolute left-0 top-full mt-2 min-w-[9.5rem] rounded-xl bg-white border border-slate-200/80 shadow-xl shadow-blue-500/10 py-1 overflow-hidden z-30"
+                          >
+                            {REVENUE_PERIODS.map((p) => {
+                              const active = p.id === revenuePeriod;
+                              return (
+                                <li key={p.id} role="option" aria-selected={active}>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setRevenuePeriod(p.id);
+                                      setRevenueMenuOpen(false);
+                                    }}
+                                    className={`w-full text-left px-3.5 py-2 text-[11px] font-bold transition-colors ${
+                                      active
+                                        ? 'bg-blue-600 text-white'
+                                        : 'text-slate-600 hover:bg-blue-50 hover:text-blue-700'
+                                    }`}
+                                  >
+                                    {p.label}
+                                  </button>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] font-bold text-slate-400">{m.sub}</p>
+                    )}
                     
                     {/* Visual Accent */}
                     <div className={`absolute top-0 right-0 w-32 h-32 opacity-[0.03] translate-x-10 -translate-y-10 group-hover:rotate-12 transition-transform duration-700 ${m.urgent ? 'text-red-600' : 'text-blue-600'}`}>

@@ -27,10 +27,11 @@ builder.Services.Configure<VnPaySettings>(
     builder.Configuration.GetSection("VnPaySettings"));
 
 
-// ── Database (MongoDB) ────────────────────────────────────────────────────────
-var mongoUri = builder.Configuration.GetConnectionString("MongoConnection") ?? "mongodb://localhost:27017";
+// ── Database (SQL Server) ──────────────────────────────────────────────────────
+var sqlConnection = builder.Configuration.GetConnectionString("DefaultConnection") 
+    ?? "Server=(localdb)\\mssqllocaldb;Database=pbmsystem_dev;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true";
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseMongoDB(mongoUri, "pbmsystem_dev"));
+    options.UseSqlServer(sqlConnection));
 
 
 // ── Repository + Services Layers ─────────────────────────────────────────────
@@ -126,7 +127,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    // For MongoDB: ensure the database and collections are created
+    // For SQL Server: ensure database and tables are created
     await db.Database.EnsureCreatedAsync();
 
     // Seed default users if none exist in the database

@@ -46,14 +46,34 @@ public class ParkingSessionsController : ControllerBase
         return Ok(result.Data);
     }
 
-    [HttpPost("{id:guid}/cancel")]
-    public async Task<IActionResult> CancelSession(Guid id)
+    [Authorize]
+    [HttpGet("{id:guid}/cancel-preview")]
+    public async Task<IActionResult> GetCancelPreview(Guid id)
     {
-        var result = await _sessionService.CancelSessionAsync(id);
+        var userId = User.GetUserId();
+        var role = User.GetUserRole();
+        var isStaffOrAdmin = role is "Admin" or "Staff";
+
+        var result = await _sessionService.GetCancelPreviewAsync(id, userId, isStaffOrAdmin);
         if (!result.Success)
             return StatusCode(result.StatusCode, new { message = result.ErrorMessage });
 
-        return Ok(new { message = "Hủy chỗ thành công.", session = result.Data });
+        return Ok(result.Data);
+    }
+
+    [Authorize]
+    [HttpPost("{id:guid}/cancel")]
+    public async Task<IActionResult> CancelSession(Guid id)
+    {
+        var userId = User.GetUserId();
+        var role = User.GetUserRole();
+        var isStaffOrAdmin = role is "Admin" or "Staff";
+
+        var result = await _sessionService.CancelSessionAsync(id, userId, isStaffOrAdmin);
+        if (!result.Success)
+            return StatusCode(result.StatusCode, new { message = result.ErrorMessage });
+
+        return Ok(result.Data);
     }
 
     [HttpPost("{id:guid}/change-slot")]

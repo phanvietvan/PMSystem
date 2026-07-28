@@ -56,6 +56,19 @@ const BillingPanel: React.FC<BillingPanelProps> = ({
               <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Tổng phí</span>
               <span className="text-sm font-black text-slate-700">{(scannedResult.fee || 0).toLocaleString()} ₫</span>
             </div>
+            {scannedResult.vehicleType && (
+              <div className="flex justify-between items-center bg-blue-50/50 p-3 rounded-xl border border-blue-100/50">
+                <span className="text-xs font-bold text-blue-600/80 uppercase tracking-widest">Loại xe tính phí</span>
+                <span className="text-sm font-black text-blue-700">
+                  {(() => {
+                    const vt = String(scannedResult.vehicleType).toLowerCase();
+                    if (vt.includes('bike') || vt.includes('máy')) return 'Xe máy';
+                    if (vt.includes('suv')) return 'SUV / Bán tải';
+                    return 'Ô tô 4-7 chỗ';
+                  })()}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between items-center bg-amber-50/50 p-3 rounded-xl border border-amber-100/50">
               <span className="text-xs font-bold text-amber-600/80 uppercase tracking-widest">Đã cọc (App)</span>
               <span className="text-sm font-black text-amber-600">
@@ -142,12 +155,22 @@ const BillingPanel: React.FC<BillingPanelProps> = ({
 
           <div className="mt-4 pt-4 border-t border-dashed border-slate-200">
             {(() => {
-              const extraFeesTotal = extraFees.reduce((sum, f) => sum + f.amount, 0);
-              const netPayable = Math.max(0, (scannedResult.fee || 0) - (scannedResult.depositFee || 0) + extraFeesTotal);
+              const baseFee = Number(scannedResult.fee) || 0;
+              const deposit = Number(scannedResult.depositFee) || 0;
+              const extraFeesTotal = extraFees.reduce((sum, f) => sum + (Number(f.amount) || 0), 0);
+              // Cần thanh toán = max(0, tổng phí + phụ thu - đã cọc)
+              const netPayable = Math.max(0, baseFee + extraFeesTotal - deposit);
               return (
                 <>
                   <div className="flex justify-between items-end mb-4">
-                    <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Cần thanh toán</span>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Cần thanh toán</span>
+                      {deposit > baseFee + extraFeesTotal && (
+                        <span className="text-[9px] font-bold text-emerald-600">
+                          Đã cọc đủ / dư — không thu thêm
+                        </span>
+                      )}
+                    </div>
                     <span className={`text-3xl font-black tracking-tighter ${netPayable === 0 ? 'text-emerald-500' : 'text-rose-600'}`}>
                       {netPayable.toLocaleString()} <span className="text-lg">₫</span>
                     </span>

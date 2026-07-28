@@ -35,8 +35,12 @@ export function useSuccessSession() {
     else if (displayFloor === 'Tầng 3') displayFloor = 'Tầng 3';
   }
 
-  const resDate = localStorage.getItem('reservationDate')
-    ? new Date(localStorage.getItem('reservationDate')!).toLocaleDateString('vi-VN')
+  const resStartDate = localStorage.getItem('reservationDate');
+  const resEndDate = localStorage.getItem('reservationEndDate') || resStartDate;
+  const resDate = resStartDate
+    ? resEndDate && resEndDate !== resStartDate
+      ? `${new Date(resStartDate).toLocaleDateString('vi-VN')} → ${new Date(resEndDate).toLocaleDateString('vi-VN')}`
+      : new Date(resStartDate).toLocaleDateString('vi-VN')
     : new Date().toLocaleDateString('vi-VN');
   const resTime =
     localStorage.getItem('reservationStartTime') ||

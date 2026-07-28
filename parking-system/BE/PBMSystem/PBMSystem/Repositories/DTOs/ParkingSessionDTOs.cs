@@ -9,6 +9,7 @@ public class CheckInRequest
     public string? ReservationDate { get; set; }
     public string? ReservationStartTime { get; set; }
     public string? ReservationEndTime { get; set; }
+    public string? ReservationEndDate { get; set; }
     public string? ParkingSlot { get; set; }
     public System.Guid? UserId { get; set; }
     public decimal? PrepaidAmount { get; set; }
@@ -39,6 +40,27 @@ public class ChangeSlotRequest
     public string NewSlot { get; set; } = string.Empty;
 }
 
+public class CancelRefundInfo
+{
+    public Guid SessionId { get; set; }
+    public decimal PaidAmount { get; set; }
+    public decimal RefundAmount { get; set; }
+    public decimal NonRefundableAmount { get; set; }
+    public int RefundPercent { get; set; }
+    public bool IsEligibleForRefund { get; set; }
+    public double HoursUntilStart { get; set; }
+    public string? ReservationStartAt { get; set; }
+    public string PolicyMessage { get; set; } = string.Empty;
+    public string TimeRemainingLabel { get; set; } = string.Empty;
+}
+
+public class CancelSessionResponse
+{
+    public Repositories.Entities.ParkingSession? Session { get; set; }
+    public CancelRefundInfo? Refund { get; set; }
+    public string Message { get; set; } = string.Empty;
+}
+
 public class ServiceResult<T>
 {
     public bool Success { get; set; }
@@ -48,7 +70,10 @@ public class ServiceResult<T>
 
     public static ServiceResult<T> Ok(T data) => new() { Success = true, Data = data, StatusCode = 200 };
     public static ServiceResult<T> BadRequest(string msg) => new() { Success = false, ErrorMessage = msg, StatusCode = 400 };
+    public static ServiceResult<T> Forbidden(string msg) => new() { Success = false, ErrorMessage = msg, StatusCode = 403 };
     public static ServiceResult<T> NotFound(string msg) => new() { Success = false, ErrorMessage = msg, StatusCode = 404 };
+    public static ServiceResult<T> Fail(string msg, int statusCode) =>
+        new() { Success = false, ErrorMessage = msg, StatusCode = statusCode };
 }
 
 public class MySessionResponse
@@ -124,5 +149,6 @@ public class GetAllSessionsResponse
     public string? ReservationDate { get; set; }
     public string? ReservationStartTime { get; set; }
     public string? ReservationEndTime { get; set; }
+    public string? ReservationEndDate { get; set; }
     public GetAllUserDTO? User { get; set; }
 }

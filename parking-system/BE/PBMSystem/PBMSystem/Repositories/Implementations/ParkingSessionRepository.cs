@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 namespace Repositories.Implementations;
 
 /// <summary>
-/// Implementation of IParkingSessionRepository using EF Core and MongoDB.
+/// Implementation of IParkingSessionRepository using EF Core and SQL Server.
 /// </summary>
 public class ParkingSessionRepository : Repository<ParkingSession>, IParkingSessionRepository
 {

@@ -12,7 +12,8 @@ namespace Services.Interfaces;
 public interface IParkingSessionService
 {
     Task<ServiceResult<ParkingSession>> CheckInAsync(CheckInRequest request, Guid? authenticatedUserId);
-    Task<ServiceResult<ParkingSession>> CancelSessionAsync(Guid sessionId);
+    Task<ServiceResult<CancelRefundInfo>> GetCancelPreviewAsync(Guid sessionId, Guid? requesterUserId = null, bool isStaffOrAdmin = false);
+    Task<ServiceResult<CancelSessionResponse>> CancelSessionAsync(Guid sessionId, Guid? requesterUserId = null, bool isStaffOrAdmin = false);
     Task<ServiceResult<ParkingSession>> ChangeSlotAsync(Guid sessionId, string newSlot);
     Task<ServiceResult<MySessionResponse>> GetMySessionAsync(Guid userId);
     Task<ServiceResult<List<ParkingSession>>> GetHistoryAsync(Guid userId);

@@ -78,7 +78,6 @@ const HomeView: React.FC<HomeViewProps> = ({
     manualInput,
     setManualInput,
     autoApprove,
-    setAutoApprove,
     scannedResult,
     setScannedResult,
     countdown,
@@ -195,14 +194,11 @@ const HomeView: React.FC<HomeViewProps> = ({
             gateState={gateState}
             gateMode={gateMode}
             setGateMode={setGateMode}
-            autoApprove={autoApprove}
-            setAutoApprove={setAutoApprove}
             captureFrame={camera.captureFrame}
             setVisitorSnapshot={setVisitorSnapshot}
             setShowVisitorModal={setShowVisitorModal}
             setVisitorPlate={setVisitorPlate}
             setGeneratedTicket={setGeneratedTicket}
-            showAlert={showAlert}
             extraFees={extraFees}
             setExtraFees={setExtraFees}
             isAddingSurcharge={isAddingSurcharge}

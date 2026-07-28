@@ -1,6 +1,3 @@
-using MongoDB.Bson;
-using MongoDB.Bson.Serialization.Attributes;
-
 namespace Repositories.Entities;
 
 public class BlacklistEntry : BaseEntity

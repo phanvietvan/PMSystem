@@ -484,7 +484,7 @@ const AdminReservations = () => {
                              <div className="flex flex-col gap-1.5">
                                 {row.reservationStartTime && row.reservationEndTime && (
                                   <span className="text-[11px] font-bold text-indigo-600 flex items-center gap-2" title={"Khung giờ đặt trước"}>
-                                     <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></div> {'Khung giờ:'} {row.reservationStartTime} - {row.reservationEndTime} ({row.reservationDate})
+                                     <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></div> {'Khung giờ:'} {row.reservationStartTime} - {row.reservationEndTime} ({row.reservationDate}{row.reservationEndDate && row.reservationEndDate !== row.reservationDate ? ` → ${row.reservationEndDate}` : ''})
                                   </span>
                                 )}
                                 {row.userId && (
@@ -641,7 +641,7 @@ const AdminReservations = () => {
                           {selectedReservation.reservationStartTime && selectedReservation.reservationEndTime && (
                              <div className="flex items-center justify-between border-b border-slate-50/50 pb-2">
                                 <span className="text-[11px] font-bold text-slate-500 flex items-center gap-2"><div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></div> {'Khung giờ đặt'}</span>
-                                <span className="text-xs font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">{selectedReservation.reservationStartTime} - {selectedReservation.reservationEndTime} ({selectedReservation.reservationDate})</span>
+                                <span className="text-xs font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">{selectedReservation.reservationStartTime} - {selectedReservation.reservationEndTime} ({selectedReservation.reservationDate}{selectedReservation.reservationEndDate && selectedReservation.reservationEndDate !== selectedReservation.reservationDate ? ` → ${selectedReservation.reservationEndDate}` : ''})</span>
                              </div>
                           )}
                           {selectedReservation.userId && (

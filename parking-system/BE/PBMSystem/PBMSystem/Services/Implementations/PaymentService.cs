@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Repositories.Configuration;
 using Repositories.DTOs;
@@ -20,6 +21,7 @@ namespace Services.Implementations
         private readonly IRepository<ParkingLot> _lotRepository;
         private readonly IEmailService _emailService;
         private readonly VnPaySettings _vnPaySettings;
+        private readonly ILogger<PaymentService> _logger;
 
         public PaymentService(
             IPaymentRepository paymentRepository,
@@ -27,7 +29,8 @@ namespace Services.Implementations
             IUserRepository userRepository,
             IRepository<ParkingLot> lotRepository,
             IEmailService emailService,
-            IOptions<VnPaySettings> vnPayOptions)
+            IOptions<VnPaySettings> vnPayOptions,
+            ILogger<PaymentService> logger)
         {
             _paymentRepository = paymentRepository;
             _sessionRepository = sessionRepository;
@@ -35,6 +38,7 @@ namespace Services.Implementations
             _lotRepository = lotRepository;
             _emailService = emailService;
             _vnPaySettings = vnPayOptions.Value;
+            _logger = logger;
         }
 
         public async Task<ApiResponse<IEnumerable<Payment>>> GetAllPaymentsAsync()
@@ -175,35 +179,38 @@ namespace Services.Implementations
             {
                 if (!string.IsNullOrWhiteSpace(vnpTxnRef))
                 {
-                    var existingPayment =
-                        await _paymentRepository
-                            .GetByTransactionIdAsync(vnpTxnRef);
+                    var existingPayment = await _paymentRepository.GetByTransactionIdAsync(vnpTxnRef);
+                    var qrCode = vnpTxnRef.Replace("PAY-", "");
+                    var session = await _sessionRepository.FirstOrDefaultAsync(ps => ps.QrCode.StartsWith(qrCode));
 
                     if (existingPayment != null)
                     {
                         existingPayment.Status = "Completed";
-                        existingPayment.VnPayTransactionNo =
-                            vnpTransactionNo;
+                        existingPayment.VnPayTransactionNo = vnpTransactionNo;
+                        existingPayment.VnPayResponseCode = vnpResponseCode;
+                        existingPayment.TransactionTime = DateTime.UtcNow;
 
-                        existingPayment.VnPayResponseCode =
-                            vnpResponseCode;
+                        if (session != null)
+                        {
+                            existingPayment.SessionId = session.Id;
+                            existingPayment.UserId = session.UserId;
+                            if (string.IsNullOrWhiteSpace(existingPayment.LicensePlate))
+                            {
+                                existingPayment.LicensePlate = session.LicensePlate;
+                            }
+                        }
 
-                        existingPayment.TransactionTime =
-                            DateTime.UtcNow;
-
-                        await _paymentRepository
-                            .UpdateAsync(existingPayment);
-
-                        await _paymentRepository
-                            .SaveChangesAsync();
+                        await _paymentRepository.UpdateAsync(existingPayment);
+                        await _paymentRepository.SaveChangesAsync();
                     }
-                    else
+                    else if (session != null)
                     {
                         var payment = new Payment
                         {
                             Id = Guid.NewGuid(),
-                            SessionId = Guid.Empty,
-                            LicensePlate = string.Empty,
+                            SessionId = session.Id,
+                            UserId = session.UserId,
+                            LicensePlate = session.LicensePlate,
                             Amount = vnpAmount / 100m,
                             PaymentMethod = "VNPay",
                             Status = "Completed",
@@ -213,16 +220,13 @@ namespace Services.Implementations
                             TransactionTime = DateTime.UtcNow
                         };
 
-                        await _paymentRepository
-                            .AddAsync(payment);
-
-                        await _paymentRepository
-                            .SaveChangesAsync();
+                        await _paymentRepository.AddAsync(payment);
+                        await _paymentRepository.SaveChangesAsync();
                     }
-
-                    // Cập nhật ParkingSession tương ứng và gửi email!
-                    var qrCode = vnpTxnRef.Replace("PAY-", "");
-                    var session = await _sessionRepository.FirstOrDefaultAsync(ps => ps.QrCode.StartsWith(qrCode));
+                    else
+                    {
+                        _logger.LogWarning("VNPay IPN received for non-existent session/payment (TxnRef: {TxnRef}). Skipping orphan creation.", vnpTxnRef);
+                    }
 
                     if (session != null)
                     {

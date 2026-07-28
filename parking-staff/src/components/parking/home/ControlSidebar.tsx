@@ -11,14 +11,11 @@ interface ControlSidebarProps {
   gateState: 'SCANNING' | 'COMPARING' | 'GATE_OPEN';
   gateMode: 'ENTRY' | 'EXIT';
   setGateMode: (mode: 'ENTRY' | 'EXIT') => void;
-  autoApprove: boolean;
-  setAutoApprove: (approve: boolean) => void;
   captureFrame: () => string | null;
   setVisitorSnapshot: (snap: string | null) => void;
   setShowVisitorModal: (show: boolean) => void;
   setVisitorPlate: (plate: string) => void;
   setGeneratedTicket: (ticket: any) => void;
-  showAlert: (msg: string) => void;
   extraFees: any[];
   setExtraFees: (val: any[]) => void;
   isAddingSurcharge: boolean;
@@ -38,14 +35,11 @@ const ControlSidebar: React.FC<ControlSidebarProps> = ({
   gateState,
   gateMode,
   setGateMode,
-  autoApprove,
-  setAutoApprove,
   captureFrame,
   setVisitorSnapshot,
   setShowVisitorModal,
   setVisitorPlate,
   setGeneratedTicket,
-  showAlert,
   extraFees,
   setExtraFees,
   isAddingSurcharge,
@@ -66,14 +60,11 @@ const ControlSidebar: React.FC<ControlSidebarProps> = ({
         gateState={gateState}
         gateMode={gateMode}
         setGateMode={setGateMode}
-        autoApprove={autoApprove}
-        setAutoApprove={setAutoApprove}
         captureFrame={captureFrame}
         setVisitorSnapshot={setVisitorSnapshot}
         setShowVisitorModal={setShowVisitorModal}
         setVisitorPlate={setVisitorPlate}
         setGeneratedTicket={setGeneratedTicket}
-        showAlert={showAlert}
       />
 
       <BillingPanel
