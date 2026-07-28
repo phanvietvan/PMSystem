@@ -20,6 +20,8 @@ public class ParkingSession : BaseEntity
     public bool? IsCheckedIn { get; set; } = false;
 
     // Reservation fields
+    public Guid? ParkingLotId { get; set; }
+    public ParkingLot? ParkingLot { get; set; }
     public string? ParkingLotName { get; set; }
     public string? VehicleType { get; set; }
     public string? ReservationDate { get; set; }

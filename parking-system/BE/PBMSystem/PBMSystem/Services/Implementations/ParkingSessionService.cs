@@ -46,13 +46,27 @@ public class ParkingSessionService : IParkingSessionService
         if (string.IsNullOrWhiteSpace(request.LicensePlate))
             return ServiceResult<ParkingSession>.BadRequest("Biển số xe không được trống.");
 
-        // Verify if the parking slot is already locked/reserved in the selected building
-        if (!string.IsNullOrWhiteSpace(request.ParkingLotName) && !string.IsNullOrWhiteSpace(request.ParkingSlot))
+        ParkingLot? lot = null;
+        if (request.ParkingLotId.HasValue)
         {
-            var isSlotTaken = await _sessionRepository.IsSlotTakenAsync(request.ParkingLotName, request.ParkingSlot);
+            lot = await _lotRepository.GetByIdAsync(request.ParkingLotId.Value);
+        }
+
+        if (lot == null && !string.IsNullOrWhiteSpace(request.ParkingLotName))
+        {
+            lot = (await _lotRepository.FindAsync(l => l.Name == request.ParkingLotName)).FirstOrDefault();
+        }
+
+        var lotName = lot?.Name ?? request.ParkingLotName;
+        var lotId = lot?.Id ?? request.ParkingLotId;
+
+        // Verify if the parking slot is already locked/reserved in the selected building
+        if (!string.IsNullOrWhiteSpace(lotName) && !string.IsNullOrWhiteSpace(request.ParkingSlot))
+        {
+            var isSlotTaken = await _sessionRepository.IsSlotTakenAsync(lotName, request.ParkingSlot);
             if (isSlotTaken)
             {
-                return ServiceResult<ParkingSession>.BadRequest($"Vị trí đỗ {request.ParkingSlot} tại {request.ParkingLotName} hiện đã bị khóa hoặc đang bận. Vui lòng chọn vị trí khác!");
+                return ServiceResult<ParkingSession>.BadRequest($"Vị trí đỗ {request.ParkingSlot} tại {lotName} hiện đã bị khóa hoặc đang bận. Vui lòng chọn vị trí khác!");
             }
         }
 
@@ -78,7 +92,7 @@ public class ParkingSessionService : IParkingSessionService
                 // Overlap: same lot + slot, active reservations (any day that may overlap)
                 var existingSessions = await _sessionRepository.FindAsync(ps =>
                     (ps.Status == "Active" || ps.Status == "PendingPayment") &&
-                    ps.ParkingLotName == request.ParkingLotName &&
+                    (ps.ParkingLotId == lotId || (ps.ParkingLotId == null && ps.ParkingLotName == lotName)) &&
                     ps.ParkingSlot == request.ParkingSlot &&
                     !string.IsNullOrEmpty(ps.ReservationDate));
 
@@ -93,7 +107,7 @@ public class ParkingSessionService : IParkingSessionService
                         if (startTimeObj < existEnd && endTimeObj > existStart)
                         {
                             return ServiceResult<ParkingSession>.BadRequest(
-                                $"Vị trí đỗ {request.ParkingSlot} tại {request.ParkingLotName} đã được đặt từ {ps.ReservationDate} {ps.ReservationStartTime} đến {existEndDate} {ps.ReservationEndTime}. Vui lòng chọn khung giờ hoặc vị trí khác!");
+                                $"Vị trí đỗ {request.ParkingSlot} tại {lotName} đã được đặt từ {ps.ReservationDate} {ps.ReservationStartTime} đến {existEndDate} {ps.ReservationEndTime}. Vui lòng chọn khung giờ hoặc vị trí khác!");
                         }
                     }
                 }
@@ -115,7 +129,7 @@ public class ParkingSessionService : IParkingSessionService
         var allSessions = await _sessionRepository.GetActiveSessionsAsync();
         var existingActive = allSessions.FirstOrDefault(ps => 
             ps.LicensePlate.Replace("-", "").Replace(".", "").Replace(" ", "").ToUpper() == cleanLicensePlate &&
-            ps.ParkingLotName == request.ParkingLotName);
+            (ps.ParkingLotId == lotId || (ps.ParkingLotId == null && ps.ParkingLotName == lotName)));
 
         if (existingActive != null)
         {
@@ -136,7 +150,8 @@ public class ParkingSessionService : IParkingSessionService
                 ? "PendingPayment"
                 : "Active",
             CreatedAt = DateTime.UtcNow,
-            ParkingLotName = request.ParkingLotName,
+            ParkingLotId = lotId,
+            ParkingLotName = lotName,
             VehicleType = PricingFeeCalculator.NormalizeCategory(request.VehicleType),
             ReservationDate = request.ReservationDate,
             ReservationStartTime = request.ReservationStartTime,

@@ -373,7 +373,7 @@ const AdminDashboard = () => {
                     <p className="text-sm text-slate-400 text-center py-6 font-medium">{'Chưa có bãi đỗ nào được thiết lập.'}</p>
                   )}
                   {parkingLots.map((lot: any) => {
-                    const lotSessions = sessions.filter(s => s.parkingLotName === lot.name && s.status === 'Active');
+                    const lotSessions = sessions.filter(s => (s.parkingLotId === lot.id || s.parkingLotName === lot.name || s.ParkingLotName === lot.name) && s.status === 'Active');
                     const occupied = lotSessions.filter((s: any) => s.isCheckedIn).length;
                     const reserved = lotSessions.filter((s: any) => !s.isCheckedIn).length;
                     const total = occupied + reserved;

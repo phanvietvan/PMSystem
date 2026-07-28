@@ -49,7 +49,9 @@ export function useAdminReports() {
       let gSessions = 0;
 
       const enhancedLots = lots.map((lot: any) => {
-        const lotSessions = sessions.filter((s: any) => s.parkingLotName === lot.name);
+        const lotSessions = sessions.filter(
+          (s: any) => s.parkingLotId === lot.id || s.parkingLotName === lot.name || s.ParkingLotName === lot.name
+        );
 
         const activeSessions = lotSessions.filter(
           (s: any) => s.isCheckedIn && s.status !== 'Completed' && s.status !== 'Cancelled'

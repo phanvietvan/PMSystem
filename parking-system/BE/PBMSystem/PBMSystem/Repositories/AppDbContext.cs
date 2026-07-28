@@ -90,6 +90,12 @@ public class AppDbContext : DbContext
             .HasForeignKey(i => i.UserId)
             .OnDelete(DeleteBehavior.SetNull);
 
+        modelBuilder.Entity<ParkingSession>()
+            .HasOne(s => s.ParkingLot)
+            .WithMany()
+            .HasForeignKey(s => s.ParkingLotId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         modelBuilder.Entity<UserVehicle>()
             .HasOne(v => v.User)
             .WithMany(u => u.Vehicles)

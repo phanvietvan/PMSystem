@@ -44,6 +44,8 @@ export interface ParkingSessionRaw {
   qrCode: string;
   totalFee: number;
   parkingLotName?: string;
+  parkingLotId?: string;
+  ParkingLotId?: string;
   parkingSlot?: string;
   vehicleType?: string;
   VehicleType?: string;
@@ -60,6 +62,7 @@ export interface CheckinPayload {
   licensePlate: string;
   entryPhoto: string;
   parkingLotName: string;
+  parkingLotId?: string;
   vehicleType: string;
 }
 
