@@ -607,17 +607,16 @@ public class ParkingSessionService : IParkingSessionService
         session.UpdatedAt = VietnamTime.Now;
 
         decimal totalSurcharge = 0;
-        var validExtraFees = request.ExtraFees?.Where(f => f != null && f.Amount > 0).ToList();
-        if (validExtraFees != null && validExtraFees.Any())
+        if (request.ExtraFees != null && request.ExtraFees.Any())
         {
             // Add via DbSet (Added), never assign + Update() — Update marks new rows Modified → no INSERT
-            var surchargeEntities = validExtraFees.Select(f => new ParkingSessionSurcharge
+            var surchargeEntities = request.ExtraFees.Select(f => new ParkingSessionSurcharge
             {
                 Name = string.IsNullOrWhiteSpace(f.Name) ? "Phụ thu" : f.Name.Trim(),
                 Amount = f.Amount
             }).ToList();
             await _sessionRepository.AddSurchargesAsync(session.Id, surchargeEntities);
-            totalSurcharge = validExtraFees.Sum(f => f.Amount);
+            totalSurcharge = request.ExtraFees.Sum(f => f.Amount);
         }
 
         var completedPaymentsList = await _paymentRepository.FindAsync(p => p.SessionId == session.Id && p.Status == "Completed");
@@ -716,14 +715,6 @@ public class ParkingSessionService : IParkingSessionService
         {
             Session = session,
             Fee = checkoutAmount,
-            BaseFee = baseFee,
-            TotalSurcharge = totalSurcharge,
-            PrepaidAmount = prepaidAmount,
-            Surcharges = validExtraFees?.Select(f => new SurchargeDTO
-            {
-                Name = string.IsNullOrWhiteSpace(f.Name) ? "Phụ thu" : f.Name.Trim(),
-                Amount = f.Amount
-            }).ToList(),
             IsPlateMatched = session.IsPlateMatched ?? false,
             Message = session.IsPlateMatched == true
                 ? "Xác thực thành công. Cho phép xe ra."

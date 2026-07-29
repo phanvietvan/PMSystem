@@ -71,18 +71,15 @@ public class ParkingSessionRepository : Repository<ParkingSession>, IParkingSess
     public async Task<ParkingSession?> GetActiveByQrCodeAsync(string qrCode)
     {
         var normalized = NormalizeQr(qrCode);
-        return await _dbSet
-            .Include(ps => ps.Surcharges)
-            .FirstOrDefaultAsync(ps =>
-                (ps.QrCode == qrCode || ps.QrCode == normalized)
-                && (ps.Status == "Active" || ps.Status == "PendingPayment" || ps.Status == "Pending"));
+        return await _dbSet.FirstOrDefaultAsync(ps =>
+            (ps.QrCode == qrCode || ps.QrCode == normalized)
+            && (ps.Status == "Active" || ps.Status == "PendingPayment" || ps.Status == "Pending"));
     }
 
     public async Task<ParkingSession?> GetByQrCodeAsync(string qrCode)
     {
         var normalized = NormalizeQr(qrCode);
         return await _dbSet
-            .Include(ps => ps.Surcharges)
             .OrderByDescending(ps => ps.CreatedAt)
             .FirstOrDefaultAsync(ps => ps.QrCode == qrCode || ps.QrCode == normalized);
     }
