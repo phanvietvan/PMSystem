@@ -609,11 +609,13 @@ public class ParkingSessionService : IParkingSessionService
         decimal totalSurcharge = 0;
         if (request.ExtraFees != null && request.ExtraFees.Any())
         {
-            session.Surcharges = request.ExtraFees.Select(f => new ParkingSessionSurcharge
+            // Add via DbSet (Added), never assign + Update() — Update marks new rows Modified → no INSERT
+            var surchargeEntities = request.ExtraFees.Select(f => new ParkingSessionSurcharge
             {
-                Name = f.Name,
+                Name = string.IsNullOrWhiteSpace(f.Name) ? "Phụ thu" : f.Name.Trim(),
                 Amount = f.Amount
             }).ToList();
+            await _sessionRepository.AddSurchargesAsync(session.Id, surchargeEntities);
             totalSurcharge = request.ExtraFees.Sum(f => f.Amount);
         }
 
@@ -648,7 +650,8 @@ public class ParkingSessionService : IParkingSessionService
         };
 
         await _paymentRepository.AddAsync(payment);
-        _sessionRepository.Update(session);
+        // Session is already tracked from GetActiveByQrCodeAsync — do not call Update()
+        session.UpdatedAt = VietnamTime.Now;
         await _sessionRepository.SaveChangesAsync();
 
         // Calculate early checkout messages & Send Email
