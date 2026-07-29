@@ -1,4 +1,5 @@
 using System;
+using Repositories.Helpers;
 
 namespace Repositories.Entities;
 
@@ -12,7 +13,7 @@ public class ParkingSession : BaseEntity
     public string QrCode { get; set; } = string.Empty;
     public string? EntryPhoto { get; set; }
     public string? ExitPhoto { get; set; }
-    public DateTime EntryTime { get; set; } = DateTime.UtcNow;
+    public DateTime EntryTime { get; set; } = VietnamTime.Now;
     public DateTime? ExitTime { get; set; }
     public string Status { get; set; } = "Active"; // "Active" or "Completed"
     public string? ExitLicensePlate { get; set; }

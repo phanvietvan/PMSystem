@@ -1,5 +1,6 @@
-﻿using Repositories.DTOs;
+using Repositories.DTOs;
 using Repositories.Entities;
+using Repositories.Helpers;
 using Repositories.Interfaces;
 using Services.Interfaces;
 
@@ -26,7 +27,7 @@ public class RegulationService : IRegulationService
         foreach (var item in currentRegulations)
         {
             item.IsDeleted = true;
-            item.UpdatedAt = DateTime.UtcNow;
+            item.UpdatedAt = VietnamTime.Now;
             _regulationRepository.Update(item);
         }
 
@@ -39,8 +40,8 @@ public class RegulationService : IRegulationService
          OrderIndex = index,
          IsActive = true,
          IsDeleted = false,
-         CreatedAt = DateTime.UtcNow,
-         UpdatedAt = DateTime.UtcNow
+         CreatedAt = VietnamTime.Now,
+         UpdatedAt = VietnamTime.Now
      })
      .ToList();
 

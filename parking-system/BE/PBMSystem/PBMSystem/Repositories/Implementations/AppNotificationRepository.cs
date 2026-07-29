@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Repositories.Entities;
+using Repositories.Helpers;
 using Repositories.Interfaces;
 
 namespace Repositories.Implementations;
@@ -44,9 +45,9 @@ public class AppNotificationRepository : Repository<AppNotification>, IAppNotifi
                 {
                     NotificationId = item.Id,
                     UserId = userId,
-                    ReadAt = DateTime.UtcNow
+                    ReadAt = VietnamTime.Now
                 });
-                item.UpdatedAt = DateTime.UtcNow;
+                item.UpdatedAt = VietnamTime.Now;
             }
         }
     }

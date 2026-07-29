@@ -1,12 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { parkingService } from '../services/parking.service';
 import { playChimeSound, playWarningSound } from '../utils/audio';
-
-const FALLBACK_CAR_CAPTURES = [
-  'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&q=80&w=600',
-  'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&q=80&w=600',
-  'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&q=80&w=600',
-];
+import { formatVnDateTime } from '../utils/datetime';
 
 export const useGateWorkflow = (
   selectedParkingLot: string,
@@ -62,14 +57,21 @@ export const useGateWorkflow = (
     playChimeSound();
 
     const inputCleanRaw = (customPlateOrQr || '').trim().toUpperCase();
-    const isQrScan = inputCleanRaw.startsWith('QR_') || inputCleanRaw.startsWith('QR');
-    const inputClean = isQrScan ? inputCleanRaw : formatPlateNumber(inputCleanRaw);
+    // QR tickets are QR_... or QR-... (seed uses hyphen). Do NOT treat every string starting with "QR" alone.
+    const isQrScan = /^QR[_-]/i.test(inputCleanRaw);
+    const inputClean = isQrScan
+      ? (inputCleanRaw.match(/QR[_-][A-Za-z0-9\-]+/i)?.[0].toUpperCase() || inputCleanRaw)
+      : formatPlateNumber(inputCleanRaw);
 
-    const livePhoto = captureFrame() || FALLBACK_CAR_CAPTURES[Math.floor(Math.random() * FALLBACK_CAR_CAPTURES.length)];
-    const fallbackEntryPhoto = FALLBACK_CAR_CAPTURES[1];
+    // Prefer real camera frame; never fake with Unsplash (broken offline / blocked).
+    let livePhoto = captureFrame();
+    if (!livePhoto) {
+      await new Promise((r) => setTimeout(r, 250));
+      livePhoto = captureFrame();
+    }
 
-    let entryPhoto = fallbackEntryPhoto;
-    let entryTimeStr = 'N/A';
+    let entryPhoto = '';
+    let entryTimeStr = '';
     let entryPlate = isQrScan
       ? ''
       : inputClean ||
@@ -93,14 +95,33 @@ export const useGateWorkflow = (
     let depositFee: number = 0;
     let vehicleType: string | undefined = undefined;
 
+    const pick = (obj: any, ...keys: string[]) => {
+      if (!obj) return undefined;
+      for (const k of keys) {
+        const v = obj[k];
+        if (v != null && v !== '') return v;
+      }
+      return undefined;
+    };
+
     if (gateMode === 'ENTRY') {
       if (isQrScan && inputClean) {
         try {
           const data = await parkingService.verifyQr(inputClean);
-          const session = data.session;
-          const user = data.user;
+          const session = data.session || (data as any).Session;
+          const user = data.user || (data as any).User;
 
-          if (!session.userId) {
+          if (!session) {
+            playWarningSound();
+            showAlert('Phản hồi verify thiếu session — thử quét lại.');
+            return;
+          }
+
+          const entryResDate = pick(session, 'reservationDate', 'ReservationDate');
+          const isReservationEntry = !!entryResDate;
+
+          // Vé vãng lai (không đặt chỗ) không dùng cổng ENTRY QR — sang EXIT thanh toán
+          if (!isReservationEntry) {
             playWarningSound();
             showAlert(
               '⚠️ LỘN CỔNG! Vé vãng lai này đã được cấp để gửi xe. Vui lòng sang MÀN HÌNH LỐI RA (EXIT) để quét mã thanh toán!'
@@ -108,7 +129,7 @@ export const useGateWorkflow = (
             return;
           }
 
-          if (session.isCheckedIn) {
+          if (session.isCheckedIn || session.IsCheckedIn) {
             playWarningSound();
             showAlert(
               '⚠️ XE ĐÃ TRONG BÃI! Khách đặt trước này đã quét mã vào cổng rồi. Vui lòng sang MÀN HÌNH LỐI RA (EXIT) để quét ra ngoài!'
@@ -116,109 +137,109 @@ export const useGateWorkflow = (
             return;
           }
 
-          const sessionLotId = session.parkingLotId || session.ParkingLotId;
+          const sessionLotId = pick(session, 'parkingLotId', 'ParkingLotId');
           const isMismatch = selectedLotObj && sessionLotId
             ? sessionLotId !== selectedLotObj.id
-            : session.parkingLotName && session.parkingLotName !== selectedParkingLot;
+            : pick(session, 'parkingLotName', 'ParkingLotName') &&
+              pick(session, 'parkingLotName', 'ParkingLotName') !== selectedParkingLot;
 
           if (selectedParkingLot && isMismatch) {
             playWarningSound();
             showAlert(
-              `⚠️ LỘN TÒA! Khách hàng đặt chỗ tại [${session.parkingLotName}], nhưng đây là cổng của [${selectedParkingLot}]. Yêu cầu khách di chuyển sang đúng tòa!`
+              `⚠️ LỘN TÒA! Khách hàng đặt chỗ tại [${pick(session, 'parkingLotName', 'ParkingLotName')}], nhưng đây là cổng của [${selectedParkingLot}]. Yêu cầu khách di chuyển sang đúng tòa!`
             );
             return;
           }
 
-          entryPlate = session.licensePlate;
-          ticketType = `Đặt trước • Slot ${session.parkingSlot} (${session.parkingLotName})`;
-          parkingSlot = session.parkingSlot;
-          parkingLotName = session.parkingLotName;
-          depositFee = data.prepaidAmount || 0;
+          entryPlate = pick(session, 'licensePlate', 'LicensePlate') || '';
+          parkingSlot = pick(session, 'parkingSlot', 'ParkingSlot');
+          parkingLotName = pick(session, 'parkingLotName', 'ParkingLotName');
+          ticketType = `Đặt trước • Slot ${parkingSlot} (${parkingLotName})`;
+          depositFee = data.prepaidAmount ?? data.PrepaidAmount ?? 0;
 
           if (user) {
-            owner = `${user.lastName || ''} ${user.firstName || ''}`.trim() || 'XE ĐẶT TRƯỚC (RESERVATION)';
+            owner =
+              `${pick(user, 'lastName', 'LastName') || ''} ${pick(user, 'firstName', 'FirstName') || ''}`.trim() ||
+              'XE ĐẶT TRƯỚC (RESERVATION)';
             userInfo = user;
           } else {
             owner = 'XE ĐẶT TRƯỚC (RESERVATION)';
           }
-          foundSessionCode = session.qrCode;
-        } catch (e) {
+          foundSessionCode = pick(session, 'qrCode', 'QrCode') || inputClean;
+        } catch (e: any) {
           console.warn('QR verification check failed on entry:', e);
           playWarningSound();
-          showAlert('Mã QR đặt chỗ không hợp lệ hoặc đã được sử dụng!');
+          showAlert(e?.message || 'Mã QR đặt chỗ không hợp lệ hoặc đã được sử dụng!');
           return;
         }
       }
 
       if (entryPlate && (await checkBlacklistForPlate(entryPlate))) {
+        return;
+      }
+
+      if (!livePhoto) {
+        playWarningSound();
+        showAlert(
+          'Không chụp được ảnh từ camera. Bấm biểu tượng camera / cho phép quyền camera (HTTPS), rồi quét lại.'
+        );
+        return;
+      }
+
+      const payload = {
+        plate: entryPlate,
+        status: 'Chờ xác nhận',
+        time: formatVnDateTime(new Date()),
+        owner,
+        ticketType,
+        capturedPhoto: livePhoto,
+        registeredPhoto: livePhoto,
+        type: 'ENTRY' as const,
+        qrCode: foundSessionCode,
+        userInfo,
+        parkingSlot,
+        parkingLotName,
+        depositFee,
+      };
+      setScannedResult(payload);
+      setGateState('COMPARING');
+      setManualInput('');
       return;
     }
 
-    const payload = {
-      plate: entryPlate,
-      status: 'Chờ xác nhận',
-      time: new Date().toLocaleString('vi-VN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      }),
-      owner: owner,
-      ticketType: ticketType,
-      capturedPhoto: livePhoto,
-      registeredPhoto: livePhoto,
-      type: 'ENTRY',
-      qrCode: foundSessionCode,
-      userInfo: userInfo,
-      parkingSlot: parkingSlot,
-      parkingLotName: parkingLotName,
-      depositFee: depositFee,
-    };
-    setScannedResult(payload);
-    setGateState('COMPARING');
-    setManualInput('');
-    return;
-  } else {
+    // ——— EXIT ———
     if (inputClean) {
       if (!isQrScan) {
         try {
           const sessions = await parkingService.getActiveSessionsByPlates([inputClean]);
           if (sessions && sessions.length > 0) {
             const session = sessions[0];
-            entryPhoto = session.entryPhoto || '';
-            const entryTimeVal = session.entryTime || session.createdAt || '';
-            entryTimeStr = new Date(entryTimeVal).toLocaleString('vi-VN', {
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit',
-              day: '2-digit',
-              month: '2-digit',
-              year: 'numeric',
-            });
-            entryPlate = session.licensePlate;
-            ticketLabel = `Vé vãng lai • Vào: ${entryTimeStr}`;
-            foundSessionCode = session.qrCode;
+            entryPhoto = pick(session, 'entryPhoto', 'EntryPhoto') || '';
+            const entryTimeVal = pick(session, 'entryTime', 'EntryTime', 'createdAt', 'CreatedAt') || '';
+            entryTimeStr = formatVnDateTime(entryTimeVal) || '';
+            entryPlate = pick(session, 'licensePlate', 'LicensePlate') || inputClean;
+            ticketLabel = `Vé vãng lai • Vào: ${entryTimeStr || 'N/A'}`;
+            foundSessionCode = pick(session, 'qrCode', 'QrCode');
 
             try {
-              const checkData = await parkingService.verifyQr(session.qrCode);
+              const checkData = await parkingService.verifyQr(foundSessionCode!);
               computedFee = checkData.fee ?? checkData.Fee ?? 10000;
               depositFee = checkData.prepaidAmount ?? checkData.PrepaidAmount ?? 0;
-              vehicleType =
-                checkData.session?.vehicleType ||
-                checkData.session?.VehicleType ||
-                checkData.Session?.vehicleType ||
-                checkData.Session?.VehicleType ||
-                session.vehicleType ||
-                session.VehicleType;
-              if (checkData.user || checkData.User) {
+              const s = checkData.session || checkData.Session || session;
+              vehicleType = pick(s, 'vehicleType', 'VehicleType');
+              parkingLotName = pick(session, 'parkingLotName', 'ParkingLotName') || parkingLotName;
+              parkingSlot = pick(session, 'parkingSlot', 'ParkingSlot');
+              // Chủ xe chỉ hiện với đặt trước (có reservation) — không lấy user gắn nhầm từ staff
+              const resDate = pick(s, 'reservationDate', 'ReservationDate')
+                || pick(session, 'reservationDate', 'ReservationDate');
+              if (resDate && (checkData.user || checkData.User)) {
                 const u = checkData.user || checkData.User;
-                owner = `${u.lastName || u.LastName || ''} ${u.firstName || u.FirstName || ''}`.trim();
+                owner = `${pick(u, 'lastName', 'LastName') || ''} ${pick(u, 'firstName', 'FirstName') || ''}`.trim();
                 userInfo = u;
-                ticketLabel = `Đặt trước • Slot ${session.parkingSlot} (${session.parkingLotName})`;
-                parkingSlot = session.parkingSlot;
-                parkingLotName = session.parkingLotName;
+                ticketLabel = `Đặt trước • Slot ${parkingSlot} (${parkingLotName})`;
+              } else {
+                owner = 'KHÁCH VÃNG LAI';
+                userInfo = undefined;
               }
             } catch {}
           } else {
@@ -232,48 +253,55 @@ export const useGateWorkflow = (
       } else {
         try {
           const data = await parkingService.verifyQr(inputClean);
-          const session = data.session;
-          const user = data.user;
+          const session = data.session || (data as any).Session;
+          const user = data.user || (data as any).User;
 
-          if (session.userId && !session.isCheckedIn) {
+          if (!session) {
+            playWarningSound();
+            showAlert('Phản hồi verify thiếu session — thử quét lại.');
+            return;
+          }
+
+          if (
+            pick(session, 'reservationDate', 'ReservationDate') &&
+            !(session.isCheckedIn || session.IsCheckedIn)
+          ) {
             playWarningSound();
             showAlert('⚠️ LỖI: Xe đặt trước này CHƯA QUÉT VÀO BÃI. Không thể cho ra!');
             return;
           }
 
-          entryPhoto = session.entryPhoto || '';
-          const entryTimeVal = session.entryTime || session.createdAt || '';
-          entryTimeStr = new Date(entryTimeVal).toLocaleString('vi-VN', {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-          });
-          entryPlate = session.licensePlate;
+          entryPhoto = pick(session, 'entryPhoto', 'EntryPhoto') || '';
+          const entryTimeVal = pick(session, 'entryTime', 'EntryTime', 'createdAt', 'CreatedAt') || '';
+          entryTimeStr = formatVnDateTime(entryTimeVal) || '';
+          entryPlate = pick(session, 'licensePlate', 'LicensePlate') || '';
           computedFee = data.fee ?? data.Fee ?? 0;
           depositFee = data.prepaidAmount ?? data.PrepaidAmount ?? 0;
-          vehicleType = session.vehicleType || session.VehicleType;
-          ticketLabel = session.userId
-            ? `Đặt trước • Slot ${session.parkingSlot} (${session.parkingLotName})`
-            : 'Vé vãng lai (Máy tự động)';
-          parkingSlot = session.parkingSlot;
-          parkingLotName = session.parkingLotName;
-          foundSessionCode = session.qrCode;
-          reservationDate = session.reservationDate || '';
-          reservationStartTime = session.reservationStartTime || '';
+          vehicleType = pick(session, 'vehicleType', 'VehicleType');
+          parkingSlot = pick(session, 'parkingSlot', 'ParkingSlot');
+          parkingLotName = pick(session, 'parkingLotName', 'ParkingLotName');
+          reservationDate = pick(session, 'reservationDate', 'ReservationDate') || '';
+          reservationStartTime = pick(session, 'reservationStartTime', 'ReservationStartTime') || '';
+          foundSessionCode = pick(session, 'qrCode', 'QrCode') || inputClean;
 
-          if (user) {
-            owner = `${user.lastName || ''} ${user.firstName || ''}`.trim() || 'KHÁCH ĐẶT TRƯỚC (APP)';
+          // Vé vãng lai: không hiện chủ xe (kể cả khi DB từng gắn nhầm UserId staff)
+          const isReservationTicket = !!reservationDate;
+          ticketLabel = isReservationTicket
+            ? `Đặt trước • Slot ${parkingSlot} (${parkingLotName})`
+            : 'Vé vãng lai';
+
+          if (isReservationTicket && user) {
+            owner =
+              `${pick(user, 'lastName', 'LastName') || ''} ${pick(user, 'firstName', 'FirstName') || ''}`.trim() ||
+              'KHÁCH ĐẶT TRƯỚC (APP)';
             userInfo = user;
           } else {
             owner = 'KHÁCH VÃNG LAI';
             userInfo = undefined;
           }
-        } catch (e) {
+        } catch (e: any) {
           playWarningSound();
-          showAlert('Mã QR không hợp lệ hoặc vé này đã thanh toán rời bãi!');
+          showAlert(e?.message || 'Mã QR không hợp lệ hoặc vé này đã thanh toán rời bãi!');
           return;
         }
       }
@@ -287,19 +315,12 @@ export const useGateWorkflow = (
       plate: entryPlate,
       exitPlate: entryPlate,
       status: 'Hợp lệ',
-      time: new Date().toLocaleString('vi-VN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      }),
+      time: formatVnDateTime(new Date()),
       owner: owner,
       ticketType: ticketLabel,
-      capturedPhoto: livePhoto,
+      capturedPhoto: livePhoto || '',
       registeredPhoto: entryPhoto,
-      type: 'EXIT',
+      type: 'EXIT' as const,
       qrCode: foundSessionCode,
       fee: computedFee,
       userInfo: userInfo,
@@ -319,8 +340,7 @@ export const useGateWorkflow = (
     if (autoApprove) {
       setTimeout(() => startAutoPassCountdown(), 100);
     }
-  }
-};
+  };
 
 const handleOcrAndScan = async () => {
   if (manualInput.trim()) {
@@ -339,17 +359,25 @@ const confirmPass = async () => {
   if (scannedResult.type === 'ENTRY') {
     setIsOcrLoading(true);
     try {
+      // Re-capture at confirm so we always persist a real frame when possible
+      const freshPhoto = captureFrame() || scannedResult.capturedPhoto;
+      if (!freshPhoto || String(freshPhoto).startsWith('http')) {
+        showAlert('Thiếu ảnh camera lúc vào. Cho phép camera rồi xác nhận lại.');
+        setIsOcrLoading(false);
+        return;
+      }
+
       let session: any;
       if (scannedResult.qrCode) {
         const data = await parkingService.gateScan({
           qrCode: scannedResult.qrCode,
-          entryPhoto: scannedResult.capturedPhoto,
+          entryPhoto: freshPhoto,
         });
         session = (data as any).session || data;
       } else {
         const data = await parkingService.checkin({
           licensePlate: scannedResult.plate,
-          entryPhoto: scannedResult.capturedPhoto,
+          entryPhoto: freshPhoto,
           parkingLotName: selectedParkingLot || 'Khu Vực A (Vãng lai)',
           parkingLotId: selectedLotObj?.id,
           vehicleType: 'Car',
@@ -361,14 +389,7 @@ const confirmPass = async () => {
       setGeneratedTicket({
         qrCode: session.qrCode,
         plate: session.licensePlate,
-        time: new Date(session.entryTime || session.createdAt || '').toLocaleString('vi-VN', {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-        }),
+        time: formatVnDateTime(session.entryTime || session.createdAt || ''),
         photo: session.entryPhoto || scannedResult.capturedPhoto,
         vehicleType: session.vehicleType || 'Car',
         parkingLotName: session.parkingLotName || selectedParkingLot || 'Khu Vực A',
@@ -415,7 +436,7 @@ const denyPass = () => {
     type: 'ALERT',
     owner: scannedResult ? scannedResult.owner : 'N/A',
     ticketType: scannedResult ? scannedResult.ticketType : 'Kẻ lạ',
-    photo: scannedResult ? scannedResult.capturedPhoto : FALLBACK_CAR_CAPTURES[0],
+    photo: scannedResult ? scannedResult.capturedPhoto : '',
   };
 
   setRecentLogs((prev) => [alertLog, ...prev.slice(0, 5)]);

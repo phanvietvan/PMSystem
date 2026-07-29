@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Camera, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -7,6 +7,7 @@ interface LiveFeedProps {
   videoRef: React.RefObject<HTMLVideoElement | null>;
   hasCameraAccess: boolean;
   startCamera: () => void;
+  reattachStream?: () => void;
   isOcrLoading: boolean;
   gateMode: 'ENTRY' | 'EXIT';
   manualInput: string;
@@ -20,6 +21,7 @@ const LiveFeed: React.FC<LiveFeedProps> = ({
   videoRef,
   hasCameraAccess,
   startCamera,
+  reattachStream,
   isOcrLoading,
   gateMode,
   manualInput,
@@ -27,6 +29,10 @@ const LiveFeed: React.FC<LiveFeedProps> = ({
   handleOcrAndScan,
   triggerScan,
 }) => {
+  useEffect(() => {
+    if (hasCameraAccess) reattachStream?.();
+  }, [hasCameraAccess, gateState, reattachStream]);
+
   return (
     <div
       className={`absolute inset-0 bg-slate-950 transition-opacity duration-300 ${
@@ -34,6 +40,7 @@ const LiveFeed: React.FC<LiveFeedProps> = ({
       }`}
     >
       <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover opacity-90" />
+
 
       {!hasCameraAccess && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-950">

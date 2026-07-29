@@ -15,5 +15,7 @@ namespace Repositories.Interfaces
         Task UpdateAsync(ParkingLot lot);
         Task<ParkingLot?> LockSlotAsync(Guid lotId, string slotName);
         Task<ParkingLot?> UnlockSlotAsync(Guid lotId, string slotName);
+        Task ReplaceFloorsAsync(Guid parkingLotId, IReadOnlyList<ParkingLotFloor> floors);
+        Task ReplaceSlotsAsync(Guid parkingLotId, IReadOnlyList<ParkingSlot> slots);
     }
 }

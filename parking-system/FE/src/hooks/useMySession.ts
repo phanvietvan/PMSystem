@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { addActiveQr } from '../utils/auth';
 import { parkingService } from '../services/parking.service';
 
@@ -18,6 +18,10 @@ export function useMySession(options: SyncOptions = {}) {
   const [hasActiveSession, setHasActiveSession] = useState(false);
   const [session, setSession] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Avoid infinite re-render when callers pass inline onCleared={() => ...}
+  const onClearedRef = useRef(onCleared);
+  onClearedRef.current = onCleared;
 
   const syncMySession = useCallback(async () => {
     if (requireAuth && !localStorage.getItem('token')) return null;
@@ -40,7 +44,7 @@ export function useMySession(options: SyncOptions = {}) {
       localStorage.removeItem('activeSessionQr');
       setHasActiveSession(false);
       setSession(null);
-      onCleared?.();
+      onClearedRef.current?.();
       return null;
     } catch (err) {
       console.log('Error syncing active session:', err);
@@ -48,7 +52,7 @@ export function useMySession(options: SyncOptions = {}) {
     } finally {
       setLoading(false);
     }
-  }, [onCleared, requireAuth]);
+  }, [requireAuth]);
 
   useEffect(() => {
     void syncMySession();

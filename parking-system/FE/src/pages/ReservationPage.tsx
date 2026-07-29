@@ -3,13 +3,14 @@ import ParkingMap from '../components/parking/map/ParkingMap';
 import { ArrowRight, Calendar, Clock, MapPin, Info, Map, Layers, Compass, Cpu, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CustomTimePicker } from '../components/common/CustomTimePicker';
-import { useReservation, mapReservationVehicleType } from '../hooks/useReservation';
+import { useReservation, mapReservationVehicleType, getVehicleTypeLabel } from '../hooks/useReservation';
 
 const ReservationPage = () => {
   const {
     fromStatus,
     errorToast,
     parkingLots,
+    today,
     formData,
     setFormData,
     handleStartTimeChange,
@@ -90,7 +91,7 @@ const ReservationPage = () => {
                           className="premium-input block w-full pl-4 pr-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/60 transition-all text-xs font-semibold cursor-pointer shadow-sm bg-white"
                           type="date"
                           value={formData.startDate}
-                          min={new Date().toISOString().split('T')[0]}
+                          min={today}
                           onChange={(e) => {
                             const startDate = e.target.value;
                             setFormData((prev) => ({
@@ -154,10 +155,7 @@ const ReservationPage = () => {
                           <span className="text-xs truncate pr-2">
                             {formData.licensePlate === 'CUSTOM' || !userVehicles.some(v => v.plate === formData.licensePlate)
                               ? (formData.licensePlate === 'CUSTOM' ? '+ Nhập biển số xe khác' : (formData.licensePlate || 'Chọn xe của bạn'))
-                              : `${formData.licensePlate} (${
-                                  userVehicles.find(v => v.plate === formData.licensePlate)?.type === 'Car' ? 'Ô tô' : 
-                                  userVehicles.find(v => v.plate === formData.licensePlate)?.type === 'Motorbike' ? 'Xe máy' : 'Xe đạp/Xe điện'
-                                })`
+                              : `${formData.licensePlate} (${getVehicleTypeLabel(userVehicles.find(v => v.plate === formData.licensePlate)?.type)})`
                             }
                           </span>
                           <span className={`material-symbols-outlined text-[18px] text-slate-400 group-hover:text-blue-500 transition-all duration-300 ${isVehicleDropdownOpen ? 'rotate-180' : ''}`}>
@@ -198,7 +196,20 @@ const ReservationPage = () => {
                                 >
                                   <div className="flex items-center gap-2.5">
                                     <span className="material-symbols-outlined text-[16px]">
-                                      {isLocked ? 'lock' : veh.type.toLowerCase() === 'car' ? 'directions_car' : veh.type.toLowerCase() === 'motorbike' ? 'two_wheeler' : 'pedal_bike'}
+                                      {isLocked
+                                        ? 'lock'
+                                        : (() => {
+                                            const raw = (veh.type || '').toLowerCase();
+                                            if (raw === 'bicycle' || raw.includes('đạp')) return 'pedal_bike';
+                                            if (
+                                              raw === 'motorbike' ||
+                                              raw === 'motorcycle' ||
+                                              raw === 'bike' ||
+                                              raw.includes('máy')
+                                            )
+                                              return 'two_wheeler';
+                                            return 'directions_car';
+                                          })()}
                                     </span>
                                     <span className={`font-extrabold text-xs ${isLocked ? 'text-slate-400 line-through' : 'text-slate-800'}`}>{veh.plate}</span>
                                   </div>
@@ -208,7 +219,7 @@ const ReservationPage = () => {
                                     </span>
                                   ) : (
                                     <span className="text-[9px] text-slate-400 font-black uppercase">
-                                      {veh.type === 'Car' ? 'Ô tô' : veh.type === 'Motorbike' ? 'Xe máy' : 'Xe đạp/Xe điện'}
+                                      {getVehicleTypeLabel(veh.type)}
                                     </span>
                                   )}
                                 </div>

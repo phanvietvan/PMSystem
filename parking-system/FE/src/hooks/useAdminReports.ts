@@ -37,7 +37,11 @@ export function useAdminReports() {
     longitude: '106.7044',
     capacity: 24,
   });
-  const [newLotFloorCapacities, setNewLotFloorCapacities] = useState<Record<string, number>>({});
+  const [newLotFloorCapacities, setNewLotFloorCapacities] = useState<Record<string, number | string>>({
+    '1': 24,
+    '2': 24,
+    '3': 24,
+  });
 
   const fetchRealData = async () => {
     try {
@@ -65,13 +69,14 @@ export function useAdminReports() {
         );
 
         const activeFloors = lot.floors && lot.floors.length > 0 ? lot.floors : [1];
-        const trueCapacity =
-          lot.floorCapacities && Object.keys(lot.floorCapacities).length > 0
-            ? activeFloors.reduce(
-                (sum: number, f: number) => sum + (lot.floorCapacities[f.toString()] || 24),
-                0
-              )
-            : lot.capacity || 24;
+        // Keep only numeric capacity keys so edits to "1" are not overridden by "Tầng 1".
+        const normalizedCaps: Record<string, number> = {};
+        const rawCaps = lot.floorCapacities || {};
+        for (const f of activeFloors) {
+          const n = Number(rawCaps[f.toString()] ?? rawCaps[`Tầng ${f}`] ?? 24);
+          normalizedCaps[f.toString()] = Number.isFinite(n) && n > 0 ? n : 24;
+        }
+        const trueCapacity = Object.values(normalizedCaps).reduce((sum, c) => sum + c, 0) || lot.capacity || 24;
 
         gCapacity += trueCapacity;
         gOccupancy += currentOccupancy;
@@ -80,6 +85,8 @@ export function useAdminReports() {
 
         return {
           ...lot,
+          floors: activeFloors,
+          floorCapacities: normalizedCaps,
           capacity: trueCapacity,
           currentOccupancy,
           totalSessions: lotSessions.length,
@@ -197,6 +204,14 @@ export function useAdminReports() {
     e.preventDefault();
     if (!newLot.name.trim()) return;
 
+    const floors = [...newLotFloors];
+    const floorCapacities: Record<string, number> = {};
+    for (const f of floors) {
+      const n = Number(newLotFloorCapacities[f.toString()]);
+      floorCapacities[f.toString()] = Number.isFinite(n) && n > 0 ? n : 24;
+    }
+    const capacity = Object.values(floorCapacities).reduce((a, b) => a + b, 0);
+
     try {
       await parkingService.createParkingLot({
         name: newLot.name,
@@ -204,28 +219,29 @@ export function useAdminReports() {
         longitude: newLot.longitude,
         floor: newLot.floor,
         block: newLot.block,
-        capacity: newLot.capacity,
-        floorCapacities: newLotFloorCapacities,
-        floors: [...newLotFloors],
+        address: newLotAddress || undefined,
+        capacity,
+        floorCapacities,
+        floors,
       });
       await fetchRealData();
+      showToast('Thêm chi nhánh mới thành công!', 'success');
+      setNewLot({
+        name: '',
+        floor: 'Tầng 1',
+        block: 'Block A',
+        latitude: '10.7717',
+        longitude: '106.7044',
+        capacity: 24,
+      });
+      setNewLotAddress('');
+      setSearchFeedback('');
+      setNewLotFloors([1, 2, 3]);
+      setNewLotFloorCapacities({ '1': 24, '2': 24, '3': 24 });
     } catch (error) {
       console.error('Error adding parking lot:', error);
+      showToast('Thêm chi nhánh thất bại!', 'error');
     }
-
-    setNewLot({
-      name: '',
-      floor: 'Tầng 1',
-      block: 'Block A',
-      latitude: '10.7717',
-      longitude: '106.7044',
-      capacity: 24,
-    });
-    setNewLotAddress('');
-    setSearchFeedback('');
-    setNewLotFloors([1, 2, 3]);
-    setNewLotFloorCapacities({});
-    showToast('Thêm chi nhánh mới thành công!', 'success');
   };
 
   const handleDeleteLot = async (id: any) => {
@@ -291,15 +307,17 @@ export function useAdminReports() {
     }
   };
 
-  const handleFloorCapacityChange = (id: any, floorNumber: number, newCapacity: number) => {
+  const handleFloorCapacityChange = (id: any, floorNumber: number, raw: string) => {
+    // Keep raw digits while typing — do NOT coerce with `|| 24` (causes jumping).
+    const parsed = raw === '' ? '' : Number.parseInt(raw, 10);
+    if (raw !== '' && Number.isNaN(parsed as number)) return;
+
     setBranches((prev) =>
       prev.map((p) => {
-        if (p.id === id) {
-          const caps = { ...(p.floorCapacities || {}) };
-          caps[floorNumber.toString()] = newCapacity;
-          return { ...p, floorCapacities: caps };
-        }
-        return p;
+        if (p.id !== id) return p;
+        const caps = { ...(p.floorCapacities || {}) };
+        caps[floorNumber.toString()] = parsed === '' ? '' : parsed;
+        return { ...p, floorCapacities: caps };
       })
     );
   };
@@ -307,8 +325,21 @@ export function useAdminReports() {
   const handleFloorCapacityBlur = async (id: any) => {
     const lot = branches.find((p) => p.id === id);
     if (!lot) return;
+
+    // Normalize to numeric keys only ("1","2") — never keep "Tầng 1" beside them.
+    const floors = lot.floors || [1, 2, 3];
+    const raw = lot.floorCapacities || {};
+    const caps: Record<string, number> = {};
+    for (const f of floors) {
+      const key = f.toString();
+      const n = Number(raw[key] ?? raw[`Tầng ${f}`]);
+      caps[key] = Number.isFinite(n) && n > 0 ? n : 24;
+    }
+    setBranches((prev) => prev.map((p) => (p.id === id ? { ...p, floorCapacities: caps } : p)));
+
     try {
-      await parkingService.updateParkingLot(id, lot);
+      await parkingService.updateParkingLot(id, { ...lot, floorCapacities: caps, floors });
+      await fetchRealData();
       showToast('Cập nhật số ô thành công!', 'success');
     } catch (error) {
       console.error('Error updating capacity:', error);

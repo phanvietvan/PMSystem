@@ -441,9 +441,24 @@ const AdminReports = () => {
                               </span>
                               <input 
                                 type="number" 
-                                min="2" step="2"
-                                value={newLotFloorCapacities[f.toString()] || 24}
-                                onChange={e => setNewLotFloorCapacities(prev => ({...prev, [f.toString()]: parseInt(e.target.value) || 24}))}
+                                min="1"
+                                value={
+                                  newLotFloorCapacities[f.toString()] === undefined ||
+                                  newLotFloorCapacities[f.toString()] === null
+                                    ? ''
+                                    : newLotFloorCapacities[f.toString()]
+                                }
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  if (raw === '') {
+                                    setNewLotFloorCapacities((prev) => ({ ...prev, [f.toString()]: '' as any }));
+                                    return;
+                                  }
+                                  const n = Number.parseInt(raw, 10);
+                                  if (!Number.isNaN(n)) {
+                                    setNewLotFloorCapacities((prev) => ({ ...prev, [f.toString()]: n }));
+                                  }
+                                }}
                                 className="w-10 h-5 px-1 bg-slate-50 border border-slate-200 rounded text-[9px] font-bold text-slate-700 focus:outline-none focus:border-blue-400 text-center hide-number-spinners"
                                 title={"Số ô đỗ ở tầng này"}
                               />
@@ -555,9 +570,14 @@ const AdminReports = () => {
                                     </span>
                                     <input
                                       type="number"
-                                      min="2" step="2"
-                                      value={lot.floorCapacities?.[f.toString()] || lot.capacity || 24}
-                                      onChange={(e) => handleFloorCapacityChange(lot.id, f, parseInt(e.target.value) || 24)}
+                                      min="1"
+                                      value={
+                                        lot.floorCapacities?.[f.toString()] === undefined ||
+                                        lot.floorCapacities?.[f.toString()] === null
+                                          ? ''
+                                          : lot.floorCapacities[f.toString()]
+                                      }
+                                      onChange={(e) => handleFloorCapacityChange(lot.id, f, e.target.value)}
                                       onBlur={() => handleFloorCapacityBlur(lot.id)}
                                       onKeyDown={(e) => {
                                         if (e.key === 'Enter') (e.target as HTMLInputElement).blur();

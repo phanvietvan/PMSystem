@@ -131,12 +131,19 @@ export function usePaymentFlow() {
       } else {
         const storedParking = localStorage.getItem('selectedParking');
         let parkingLotName = 'Landmark 81 - Bãi đỗ A1';
-        let parkingLotId = null;
+        // Only send parkingLotId if it is a valid Guid string (from the real API).
+        // DEFAULT_LOTS uses integer IDs (1, 2, 3...) which are incompatible with the
+        // SQL Server uniqueidentifier column ParkingLotId added in 3NF normalization.
+        let parkingLotId: string | null = null;
         if (storedParking) {
           try {
             const parsed = JSON.parse(storedParking);
             parkingLotName = parsed.name;
-            parkingLotId = parsed.id;
+            const rawId = parsed.id;
+            const isValidGuid =
+              typeof rawId === 'string' &&
+              /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawId);
+            parkingLotId = isValidGuid ? rawId : null;
           } catch {
             /* ignore */
           }
@@ -151,6 +158,13 @@ export function usePaymentFlow() {
           localStorage.getItem('reservationLicensePlate') || licensePlate,
         );
         const selectedSlot = localStorage.getItem('selectedSlot') || 'A3';
+
+        if (!reservationLicensePlate?.trim()) {
+          throw new Error('Thiếu biển số xe. Vui lòng cập nhật hồ sơ hoặc chọn xe trước khi thanh toán.');
+        }
+        if (reservationDate && (!reservationStartTime || !reservationEndTime)) {
+          throw new Error('Thiếu khung giờ đặt chỗ. Vui lòng chọn lại thời gian trên trang Reservation.');
+        }
 
         const storedUser = localStorage.getItem('user');
         let loggedInUserId = null;
@@ -168,10 +182,10 @@ export function usePaymentFlow() {
           parkingLotName,
           parkingLotId,
           vehicleType: reservationVehicleType,
-          reservationDate,
-          reservationEndDate,
-          reservationStartTime,
-          reservationEndTime,
+          reservationDate: reservationDate || null,
+          reservationEndDate: reservationDate ? reservationEndDate || reservationDate : null,
+          reservationStartTime: reservationDate ? reservationStartTime : null,
+          reservationEndTime: reservationDate ? reservationEndTime : null,
           parkingSlot: selectedSlot,
           userId: loggedInUserId,
           prepaidAmount: 0,
@@ -216,7 +230,14 @@ export function usePaymentFlow() {
     } catch (e: any) {
       console.error('VNPay payment error:', e);
       const defaultErr = 'Có lỗi xảy ra khi tạo giao dịch VNPay. Vui lòng thử lại.';
-      const errMsg = e.response?.data?.message || defaultErr;
+      const data = e.response?.data;
+      const validationErrors = data?.errors
+        ? Object.values(data.errors).flat().join(' ')
+        : '';
+      const errMsg =
+        e.message?.startsWith('Thiếu')
+          ? e.message
+          : data?.message || data?.title || validationErrors || defaultErr;
       alert(errMsg);
       setLoading(false);
       setLoadingMethod(null);
@@ -248,12 +269,17 @@ export function usePaymentFlow() {
       try {
         const storedParking = localStorage.getItem('selectedParking');
         let parkingLotName = 'Landmark 81 - Bãi đỗ A1';
-        let parkingLotId = null;
+        // Same Guid guard as VNPay path — numeric DEFAULT_LOTS ids break model binding.
+        let parkingLotId: string | null = null;
         if (storedParking) {
           try {
             const parsed = JSON.parse(storedParking);
             parkingLotName = parsed.name;
-            parkingLotId = parsed.id;
+            const rawId = parsed.id;
+            const isValidGuid =
+              typeof rawId === 'string' &&
+              /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawId);
+            parkingLotId = isValidGuid ? rawId : null;
           } catch {
             /* ignore */
           }
@@ -268,6 +294,13 @@ export function usePaymentFlow() {
           localStorage.getItem('reservationLicensePlate') || licensePlate,
         );
         const selectedSlot = localStorage.getItem('selectedSlot') || 'A3';
+
+        if (!reservationLicensePlate?.trim()) {
+          throw new Error('Thiếu biển số xe. Vui lòng cập nhật hồ sơ hoặc chọn xe trước khi thanh toán.');
+        }
+        if (reservationDate && (!reservationStartTime || !reservationEndTime)) {
+          throw new Error('Thiếu khung giờ đặt chỗ. Vui lòng chọn lại thời gian trên trang Reservation.');
+        }
 
         const storedUser = localStorage.getItem('user');
         let loggedInUserId = null;
@@ -285,10 +318,10 @@ export function usePaymentFlow() {
           parkingLotName,
           parkingLotId,
           vehicleType: reservationVehicleType,
-          reservationDate,
-          reservationEndDate,
-          reservationStartTime,
-          reservationEndTime,
+          reservationDate: reservationDate || null,
+          reservationEndDate: reservationDate ? reservationEndDate || reservationDate : null,
+          reservationStartTime: reservationDate ? reservationStartTime : null,
+          reservationEndTime: reservationDate ? reservationEndTime : null,
           parkingSlot: selectedSlot,
           userId: loggedInUserId,
           prepaidAmount: price,
@@ -306,7 +339,14 @@ export function usePaymentFlow() {
       } catch (e: any) {
         console.error('Error creating database active session on reservation', e);
         const defaultErr = 'Vị trí này hiện đã bị khóa hoặc đang bận. Vui lòng chọn vị trí khác!';
-        const errMsg = e.response?.data?.message || defaultErr;
+        const data = e.response?.data;
+        const validationErrors = data?.errors
+          ? Object.values(data.errors).flat().join(' ')
+          : '';
+        const errMsg =
+          e.message?.startsWith('Thiếu')
+            ? e.message
+            : data?.message || data?.title || validationErrors || defaultErr;
         alert(errMsg);
         setLoading(false);
         setLoadingMethod(null);

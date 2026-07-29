@@ -3,9 +3,13 @@ import react from '@vitejs/plugin-react-swc'
 import tailwindcss from '@tailwindcss/vite'
 import basicSsl from '@vitejs/plugin-basic-ssl'
 
+// Local (proxied via FE): /parkingstaff/
+// Standalone Vercel deploy (pm-system-*.vercel.app root): /
+const base = process.env.VERCEL ? '/' : '/parkingstaff/'
+
 // https://vite.dev/config/
 export default defineConfig({
-  base: '/parkingstaff/',
+  base,
   plugins: [
     react(),
     tailwindcss(),
@@ -13,12 +17,11 @@ export default defineConfig({
   ],
   server: {
     port: 5174,
-    host: true, // Listen on all network interfaces including 192.168.16.1
+    host: true,
     proxy: {
       '/api': {
-        target: 'https://localhost:53568',
+        target: 'http://localhost:53569',
         changeOrigin: true,
-        secure: false, // Bypasses self-signed SSL verification for backend connection
       }
     }
   }

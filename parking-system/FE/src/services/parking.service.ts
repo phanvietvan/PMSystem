@@ -5,8 +5,29 @@ export const parkingService = {
 
   createParkingLot: (body: unknown) => api.post('/ParkingLots', body),
 
-  updateParkingLot: (id: string, body: unknown) =>
-    api.put(`/ParkingLots/${id}`, body),
+  updateParkingLot: (id: string, body: any) => {
+    const floors: number[] = Array.isArray(body?.floors) ? body.floors : [];
+    const rawCaps = body?.floorCapacities || {};
+    // Only send numeric keys ("1","2") — drop legacy "Tầng 1" which overwrote saves on BE.
+    const floorCapacities: Record<string, number> = {};
+    for (const f of floors.length ? floors : Object.keys(rawCaps)) {
+      const key = String(f).replace(/^Tầng\s+/i, '');
+      const n = Number(rawCaps[key] ?? rawCaps[`Tầng ${key}`] ?? rawCaps[f]);
+      if (Number.isFinite(n) && n > 0) floorCapacities[key] = n;
+    }
+    return api.put(`/ParkingLots/${id}`, {
+      name: body?.name,
+      latitude: body?.latitude,
+      longitude: body?.longitude,
+      floor: body?.floor,
+      block: body?.block,
+      address: body?.address,
+      capacity: body?.capacity,
+      floors: floors.length ? floors : undefined,
+      floorCapacities: Object.keys(floorCapacities).length ? floorCapacities : undefined,
+      lockedSlots: body?.lockedSlots,
+    });
+  },
 
   deleteParkingLot: (id: string) => api.delete(`/ParkingLots/${id}`),
 

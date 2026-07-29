@@ -48,4 +48,36 @@ public class UserRepository : Repository<User>, IUserRepository
             .FirstOrDefaultAsync(u =>
                 u.Email == email.ToLower() &&
                 u.Status == UserStatus.PendingVerification);
+
+    public async Task ReplaceVehiclesAsync(Guid userId, IReadOnlyList<UserVehicle> vehicles)
+    {
+        foreach (var entry in _context.ChangeTracker.Entries<UserVehicle>()
+                     .Where(e => e.Entity.UserId == userId)
+                     .ToList())
+        {
+            entry.State = EntityState.Detached;
+        }
+
+        var trackedUser = _context.ChangeTracker.Entries<User>()
+            .FirstOrDefault(e => e.Entity.Id == userId)?.Entity;
+        if (trackedUser != null)
+            trackedUser.Vehicles = new List<UserVehicle>();
+
+        await _context.UserVehicles
+            .IgnoreQueryFilters()
+            .Where(v => v.UserId == userId)
+            .ExecuteDeleteAsync();
+
+        if (vehicles.Count == 0)
+            return;
+
+        foreach (var vehicle in vehicles)
+        {
+            vehicle.UserId = userId;
+            vehicle.IsDeleted = false;
+            vehicle.UpdatedAt = null;
+        }
+
+        await _context.UserVehicles.AddRangeAsync(vehicles);
+    }
 }

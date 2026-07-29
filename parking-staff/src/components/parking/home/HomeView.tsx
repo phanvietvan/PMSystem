@@ -42,14 +42,24 @@ const HomeView: React.FC<HomeViewProps> = ({
 }) => {
   const camera = useCamera();
 
-  // Initialize camera stream
+  // Initialize camera stream (reattach if <video> mounts after getUserMedia)
   useEffect(() => {
+    let cancelled = false;
     const init = async () => {
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      if (cancelled) return;
       await camera.startCamera();
+      // Video node may mount a tick later — re-bind stream
+      requestAnimationFrame(() => camera.reattachStream());
+      setTimeout(() => {
+        if (!cancelled) camera.reattachStream();
+      }, 400);
     };
     init();
-    return () => camera.stopCamera();
+    return () => {
+      cancelled = true;
+      camera.stopCamera();
+    };
   }, []);
 
   const { checkBlacklistForPlate } = useBlacklist(showAlert);
@@ -68,7 +78,7 @@ const HomeView: React.FC<HomeViewProps> = ({
     isGeneratingTicket,
     ticketQrDataUrl,
     handleCreateVisitorTicket,
-  } = useVisitorTicket(selectedParkingLot, fetchRecentSessions, camera.captureFrame);
+  } = useVisitorTicket(selectedParkingLot, fetchRecentSessions, camera.captureFrame, parkingLots);
 
   const {
     gateState,
@@ -154,6 +164,7 @@ const HomeView: React.FC<HomeViewProps> = ({
             videoRef={camera.videoRef}
             hasCameraAccess={camera.hasCameraAccess}
             startCamera={camera.startCamera}
+            reattachStream={camera.reattachStream}
             isOcrLoading={isOcrLoading}
             gateMode={gateMode}
             manualInput={manualInput}

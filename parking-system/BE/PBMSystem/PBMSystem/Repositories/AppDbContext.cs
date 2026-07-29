@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Repositories.Entities;
+using Repositories.Helpers;
 using Microsoft.EntityFrameworkCore;
 
 namespace Repositories;
@@ -170,7 +171,7 @@ public class AppDbContext : DbContext
         foreach (var entry in ChangeTracker.Entries<BaseEntity>())
         {
             if (entry.State == EntityState.Modified)
-                entry.Entity.UpdatedAt = DateTime.UtcNow;
+                entry.Entity.UpdatedAt = VietnamTime.Now;
         }
         return base.SaveChangesAsync(cancellationToken);
     }

@@ -111,7 +111,20 @@ const AdminDashboard = () => {
 
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
+  const toInputDate = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
 
+  const [chartFrom, setChartFrom] = useState(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - 6);
+    return toInputDate(d);
+  });
+  const [chartTo, setChartTo] = useState(() => toInputDate(new Date()));
 
   // Helper to get short Vietnamese weekday name
   const getVNWeekday = (date: Date) => {
@@ -120,42 +133,62 @@ const AdminDashboard = () => {
     return `T${day + 1}`;
   };
 
-  // Calculate daily revenue for the last 7 days from sessions
-  const getLast7DaysRevenue = () => {
-    const days: any[] = [];
-    
-    // Initialize array for the last 7 days (oldest to newest, today is index 6)
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+  const parseInputDate = (value: string) => {
+    const d = new Date(`${value}T00:00:00`);
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+
+  // Calculate daily revenue for the selected date range
+  const getRangeRevenue = () => {
+    const from = parseInputDate(chartFrom);
+    const to = parseInputDate(chartTo);
+    if (!from || !to) return [];
+
+    const start = from <= to ? from : to;
+    const end = from <= to ? to : from;
+    const todayKey = new Date().toDateString();
+    const days: {
+      dateLabel: string;
+      dayName: string;
+      dateKey: string;
+      revenue: number;
+      isToday: boolean;
+    }[] = [];
+
+    const cursor = new Date(start);
+    cursor.setHours(0, 0, 0, 0);
+    const endDay = new Date(end);
+    endDay.setHours(0, 0, 0, 0);
+
+    // Cap at 62 days to keep the chart readable
+    let guard = 0;
+    while (cursor <= endDay && guard < 62) {
       days.push({
-        dateLabel: dateStr,
-        dayName: getVNWeekday(d),
-        dateKey: d.toDateString(),
+        dateLabel: cursor.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
+        dayName: getVNWeekday(cursor),
+        dateKey: cursor.toDateString(),
         revenue: 0,
-        isToday: i === 0
+        isToday: cursor.toDateString() === todayKey,
       });
+      cursor.setDate(cursor.getDate() + 1);
+      guard += 1;
     }
 
-    // Accumulate revenue from sessions
-    sessions.forEach(s => {
+    sessions.forEach((s) => {
       if (s.totalFee && s.totalFee > 0) {
         const sessionDate = getSessionRefTime(s);
         if (!sessionDate) return;
         const dateKey = sessionDate.toDateString();
-        const dayObj = days.find(d => d.dateKey === dateKey);
-        if (dayObj) {
-          dayObj.revenue += s.totalFee;
-        }
+        const dayObj = days.find((d) => d.dateKey === dateKey);
+        if (dayObj) dayObj.revenue += s.totalFee;
       }
     });
 
     return days;
   };
 
-  const last7DaysData = getLast7DaysRevenue();
-  const maxRevenue = Math.max(...last7DaysData.map(d => d.revenue), 1000); // Prevent division by zero
+  const chartDaysData = getRangeRevenue();
+  const maxRevenue = Math.max(...chartDaysData.map((d) => d.revenue), 1000);
 
   const formatRevenue = (amount: number) => {
     if (amount >= 1000000) return (amount / 1000000).toFixed(1) + 'M';
@@ -274,29 +307,56 @@ const AdminDashboard = () => {
               <div className="grid grid-cols-12 gap-8">
                 {/* Revenue Trend Chart Area */}
                 <div className="col-span-12 lg:col-span-8 bg-white p-8 rounded-[2rem] border border-slate-200/80 shadow-xl shadow-slate-200/40">
-                  <div className="flex justify-between items-center mb-10">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-10">
                     <div>
                       <h3 className="text-lg font-black text-slate-900 tracking-tight">{'Xu hướng Doanh Thu'}</h3>
-                      <p className="text-xs text-slate-400 font-bold">{'Thống kê doanh thu theo tuần (VNĐ)'}</p>
+                      <p className="text-xs text-slate-400 font-bold">{'Thống kê doanh thu theo khoảng ngày (VNĐ)'}</p>
                     </div>
-                    <div className="flex items-center bg-slate-100/80 p-1 rounded-xl border border-slate-200/60 shadow-inner">
-                      <button className="text-[11px] font-extrabold px-4 py-1.5 rounded-lg bg-white text-blue-600 shadow-sm border border-slate-200/50 transition-all">{'7 ngày qua'}</button>
-                      <button className="text-[11px] font-bold px-4 py-1.5 text-slate-500 hover:text-slate-800 transition-colors flex items-center gap-1.5">
-                        {'30 ngày qua'}
-                        <ChevronDown className="w-3.5 h-3.5 opacity-70" />
-                      </button>
+                    <div className="flex items-center gap-2 bg-slate-100/80 p-1.5 rounded-xl border border-slate-200/60 shadow-inner">
+                      <label className="flex items-center gap-1.5 px-2 py-1">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider whitespace-nowrap">Từ</span>
+                        <input
+                          type="date"
+                          value={chartFrom}
+                          max={chartTo}
+                          onChange={(e) => {
+                            const next = e.target.value;
+                            setChartFrom(next);
+                            if (chartTo && next > chartTo) setChartTo(next);
+                          }}
+                          className="text-[11px] font-bold text-slate-700 bg-white border border-slate-200/80 rounded-lg px-2.5 py-1.5 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300"
+                        />
+                      </label>
+                      <span className="text-slate-300 text-xs font-bold">—</span>
+                      <label className="flex items-center gap-1.5 px-2 py-1">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider whitespace-nowrap">Đến</span>
+                        <input
+                          type="date"
+                          value={chartTo}
+                          min={chartFrom}
+                          onChange={(e) => {
+                            const next = e.target.value;
+                            setChartTo(next);
+                            if (chartFrom && next < chartFrom) setChartFrom(next);
+                          }}
+                          className="text-[11px] font-bold text-slate-700 bg-white border border-slate-200/80 rounded-lg px-2.5 py-1.5 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300"
+                        />
+                      </label>
                     </div>
                   </div>
                   
-                  <div className="h-64 w-full flex items-end gap-3 pb-4">
-                    {last7DaysData.map((day, i) => {
+                  <div className="h-64 w-full flex items-end gap-1.5 sm:gap-3 pb-4 overflow-x-auto">
+                    {chartDaysData.length === 0 ? (
+                      <p className="w-full text-center text-sm text-slate-400 font-medium py-16">Chọn khoảng ngày hợp lệ để xem biểu đồ.</p>
+                    ) : chartDaysData.map((day, i) => {
                       const pct = (day.revenue / maxRevenue) * 100;
                       // If there is revenue, make sure it has a tiny visible height (minimum 4%)
                       const heightPct = day.revenue > 0 ? Math.max(pct, 4) : 0;
+                      const showLabel = chartDaysData.length <= 14 || i % Math.ceil(chartDaysData.length / 10) === 0 || day.isToday;
                       return (
                         <div 
-                          key={i} 
-                          className="flex-1 h-full flex flex-col justify-end items-center group relative"
+                          key={day.dateKey} 
+                          className="flex-1 min-w-[1.25rem] h-full flex flex-col justify-end items-center group relative"
                           onMouseEnter={() => setHoveredIndex(i)}
                           onMouseLeave={() => setHoveredIndex(null)}
                         >
@@ -312,8 +372,8 @@ const AdminDashboard = () => {
                               style={{ height: `${heightPct}%` }}
                             ></div>
                           </div>
-                          <span className={`mt-2 text-[9px] font-black shrink-0 ${day.isToday ? 'text-blue-600' : 'text-slate-400'}`}>
-                            {day.isToday ? ('Hôm nay') : day.dayName}
+                          <span className={`mt-2 text-[9px] font-black shrink-0 ${day.isToday ? 'text-blue-600' : 'text-slate-400'} ${showLabel ? '' : 'invisible'}`}>
+                            {day.isToday ? ('Hôm nay') : chartDaysData.length > 14 ? day.dateLabel : day.dayName}
                           </span>
                         </div>
                       );

@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Repositories.Entities;
+using Repositories.Helpers;
 using Repositories.Interfaces;
 
 namespace Repositories.Implementations;
@@ -55,7 +56,7 @@ public class Repository<TEntity> : IRepository<TEntity> where TEntity : BaseEnti
 
     public virtual void Update(TEntity entity)
     {
-        entity.UpdatedAt = DateTime.UtcNow;
+        entity.UpdatedAt = VietnamTime.Now;
         _dbSet.Update(entity);
     }
 
@@ -65,7 +66,7 @@ public class Repository<TEntity> : IRepository<TEntity> where TEntity : BaseEnti
     public virtual void SoftDelete(TEntity entity)
     {
         entity.IsDeleted = true;
-        entity.UpdatedAt = DateTime.UtcNow;
+        entity.UpdatedAt = VietnamTime.Now;
         _dbSet.Update(entity);
     }
 

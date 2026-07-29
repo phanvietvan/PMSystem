@@ -20,4 +20,10 @@ public interface IUserRepository : IRepository<User>
     /// global filter so it can find records before they are fully active).
     /// </summary>
     Task<User?> GetPendingByEmailAsync(string email);
+
+    /// <summary>
+    /// Hard-replaces all vehicles for a user. Avoids navigation Clear()/Update()
+    /// which causes DbUpdateConcurrencyException with the soft-delete query filter.
+    /// </summary>
+    Task ReplaceVehiclesAsync(Guid userId, IReadOnlyList<UserVehicle> vehicles);
 }

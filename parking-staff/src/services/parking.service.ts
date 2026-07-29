@@ -1,5 +1,4 @@
-import { API_BASE_URL } from '../utils/api';
-import { authService } from './auth.service';
+import { apiFetch, readErrorMessage } from '../utils/api';
 import type { ParkingLot } from '../types/ParkingLot';
 import type {
   ParkingSessionRaw,
@@ -10,98 +9,84 @@ import type {
   BlacklistEntry,
 } from '../types/ParkingSession';
 
-const authHeaders = (json = false): HeadersInit => {
-  const token = authService.getToken();
-  return {
-    ...(json ? { 'Content-Type': 'application/json' } : {}),
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-};
+const jsonHeaders = (): HeadersInit => ({ 'Content-Type': 'application/json' });
 
 export const parkingService = {
   async getParkingLots(): Promise<ParkingLot[]> {
-    const response = await fetch(`${API_BASE_URL}/ParkingLots`, {
-      headers: authHeaders(),
-    });
+    const response = await apiFetch('/ParkingLots');
     if (!response.ok) {
-      throw new Error('Failed to fetch parking lots');
+      throw new Error(await readErrorMessage(response, 'Failed to fetch parking lots'));
     }
     return response.json();
   },
 
   async getParkingSessions(): Promise<ParkingSessionRaw[]> {
-    const response = await fetch(`${API_BASE_URL}/ParkingSessions`, {
-      headers: authHeaders(),
-    });
+    const response = await apiFetch('/ParkingSessions');
     if (!response.ok) {
-      throw new Error('Failed to fetch parking sessions');
+      throw new Error(await readErrorMessage(response, 'Failed to fetch parking sessions'));
     }
     return response.json();
   },
 
   async getBlacklist(): Promise<BlacklistEntry[]> {
-    const response = await fetch(`${API_BASE_URL}/Blacklist?t=${new Date().getTime()}`, {
-      headers: authHeaders(),
-    });
+    const response = await apiFetch(`/Blacklist?t=${new Date().getTime()}`);
     if (!response.ok) {
-      throw new Error('Failed to fetch blacklist');
+      throw new Error(await readErrorMessage(response, 'Failed to fetch blacklist'));
     }
     return response.json();
   },
 
   async checkin(payload: CheckinPayload): Promise<ParkingSessionRaw> {
-    const response = await fetch(`${API_BASE_URL}/ParkingSessions/checkin`, {
+    const response = await apiFetch('/ParkingSessions/checkin', {
       method: 'POST',
-      headers: authHeaders(true),
+      headers: jsonHeaders(),
       body: JSON.stringify(payload),
     });
     if (!response.ok) {
-      throw new Error('Checkin API failed');
+      throw new Error(await readErrorMessage(response, 'Checkin API failed'));
     }
     return response.json();
   },
 
   async checkout(payload: CheckoutPayload): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/ParkingSessions/checkout`, {
+    const response = await apiFetch('/ParkingSessions/checkout', {
       method: 'POST',
-      headers: authHeaders(true),
+      headers: jsonHeaders(),
       body: JSON.stringify(payload),
     });
     if (!response.ok) {
-      throw new Error('Checkout API failed');
+      throw new Error(await readErrorMessage(response, 'Checkout API failed'));
     }
   },
 
   async verifyQr(qrCode: string): Promise<VerifyQrResponse> {
-    const response = await fetch(`${API_BASE_URL}/ParkingSessions/verify/${qrCode}`, {
-      headers: authHeaders(),
-    });
+    const response = await apiFetch(`/ParkingSessions/verify/${encodeURIComponent(qrCode)}`);
     if (!response.ok) {
-      throw new Error('QR verification API failed');
+      throw new Error(await readErrorMessage(response, 'QR verification API failed'));
     }
     return response.json();
   },
 
   async gateScan(payload: GateScanPayload): Promise<ParkingSessionRaw> {
-    const response = await fetch(`${API_BASE_URL}/ParkingSessions/gate-scan`, {
+    const response = await apiFetch('/ParkingSessions/gate-scan', {
       method: 'POST',
-      headers: authHeaders(true),
+      headers: jsonHeaders(),
       body: JSON.stringify(payload),
     });
     if (!response.ok) {
-      throw new Error('Gate scan API failed');
+      throw new Error(await readErrorMessage(response, 'Gate scan API failed'));
     }
     return response.json();
   },
 
   async getActiveSessionsByPlates(plates: string[]): Promise<ParkingSessionRaw[]> {
-    const response = await fetch(`${API_BASE_URL}/ParkingSessions/active-by-plates`, {
+    const response = await apiFetch('/ParkingSessions/active-by-plates', {
       method: 'POST',
-      headers: authHeaders(true),
+      headers: jsonHeaders(),
       body: JSON.stringify(plates),
     });
     if (!response.ok) {
-      throw new Error('Active sessions by plates API failed');
+      throw new Error(await readErrorMessage(response, 'Active sessions by plates API failed'));
     }
     return response.json();
   },

@@ -8,10 +8,13 @@ const App = () => {
   const [authenticated, setAuthenticated] = useState(false);
 
   const syncAuth = useCallback(() => {
+    // Drop expired JWT so UI returns to login instead of silently 401-ing every call.
+    if (authService.getToken() && authService.isTokenExpired()) {
+      authService.clearSession();
+    }
     const ok =
       authService.isAuthenticated() && authService.canAccessStaffApp(authService.getCurrentUser());
     if (!ok && authService.getToken()) {
-      // Token còn nhưng role không hợp lệ / user hỏng → clear
       authService.clearSession();
     }
     setAuthenticated(ok);
