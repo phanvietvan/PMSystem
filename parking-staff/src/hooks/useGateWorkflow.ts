@@ -56,6 +56,12 @@ export const useGateWorkflow = (
   const triggerScan = async (customPlateOrQr?: string) => {
     playChimeSound();
 
+    if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+    setIsCountdownActive(false);
+    setExtraFees([]);
+    setIsAddingSurcharge(false);
+    setSurchargeDraft({ name: 'Phụ thu khác', amount: '' });
+
     const inputCleanRaw = (customPlateOrQr || '').trim().toUpperCase();
     // QR tickets are QR_... or QR-... (seed uses hyphen). Do NOT treat every string starting with "QR" alone.
     const isQrScan = /^QR[_-]/i.test(inputCleanRaw);
@@ -404,13 +410,25 @@ const confirmPass = async () => {
     setGateState('GATE_OPEN');
     playChimeSound();
 
+    let feesToUse = [...extraFees];
+    if (isAddingSurcharge) {
+      const amt = parseInt(surchargeDraft.amount) || 0;
+      if (amt > 0) {
+        const draftFee = { id: Math.random().toString(), name: surchargeDraft.name || 'Phụ thu khác', amount: amt };
+        feesToUse = [...feesToUse, draftFee];
+        setExtraFees(feesToUse);
+      }
+      setIsAddingSurcharge(false);
+      setSurchargeDraft({ name: 'Phụ thu khác', amount: '' });
+    }
+
     try {
       const qrCodeToPost = scannedResult.qrCode || `QR_MOCK_${scannedResult.plate}`;
       await parkingService.checkout({
         qrCode: qrCodeToPost,
         exitLicensePlate: scannedResult.exitPlate || scannedResult.plate,
         exitPhoto: scannedResult.capturedPhoto,
-        extraFees: extraFees.map((f) => ({ name: f.name, amount: f.amount })),
+        extraFees: feesToUse.map((f) => ({ name: f.name, amount: f.amount })),
       });
     } catch (e) {
       console.warn(e);
@@ -419,6 +437,9 @@ const confirmPass = async () => {
     setTimeout(async () => {
       await fetchRecentSessions();
       setScannedResult(null);
+      setExtraFees([]);
+      setIsAddingSurcharge(false);
+      setSurchargeDraft({ name: 'Phụ thu khác', amount: '' });
       setGateState('SCANNING');
     }, 2200);
   }
@@ -445,6 +466,14 @@ const denyPass = () => {
   setIsAddingSurcharge(false);
   setGateState('SCANNING');
 };
+
+// Automatically pause auto-pass countdown timer when staff starts adding or modifies surcharges
+useEffect(() => {
+  if (isAddingSurcharge || extraFees.length > 0) {
+    if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+    setIsCountdownActive(false);
+  }
+}, [isAddingSurcharge, extraFees.length]);
 
 // Cleanup timers on unmount
 useEffect(() => {
