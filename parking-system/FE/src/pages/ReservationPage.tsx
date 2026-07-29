@@ -14,6 +14,9 @@ const ReservationPage = () => {
     formData,
     setFormData,
     handleStartTimeChange,
+    handleEndTimeChange,
+    handleStartDateChange,
+    handleEndDateChange,
     isDropdownOpen,
     setIsDropdownOpen,
     isVehicleDropdownOpen,
@@ -92,14 +95,7 @@ const ReservationPage = () => {
                           type="date"
                           value={formData.startDate}
                           min={today}
-                          onChange={(e) => {
-                            const startDate = e.target.value;
-                            setFormData((prev) => ({
-                              ...prev,
-                              startDate,
-                              endDate: prev.endDate < startDate ? startDate : prev.endDate,
-                            }));
-                          }}
+                          onChange={(e) => handleStartDateChange(e.target.value)}
                           required
                         />
                       </div>
@@ -126,7 +122,7 @@ const ReservationPage = () => {
                           type="date"
                           value={formData.endDate}
                           min={formData.startDate}
-                          onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                          onChange={(e) => handleEndDateChange(e.target.value)}
                           required
                         />
                       </div>
@@ -138,7 +134,7 @@ const ReservationPage = () => {
                       </label>
                       <CustomTimePicker
                         value={formData.endTime}
-                        onChange={(newTime) => setFormData(prev => ({ ...prev, endTime: newTime }))}
+                        onChange={handleEndTimeChange}
                       />
                     </div>
     
