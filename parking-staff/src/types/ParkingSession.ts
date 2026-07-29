@@ -32,6 +32,7 @@ export interface ParkingSessionRaw {
   createdAt?: string;
   status: 'Active' | 'Completed' | 'Cancelled' | string;
   isCheckedIn: boolean;
+  IsCheckedIn?: boolean;
   userId?: string;
   user?: {
     firstName?: string;
