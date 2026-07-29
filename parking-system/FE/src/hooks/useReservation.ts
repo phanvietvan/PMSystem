@@ -30,15 +30,49 @@ const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => 
   return R * c;
 };
 
-const getEndTimeDefault = (startTimeStr: string) => {
-  try {
-    const [h, m] = startTimeStr.split(':');
-    let hour = parseInt(h, 10) + 2;
-    if (hour >= 24) hour = hour - 24;
-    return `${hour.toString().padStart(2, '0')}:${m}`;
-  } catch {
-    return '18:00';
+/** Local calendar date+time from form fields (YYYY-MM-DD + HH:mm). */
+const combineLocal = (dateISO: string, hm: string): Date => {
+  const [y, mo, d] = (dateISO || '').split('-').map((x) => parseInt(x, 10));
+  const [h, mi] = (hm || '00:00').split(':').map((x) => parseInt(x, 10));
+  return new Date(y, (mo || 1) - 1, d || 1, h || 0, mi || 0, 0, 0);
+};
+
+const formatLocalDate = (d: Date): string => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+const formatLocalHm = (d: Date): string =>
+  `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+
+/** If end <= start, push end to start + addHours (default 1h). */
+const forceEndAfterStart = (
+  startDate: string,
+  startTime: string,
+  endDate: string,
+  endTime: string,
+  addHours = 1
+): { endDate: string; endTime: string; adjusted: boolean } => {
+  const start = combineLocal(startDate, startTime);
+  const end = combineLocal(endDate, endTime);
+  if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()) && end > start) {
+    return { endDate, endTime, adjusted: false };
   }
+  const fixed = new Date(start.getTime() + addHours * 60 * 60 * 1000);
+  return {
+    endDate: formatLocalDate(fixed),
+    endTime: formatLocalHm(fixed),
+    adjusted: true,
+  };
+};
+
+/** End datetime = start + hours (handles overnight). */
+const endFromStartPlusHours = (startDate: string, startTime: string, hours: number) => {
+  const start = combineLocal(startDate, startTime);
+  const end = new Date(start.getTime() + hours * 60 * 60 * 1000);
+  return { endDate: formatLocalDate(end), endTime: formatLocalHm(end) };
 };
 
 /** Local calendar date YYYY-MM-DD in Vietnam (UTC+7). */
@@ -135,7 +169,7 @@ export function useReservation() {
 
   const today = localDateISO();
   const currentTime = vnTimeHM();
-  const defaultEndTime = getEndTimeDefault(currentTime);
+  const initialEnd = endFromStartPlusHours(today, currentTime, 2);
 
   const [formData, setFormData] = useState(() => {
     const storedParking = localStorage.getItem('selectedParking');
@@ -155,21 +189,79 @@ export function useReservation() {
     }
     return {
       startDate: today,
-      endDate: today,
+      endDate: initialEnd.endDate,
       startTime: currentTime,
-      endTime: defaultEndTime,
+      endTime: initialEnd.endTime,
       licensePlate: '',
       vehicleType: 'car',
       parkingLotId: initialParkingLotId,
     };
   });
 
+  const showTimeError = (msg: string) => {
+    setErrorToast(msg);
+    setTimeout(() => setErrorToast(null), 3000);
+  };
+
   const handleStartTimeChange = (newTime: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      startTime: newTime,
-      endTime: getEndTimeDefault(newTime),
-    }));
+    setFormData((prev) => {
+      const { endDate, endTime } = endFromStartPlusHours(prev.startDate, newTime, 2);
+      return {
+        ...prev,
+        startTime: newTime,
+        endDate,
+        endTime,
+      };
+    });
+  };
+
+  const handleEndTimeChange = (newTime: string) => {
+    setFormData((prev) => {
+      const result = forceEndAfterStart(prev.startDate, prev.startTime, prev.endDate, newTime, 1);
+      if (result.adjusted) {
+        showTimeError('Giờ kết thúc phải sau giờ bắt đầu!');
+      }
+      return {
+        ...prev,
+        endDate: result.endDate,
+        endTime: result.endTime,
+      };
+    });
+  };
+
+  const handleEndDateChange = (newDate: string) => {
+    setFormData((prev) => {
+      const endDate = newDate < prev.startDate ? prev.startDate : newDate;
+      if (newDate < prev.startDate) {
+        showTimeError('Ngày kết thúc không được trước ngày bắt đầu!');
+      }
+      const result = forceEndAfterStart(prev.startDate, prev.startTime, endDate, prev.endTime, 1);
+      if (result.adjusted) {
+        showTimeError('Thời điểm kết thúc phải sau thời điểm bắt đầu!');
+      }
+      return {
+        ...prev,
+        endDate: result.endDate,
+        endTime: result.endTime,
+      };
+    });
+  };
+
+  const handleStartDateChange = (newDate: string) => {
+    setFormData((prev) => {
+      const startDate = newDate;
+      let { endDate, endTime } = prev;
+      if (endDate < startDate) {
+        endDate = startDate;
+      }
+      const result = forceEndAfterStart(startDate, prev.startTime, endDate, endTime, 1);
+      return {
+        ...prev,
+        startDate,
+        endDate: result.endDate,
+        endTime: result.endTime,
+      };
+    });
   };
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -335,8 +427,8 @@ export function useReservation() {
       return;
     }
 
-    const startAt = new Date(`${formData.startDate}T${formData.startTime || '00:00'}`);
-    const endAt = new Date(`${formData.endDate}T${formData.endTime || '00:00'}`);
+    const startAt = combineLocal(formData.startDate, formData.startTime || '00:00');
+    const endAt = combineLocal(formData.endDate, formData.endTime || '00:00');
     if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime()) || endAt <= startAt) {
       setErrorToast('Thời điểm kết thúc phải sau thời điểm bắt đầu!');
       setTimeout(() => setErrorToast(null), 3000);
@@ -382,6 +474,9 @@ export function useReservation() {
     formData,
     setFormData,
     handleStartTimeChange,
+    handleEndTimeChange,
+    handleStartDateChange,
+    handleEndDateChange,
     isDropdownOpen,
     setIsDropdownOpen,
     isVehicleDropdownOpen,

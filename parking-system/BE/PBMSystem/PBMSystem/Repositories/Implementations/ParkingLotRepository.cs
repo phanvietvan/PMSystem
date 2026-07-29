@@ -50,6 +50,8 @@ namespace Repositories.Implementations
 
         public async Task<ParkingLot?> LockSlotAsync(Guid lotId, string slotName)
         {
+            slotName = (slotName ?? string.Empty).Trim().ToUpperInvariant();
+
             var lot = await _context.ParkingLots
                 .Include(x => x.Slots)
                 .Include(x => x.FloorsList)
@@ -57,10 +59,14 @@ namespace Repositories.Implementations
 
             if (lot == null) return null;
 
-            var existingSlot = lot.Slots.FirstOrDefault(s => s.SlotName == slotName);
+            // Include soft-deleted rows so we restore instead of inserting a duplicate
+            var existingSlot = await _context.ParkingSlots
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(s => s.ParkingLotId == lotId && s.SlotName == slotName);
+
             if (existingSlot == null)
             {
-                // Add directly to DbSet so EF tracks it as Added, not Modified
+                // Add via DbSet so EF tracks Added (not Modified) — avoids concurrency 500
                 var newSlot = new ParkingSlot
                 {
                     ParkingLotId = lot.Id,
@@ -69,19 +75,24 @@ namespace Repositories.Implementations
                     IsLocked = true
                 };
                 await _context.ParkingSlots.AddAsync(newSlot);
+                // EF relationship fix-up already adds to lot.Slots when parent is tracked
             }
-            else if (!existingSlot.IsLocked)
+            else
             {
+                existingSlot.IsDeleted = false;
                 existingSlot.IsLocked = true;
+                if (!lot.Slots.Any(s => s.Id == existingSlot.Id))
+                    lot.Slots.Add(existingSlot);
             }
 
             await _context.SaveChangesAsync();
-
             return lot;
         }
 
         public async Task<ParkingLot?> UnlockSlotAsync(Guid lotId, string slotName)
         {
+            slotName = (slotName ?? string.Empty).Trim().ToUpperInvariant();
+
             var lot = await _context.ParkingLots
                 .Include(x => x.Slots)
                 .Include(x => x.FloorsList)
@@ -89,14 +100,13 @@ namespace Repositories.Implementations
 
             if (lot == null) return null;
 
-            var existingSlot = lot.Slots.FirstOrDefault(s => s.SlotName == slotName);
+            var existingSlot = lot.Slots.FirstOrDefault(s =>
+                string.Equals(s.SlotName, slotName, StringComparison.OrdinalIgnoreCase));
+
             if (existingSlot != null && existingSlot.IsLocked)
-            {
                 existingSlot.IsLocked = false;
-            }
 
             await _context.SaveChangesAsync();
-
             return lot;
         }
 

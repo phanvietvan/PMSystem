@@ -19,4 +19,5 @@ public interface IParkingSessionRepository : IRepository<ParkingSession>
     Task<ParkingSession?> GetByQrCodeAsync(string qrCode);
     Task<List<string>> GetActiveSlotsAsync();
     Task<List<ParkingSession>> GetAllOrderByCreatedAtDescAsync();
+    Task AddSurchargesAsync(Guid sessionId, IEnumerable<ParkingSessionSurcharge> surcharges);
 }

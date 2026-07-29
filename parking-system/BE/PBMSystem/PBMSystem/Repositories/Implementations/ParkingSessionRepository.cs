@@ -111,4 +111,13 @@ public class ParkingSessionRepository : Repository<ParkingSession>, IParkingSess
     {
         return await _dbSet.OrderByDescending(ps => ps.CreatedAt).ToListAsync();
     }
+
+    public async Task AddSurchargesAsync(Guid sessionId, IEnumerable<ParkingSessionSurcharge> surcharges)
+    {
+        foreach (var s in surcharges)
+        {
+            s.SessionId = sessionId;
+            await _context.ParkingSessionSurcharges.AddAsync(s);
+        }
+    }
 }
