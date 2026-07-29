@@ -111,6 +111,10 @@ public class CheckOutResponse
 {
     public Repositories.Entities.ParkingSession Session { get; set; } = null!;
     public decimal Fee { get; set; }
+    public decimal BaseFee { get; set; }
+    public decimal TotalSurcharge { get; set; }
+    public decimal PrepaidAmount { get; set; }
+    public List<SurchargeDTO>? Surcharges { get; set; }
     public bool IsPlateMatched { get; set; }
     public string Message { get; set; } = string.Empty;
 }
