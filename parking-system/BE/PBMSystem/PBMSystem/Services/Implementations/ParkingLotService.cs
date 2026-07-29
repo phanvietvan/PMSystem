@@ -30,6 +30,7 @@ namespace Services.Implementations
             {
                 dict[$"Tầng {f.FloorNumber}"] = f.Capacity;
                 dict[f.FloorNumber.ToString()] = f.Capacity;
+                f.ParkingLot = null!; // break JSON cycle FloorsList <-> ParkingLot
             }
             if (dict.Count == 0)
             {
@@ -39,6 +40,8 @@ namespace Services.Implementations
             }
             lot.FloorCapacities = dict;
             lot.LockedSlots = lot.Slots.Where(s => s.IsLocked).Select(s => s.SlotName).ToList();
+            foreach (var s in lot.Slots)
+                s.ParkingLot = null!; // break JSON cycle Slots <-> ParkingLot
         }
 
         public async Task<List<ParkingLot>> GetAllAsync()
@@ -179,46 +182,18 @@ namespace Services.Implementations
 
         public async Task<ParkingLot> LockSlotAsync(Guid id, string slot)
         {
-            var lot = await _repository.GetByIdAsync(id);
-
+            var lot = await _repository.LockSlotAsync(id, slot);
             if (lot == null)
                 throw new Exception("Không tìm thấy bãi xe.");
-
-            var existingSlot = lot.Slots.FirstOrDefault(s => s.SlotName == slot);
-            if (existingSlot == null)
-            {
-                lot.Slots.Add(new ParkingSlot
-                {
-                    ParkingLotId = lot.Id,
-                    SlotName = slot,
-                    FloorNumber = 1,
-                    IsLocked = true
-                });
-            }
-            else if (!existingSlot.IsLocked)
-            {
-                existingSlot.IsLocked = true;
-            }
-
-            await _repository.UpdateAsync(lot);
             PopulateLegacyFields(lot);
             return lot;
         }
 
         public async Task<ParkingLot> UnlockSlotAsync(Guid id, string slot)
         {
-            var lot = await _repository.GetByIdAsync(id);
-
+            var lot = await _repository.UnlockSlotAsync(id, slot);
             if (lot == null)
                 throw new Exception("Không tìm thấy bãi xe.");
-
-            var existingSlot = lot.Slots.FirstOrDefault(s => s.SlotName == slot);
-            if (existingSlot != null && existingSlot.IsLocked)
-            {
-                existingSlot.IsLocked = false;
-            }
-
-            await _repository.UpdateAsync(lot);
             PopulateLegacyFields(lot);
             return lot;
         }

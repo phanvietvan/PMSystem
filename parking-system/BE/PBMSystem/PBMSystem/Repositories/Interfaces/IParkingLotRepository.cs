@@ -1,4 +1,4 @@
-﻿using Repositories.Entities;
+using Repositories.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,5 +13,7 @@ namespace Repositories.Interfaces
         Task<ParkingLot?> GetByIdAsync(Guid id);
         Task AddAsync(ParkingLot lot);
         Task UpdateAsync(ParkingLot lot);
+        Task<ParkingLot?> LockSlotAsync(Guid lotId, string slotName);
+        Task<ParkingLot?> UnlockSlotAsync(Guid lotId, string slotName);
     }
 }
