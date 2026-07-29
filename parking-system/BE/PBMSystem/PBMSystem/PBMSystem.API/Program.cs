@@ -136,6 +136,15 @@ using (var scope = app.Services.CreateScope())
     // For SQL Server: ensure database and tables are created
     await db.Database.EnsureCreatedAsync();
 
+    // EnsureCreated does not add columns to existing DBs — patch IsAcceptingEntries
+    await db.Database.ExecuteSqlRawAsync(@"
+IF COL_LENGTH('ParkingLots', 'IsAcceptingEntries') IS NULL
+BEGIN
+    ALTER TABLE [ParkingLots] ADD [IsAcceptingEntries] bit NOT NULL
+        CONSTRAINT [DF_ParkingLots_IsAcceptingEntries] DEFAULT (1);
+END
+");
+
     // Seed default users if none exist in the database
     if (!await db.Users.AnyAsync())
     {

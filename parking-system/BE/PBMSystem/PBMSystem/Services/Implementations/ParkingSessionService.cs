@@ -58,6 +58,12 @@ public class ParkingSessionService : IParkingSessionService
         var lotName = lot.Name;
         var lotId = lot.Id;
 
+        if (!lot.IsAcceptingEntries)
+        {
+            return ServiceResult<ParkingSession>.BadRequest(
+                $"Bãi \"{lotName}\" đang đóng nhận xe — chỉ cho xe RA, không nhận xe VÀO.");
+        }
+
         if (!string.IsNullOrWhiteSpace(request.ParkingSlot))
         {
             var isSlotTaken = await _sessionRepository.IsSlotTakenAsync(lotId, lotName, request.ParkingSlot);
@@ -794,6 +800,17 @@ public class ParkingSessionService : IParkingSessionService
         var session = await _sessionRepository.GetActiveByQrCodeAsync(request.QrCode);
         if (session == null)
             return ServiceResult<ParkingSession>.NotFound("Không tìm thấy phiên gửi xe hoặc mã QR không hợp lệ/đã thanh toán.");
+
+        // Gate-scan = xe VÀO: block when lot is exit-only
+        if (session.IsCheckedIn != true)
+        {
+            var lot = await ResolveParkingLotAsync(session.ParkingLotId, session.ParkingLotName);
+            if (lot != null && !lot.IsAcceptingEntries)
+            {
+                return ServiceResult<ParkingSession>.BadRequest(
+                    $"Bãi \"{lot.Name}\" đang đóng nhận xe — chỉ cho xe RA, không nhận xe VÀO.");
+            }
+        }
 
         session.IsCheckedIn = true;
         session.EntryTime = VietnamTime.Now;

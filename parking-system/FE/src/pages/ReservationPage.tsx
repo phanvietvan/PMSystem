@@ -307,6 +307,11 @@ const ReservationPage = () => {
                         >
                           <span className="text-xs truncate pr-2 flex items-center gap-1.5">
                             {selectedParking.name}
+                            {selectedParking.isAcceptingEntries === false && (
+                              <span className="text-[9px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 font-black uppercase">
+                                Chỉ cho xe ra
+                              </span>
+                            )}
                             {userCoords && selectedParking.latitude && selectedParking.longitude && (
                               <span className="text-[9px] text-blue-500 bg-blue-50/50 px-2 py-0.5 rounded-full border border-blue-100/30">
                                 ~ {getDistance(userCoords.latitude, userCoords.longitude, parseFloat(selectedParking.latitude), parseFloat(selectedParking.longitude)).toFixed(1)} km
@@ -345,10 +350,15 @@ const ReservationPage = () => {
                                 <div className="flex flex-col">
                                   <span className="font-extrabold text-xs text-slate-800 flex items-center gap-1.5">
                                     {lot.name}
+                                    {lot.isAcceptingEntries === false && (
+                                      <span className="text-[8px] bg-amber-50 text-amber-700 font-black uppercase px-2 py-0.5 rounded-full border border-amber-200">
+                                        Chỉ cho xe ra
+                                      </span>
+                                    )}
                                     {idx === 0 && lot.distance !== null && (
                                       <span className="text-[8px] bg-emerald-50 text-emerald-600 font-black uppercase px-2 py-0.5 rounded-full border border-emerald-100 flex items-center gap-1">
                                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                        G?n nh?t
+                                        Gần nhất
                                       </span>
                                     )}
                                   </span>

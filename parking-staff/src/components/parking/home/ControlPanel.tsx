@@ -61,6 +61,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             {parkingLots.map((lot, idx) => (
               <option key={idx} value={lot.name}>
                 {lot.name}
+                {lot.isAcceptingEntries === false ? ' (chỉ cho xe ra)' : ''}
               </option>
             ))}
           </select>
@@ -68,6 +69,11 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             <span className="material-symbols-outlined text-[18px]">expand_more</span>
           </div>
         </div>
+        {parkingLots.find((p) => p.name === selectedParkingLot)?.isAcceptingEntries === false && (
+          <div className="mt-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-800 leading-snug">
+            Bãi đang đóng nhận xe — chỉ cho xe RA, không nhận xe VÀO / vé vãng lai.
+          </div>
+        )}
       </div>
 
       {/* Segmented Gate Mode switcher */}
@@ -106,6 +112,11 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
       {gateMode === 'ENTRY' && (
         <button
           onClick={() => {
+            const lot = parkingLots.find((p) => p.name === selectedParkingLot);
+            if (lot?.isAcceptingEntries === false) {
+              alert(`Bãi "${selectedParkingLot}" đang đóng nhận xe — chỉ cho xe RA.`);
+              return;
+            }
             playChimeSound();
             setVisitorSnapshot(captureFrame());
             setShowVisitorModal(true);
