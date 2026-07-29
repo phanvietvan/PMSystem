@@ -102,22 +102,17 @@ namespace Repositories.Implementations
 
         public async Task ReplaceFloorsAsync(Guid parkingLotId, IReadOnlyList<ParkingLotFloor> floors)
         {
-            foreach (var entry in _context.ChangeTracker.Entries<ParkingLotFloor>()
-                         .Where(e => e.Entity.ParkingLotId == parkingLotId)
-                         .ToList())
-            {
-                entry.State = EntityState.Detached;
-            }
+            var existing = await _context.ParkingLotFloors
+                .IgnoreQueryFilters()
+                .Where(f => f.ParkingLotId == parkingLotId)
+                .ToListAsync();
+
+            _context.ParkingLotFloors.RemoveRange(existing);
 
             var trackedLot = _context.ChangeTracker.Entries<ParkingLot>()
                 .FirstOrDefault(e => e.Entity.Id == parkingLotId)?.Entity;
             if (trackedLot != null)
                 trackedLot.FloorsList = new List<ParkingLotFloor>();
-
-            await _context.ParkingLotFloors
-                .IgnoreQueryFilters()
-                .Where(f => f.ParkingLotId == parkingLotId)
-                .ExecuteDeleteAsync();
 
             if (floors.Count == 0)
                 return;
@@ -134,22 +129,17 @@ namespace Repositories.Implementations
 
         public async Task ReplaceSlotsAsync(Guid parkingLotId, IReadOnlyList<ParkingSlot> slots)
         {
-            foreach (var entry in _context.ChangeTracker.Entries<ParkingSlot>()
-                         .Where(e => e.Entity.ParkingLotId == parkingLotId)
-                         .ToList())
-            {
-                entry.State = EntityState.Detached;
-            }
+            var existing = await _context.ParkingSlots
+                .IgnoreQueryFilters()
+                .Where(s => s.ParkingLotId == parkingLotId)
+                .ToListAsync();
+
+            _context.ParkingSlots.RemoveRange(existing);
 
             var trackedLot = _context.ChangeTracker.Entries<ParkingLot>()
                 .FirstOrDefault(e => e.Entity.Id == parkingLotId)?.Entity;
             if (trackedLot != null)
                 trackedLot.Slots = new List<ParkingSlot>();
-
-            await _context.ParkingSlots
-                .IgnoreQueryFilters()
-                .Where(s => s.ParkingLotId == parkingLotId)
-                .ExecuteDeleteAsync();
 
             if (slots.Count == 0)
                 return;
