@@ -1,11 +1,10 @@
+using Repositories.DTOs;
 using Repositories.Entities;
-using Repositories.Implementations;
 using Repositories.Interfaces;
 using Services.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace Services.Implementations
@@ -13,10 +12,12 @@ namespace Services.Implementations
     public class ParkingLotService : IParkingLotService
     {
         private readonly IParkingLotRepository _repository;
+        private readonly INotificationService _notificationService;
 
-        public ParkingLotService(IParkingLotRepository repository)
+        public ParkingLotService(IParkingLotRepository repository, INotificationService notificationService)
         {
             _repository = repository;
+            _notificationService = notificationService;
         }
 
         private void PopulateLegacyFields(ParkingLot lot)
@@ -67,7 +68,8 @@ namespace Services.Implementations
                 Floor = request.Floor,
                 Block = request.Block,
                 Address = request.Address,
-                Capacity = request.Capacity > 0 ? request.Capacity : 50
+                Capacity = request.Capacity > 0 ? request.Capacity : 50,
+                IsAcceptingEntries = true
             };
 
             // Populate FloorsList
@@ -195,6 +197,31 @@ namespace Services.Implementations
             if (lot == null)
                 throw new Exception("Không tìm thấy bãi xe.");
             PopulateLegacyFields(lot);
+            return lot;
+        }
+
+        public async Task<ParkingLot> ToggleAcceptingEntriesAsync(Guid id)
+        {
+            var lot = await _repository.GetByIdAsync(id);
+            if (lot == null)
+                throw new Exception("Không tìm thấy bãi xe.");
+
+            lot.IsAcceptingEntries = !lot.IsAcceptingEntries;
+            await _repository.UpdateAsync(lot);
+            PopulateLegacyFields(lot);
+
+            var closed = !lot.IsAcceptingEntries;
+            await _notificationService.PushNotificationAsync(new PushNotifDto
+            {
+                Role = "all",
+                Title = closed
+                    ? $"Bãi \"{lot.Name}\" đã đóng nhận xe"
+                    : $"Bãi \"{lot.Name}\" đã mở lại",
+                Message = closed
+                    ? $"Bãi {lot.Name} hiện chỉ cho xe RA, không nhận xe VÀO. Xe đang trong bãi vẫn được checkout bình thường."
+                    : $"Bãi {lot.Name} đã mở nhận xe vào trở lại."
+            });
+
             return lot;
         }
     }

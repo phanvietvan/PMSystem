@@ -415,6 +415,14 @@ export function useReservation() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (selectedParking && selectedParking.isAcceptingEntries === false) {
+      setErrorToast(
+        `Bãi "${selectedParking.name}" đang đóng nhận xe — chỉ cho xe RA, không nhận đặt chỗ mới.`
+      );
+      setTimeout(() => setErrorToast(null), 4000);
+      return;
+    }
+
     if (!formData.startDate || !formData.endDate) {
       setErrorToast('Vui lòng chọn ngày bắt đầu và ngày kết thúc!');
       setTimeout(() => setErrorToast(null), 3000);

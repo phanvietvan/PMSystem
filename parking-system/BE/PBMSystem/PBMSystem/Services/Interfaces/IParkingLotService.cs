@@ -15,5 +15,6 @@ namespace Services.Interfaces
         Task<object> DeleteAsync(Guid id);
         Task<ParkingLot> LockSlotAsync(Guid id, string slot);
         Task<ParkingLot> UnlockSlotAsync(Guid id, string slot);
+        Task<ParkingLot> ToggleAcceptingEntriesAsync(Guid id);
     }
 }

@@ -4,4 +4,6 @@ export interface ParkingLot {
   capacity: number;
   occupiedSlots?: number;
   status?: string;
+  /** false = exit-only, no new entries */
+  isAcceptingEntries?: boolean;
 }

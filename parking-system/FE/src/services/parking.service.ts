@@ -37,6 +37,9 @@ export const parkingService = {
   unlockSlot: (lotId: string, slot: string) =>
     api.post(`/ParkingLots/${lotId}/unlock-slot/${slot}`),
 
+  toggleAcceptingEntries: (lotId: string) =>
+    api.post(`/ParkingLots/${lotId}/toggle-entries`),
+
   getParkingSessions: () => api.get('/ParkingSessions'),
 
   getMySession: () => api.get('/ParkingSessions/my-session'),

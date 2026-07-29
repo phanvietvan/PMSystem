@@ -374,6 +374,34 @@ export function useAdminReports() {
     }
   };
 
+  const handleToggleEntries = async (id: string) => {
+    const lot = branches.find((p) => p.id === id);
+    if (!lot) return;
+    const willClose = lot.isAcceptingEntries !== false;
+    const ok = window.confirm(
+      willClose
+        ? `Đóng nhận xe vào bãi "${lot.name}"?\nXe trong bãi vẫn được ra; không nhận xe mới / đặt chỗ mới.`
+        : `Mở lại nhận xe vào bãi "${lot.name}"?`
+    );
+    if (!ok) return;
+    try {
+      const { data } = await parkingService.toggleAcceptingEntries(id);
+      const accepting = data?.isAcceptingEntries !== false;
+      setBranches((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, isAcceptingEntries: accepting } : p))
+      );
+      showToast(
+        accepting
+          ? `Đã mở lại bãi "${lot.name}" — nhận xe vào bình thường.`
+          : `Bãi "${lot.name}" đã đóng nhận xe — chỉ cho xe RA.`,
+        accepting ? 'success' : 'error'
+      );
+    } catch (error: any) {
+      console.error('Error toggling entries:', error);
+      showToast(error?.response?.data?.message || 'Đổi trạng thái bãi thất bại!', 'error');
+    }
+  };
+
   const filteredBranches = branches.filter(
     (b) =>
       b.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -417,5 +445,6 @@ export function useAdminReports() {
     handleFieldChange,
     handleCoordinatesChange,
     handleFieldBlur,
+    handleToggleEntries,
   };
 }

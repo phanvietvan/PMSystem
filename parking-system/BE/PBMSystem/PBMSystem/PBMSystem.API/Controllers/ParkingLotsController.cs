@@ -42,4 +42,11 @@ public class ParkingLotsController : ControllerBase
     [HttpPost("{id:guid}/unlock-slot/{slot}")]
     public async Task<IActionResult> UnlockSlot(Guid id, string slot)
         => Ok(await _service.UnlockSlotAsync(id, slot));
+
+    /// <summary>
+    /// Toggle exit-only mode: when closed, no new entries/reservations; checkout still allowed.
+    /// </summary>
+    [HttpPost("{id:guid}/toggle-entries")]
+    public async Task<IActionResult> ToggleAcceptingEntries(Guid id)
+        => Ok(await _service.ToggleAcceptingEntriesAsync(id));
 }

@@ -7,7 +7,7 @@ export const useVisitorTicket = (
   selectedParkingLot: string,
   fetchRecentSessions: () => Promise<void>,
   captureFrame: () => string | null,
-  parkingLots?: { id?: string; name?: string }[]
+  parkingLots?: { id?: string; name?: string; isAcceptingEntries?: boolean }[]
 ) => {
   const [showVisitorModal, setShowVisitorModal] = useState(false);
   const [visitorSnapshot, setVisitorSnapshot] = useState<string | null>(null);
@@ -48,6 +48,11 @@ export const useVisitorTicket = (
 
     try {
       const selectedLot = parkingLots?.find((p) => p.name === selectedParkingLot);
+      if (selectedLot && selectedLot.isAcceptingEntries === false) {
+        setIsGeneratingTicket(false);
+        alert(`Bãi "${selectedParkingLot}" đang đóng nhận xe — chỉ cho xe RA, không tạo vé vào.`);
+        return;
+      }
       const data = await parkingService.checkin({
         licensePlate: plateNormalized,
         entryPhoto: livePhoto,
@@ -65,17 +70,11 @@ export const useVisitorTicket = (
         parkingLotName: data.parkingLotName || selectedParkingLot || 'Khu Vực A (Vãng lai)',
       });
       fetchRecentSessions();
-    } catch (err) {
-      console.warn('Failed to checkin via database, falling back to local simulation:', err);
-      const mockQrCode = `QR_VIS_${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-      setGeneratedTicket({
-        qrCode: mockQrCode,
-        plate: plateNormalized,
-        time: formatVnDateTime(new Date()),
-        photo: livePhoto,
-        vehicleType: visitorVehicleType,
-        parkingLotName: selectedParkingLot || 'Khu Vực A (Vãng lai)',
-      });
+    } catch (err: any) {
+      console.warn('Failed to checkin via database:', err);
+      setIsGeneratingTicket(false);
+      alert(err?.message || `Không tạo được vé. Bãi có thể đang đóng nhận xe.`);
+      return;
     } finally {
       setIsGeneratingTicket(false);
     }

@@ -13,6 +13,11 @@ public class ParkingLot : BaseEntity
     public string? Address { get; set; }
     public int? Capacity { get; set; } = 50;
 
+    /// <summary>
+    /// When false, lot is exit-only: existing cars may leave, no new entries/reservations.
+    /// </summary>
+    public bool IsAcceptingEntries { get; set; } = true;
+
     public System.Collections.Generic.ICollection<ParkingLotFloor> FloorsList { get; set; } = new System.Collections.Generic.List<ParkingLotFloor>();
     public System.Collections.Generic.ICollection<ParkingSlot> Slots { get; set; } = new System.Collections.Generic.List<ParkingSlot>();
 
